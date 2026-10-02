@@ -1,0 +1,14 @@
+{
+ "relocs": [
+  80
+ ],
+ "symbols": {
+  "npc_visit": 88,
+  "visit_schedule": 0
+ },
+ "bss": 0,
+ "sources": {
+  "main.c": "dd6b55536e3ad1cbd843070b660f317023545c4a",
+  "hooks.txt": "5d621354718dcc0b4652867db2b8743e84897917"
+ }
+}

@@ -1,0 +1,1 @@
+[["wait",5],["press","UP",70],["press","LEFT",50],["press","UP",15],["press","RIGHT",15],["press","UP",20],["press","A"],["wait",20],["press","A"],["wait",120],["shot","w1"],["wait",200],["shot","w2"],["press","A"],["wait",100],["shot","w3"]]

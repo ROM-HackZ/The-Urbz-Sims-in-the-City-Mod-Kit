@@ -1,0 +1,4 @@
+{
+  "name": "lz-proof",
+  "description": "test: the game decodes a re-packed LZ77 chunk"
+}

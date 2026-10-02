@@ -1,0 +1,1 @@
+u32 motive_effect_table+0x814 0x01000000   # row 64 (bladder accident) bladder +1.0/tick (original +2.0)

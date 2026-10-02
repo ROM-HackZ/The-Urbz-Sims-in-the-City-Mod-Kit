@@ -1,0 +1,17 @@
+# Clock speed: how much in-game time passes per game tick (30 ticks = 1 real second).
+#
+# The game adds a time step to the clock every tick. Normally it is 3 seconds,
+# so a game minute takes 20 ticks (2/3 of a real second) and a day 16 minutes.
+# The step is "seconds" plus "1/30ths of a second" (0-29):
+#
+#   speed             seconds  thirtieths   one game day takes
+#   2x faster            6         0          8 minutes
+#   original             3         0         16 minutes
+#   1.5x slower          2         0         24 minutes
+#   2x slower            1        15         32 minutes   <- this mod
+#   3x slower            1         0         48 minutes
+#
+# Edit the two numbers below, then build. (Sleeping fast-forward is a separate
+# entry and is left alone.)
+u8 time_speed_table+4  1     # seconds per tick      (original 3)
+u8 time_speed_table+5  15    # thirtieths per tick   (original 0)

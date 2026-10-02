@@ -1,0 +1,1 @@
+u32 object_info_table+4000 99    # object 200 (The Savvy Shower) price, original 230

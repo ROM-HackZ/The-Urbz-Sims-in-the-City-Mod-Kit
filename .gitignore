@@ -1,0 +1,27 @@
+# Game data: never commit (bring your own ROM)
+*.nds
+*.zip
+/project/
+/build/
+/catalog/
+
+# Emulator state and evidence (machine-local; savestates contain game RAM)
+*.dst
+*.dsm
+verify/evidence/
+verify/states/
+
+# Your own mods/settings stay local unless you add them on purpose
+mods.json
+emulator.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# Mods: only the example mods are tracked; your own stay local unless you un-ignore them.
+# (A mod that holds files extracted from the game must never be committed.)
+mods/*
+!mods/clock-speed/
+!mods/npc-visit/
+tests/mods/*/code/build/

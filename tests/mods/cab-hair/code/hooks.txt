@@ -1,0 +1,8 @@
+# Player hair-style tables (see docs/player-look.md).
+# Create-a-Bod preview: u32 ptr[gender][4 hair styles] at 0x0211CDB4 (male) / 0x0211CDC4 (female);
+#   each points at 5 sprite records {gfx id, layout id, 0, 2} (all 5 identical = front view).
+# City: hair_tables[gender] at 0x020F75D0 -> u32 ptr[4 hair styles] (male 0x0211EF6C,
+#   female 0x0211D6DC) -> anim table u32[196] -> 5 records (one per facing).
+# This mod: male hair style 0 shows hair style 1's art in both places.
+u32 0x0211CDB4 0x020C7E40    # CAB male hair 0 -> records of hair 1 (gfx 05914 / layout 05915)
+u32 0x0211EF6C 0x0211EF7C    # city male hair 0 -> anim table of hair 1

@@ -1,0 +1,4 @@
+{
+  "name": "thumbtest",
+  "description": "test: ARM call into a Thumb function, and Thumb stubs"
+}

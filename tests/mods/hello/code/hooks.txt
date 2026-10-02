@@ -1,0 +1,2 @@
+wrap world_tick on_tick
+call time_update_call my_time_add

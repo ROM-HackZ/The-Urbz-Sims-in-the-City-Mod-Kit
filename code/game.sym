@@ -1,0 +1,111 @@
+# Named addresses in The Urbz DS (USA) found by reverse engineering.
+# Used by hooks.txt (names instead of numbers) and by C code via game.h.
+# Evidence for each is in docs/systems.md.
+
+# --- engine
+get_asset          = 0x02032CA8   # void *get_asset(int game_id, int flags, int unpack): loads (once) and returns the asset in RAM
+decode_chunk       = 0x0202D83C   # u32 decode_chunk(const u32 *chunk, void *dst): any codec (raw/LZ77/EA), returns size
+text_decode        = 0x01FF85C4   # (int string_id, char *buf, int maxlen)  [ITCM]
+ea_decompress      = 0x01FF8C50   # (src, dst)                              [ITCM]
+
+# --- game clock
+game_time          = 0x0214112C   # game_time_t: the city clock
+time_add           = 0x0201D994   # unsigned time_add(game_time_t *t, const game_time_t *delta)
+time_update        = 0x02083DB0   # advances game_time by a delta, runs hourly/daily events
+time_update_call   = 0x02083DC4   # the BL time_add inside time_update
+world_tick         = 0x02084104   # runs once per game tick (30 per second)
+time_speed_table   = 0x02113B5C   # game_time_t[]: [0] normal = +3 s per tick, [1] = +60 s
+time_speed_index   = 0x021473F8   # u8: which table entry is in use
+
+# --- game state (one big struct of globals at 0x02141120)
+game_state         = 0x02141120   # base of the main game-state struct
+money              = 0x02141124   # s32 Simoleons (game_state+4); HUD redraws on its own refresh flag
+game_phase         = 0x02141C25   # u8 (game_state+0xB05); motives decay only when 3, except Fun
+sim_flags          = 0x02141C30   # u16 per-sim flags (x16 entries); bit 2 = motives frozen (tutorial)
+
+# --- motives (needs). Order: 0 hunger, 1 hygiene, 2 energy, 3 social,
+#     4 comfort, 5 bladder, 6 fun, 7 room. Values are s32 8.24 fixed point, 0..100.
+player_motives     = 0x02141204   # s32[8]
+motive_get         = 0x0205DD60   # u8 motive_get(s32 *motives, int i)  -> 0..100
+motive_rate        = 0x0205DD70   # s32 per-tick change for motive i (decay tables + modifiers)
+motive_decay       = 0x0205E27C   # applies one tick of decay to a motive set
+motive_apply_effect= 0x0205DC20   # (s32 *motives, int effect_row, int scale_idx): object/action gains
+motive_decay_table = 0x020CEDA8   # s32[8] per-tick change, normal
+motive_decay_table_b = 0x020CEDC8 # s32[8] per-tick change when sim+8 != 0 (about 6x faster)
+motive_start_table = 0x020CEDE8   # s32[8] new-game starting motives
+motive_effect_table= 0x020CEED4   # s32[rows][8] per-tick gains for each action row
+motive_effect_scale= 0x020EA998   # s32[] multipliers (1.0, 1.2, 1.4 ...) by object quality
+
+# --- shopping
+upgrade_table      = 0x020C25BC   # [category][4 levels] of 12 bytes: s16 price, ...
+buy_upgrade        = 0x02018DAC   # pays price, refunds half of the old level
+sell_upgrade       = 0x02018D14
+
+# --- save file (8 KB EEPROM: 0x20 header + 2 slots of 0xFE0; see urbz_save.py)
+save_ctx           = 0x021470FC   # +0x20 slot buffer, +0x84 write cursor, +0x88 bit, +0x8C bytes used
+save_write_bits    = 0x0207E944   # (const u8 *bits, int n)  one bit per input byte
+save_write_nibbles = 0x0207E9CC   # (const u8 *vals, int n)  4 bits each
+save_write_bytes   = 0x0207EAAC   # (const void *src, int n)
+save_serialize_all = 0x020354BC   # writes the whole game into the slot buffer
+save_finish_slot   = 0x0207EB28   # serialize + checksum (u16 at +0xFDE)
+save_write_slot    = 0x0207E850   # (int slot) EEPROM write
+save_read_slot     = 0x0207E87C   # (int slot) EEPROM read
+save_slot_valid    = 0x0207E8A8   # (int slot) u16 sum == 0
+
+# --- people
+talk_partner       = 0x021474F8   # u32 index of the character being talked to; name string = 481 + index
+
+# --- people / NPCs. Character ids: 31 + c, where c = 0..35 is the person in name order
+#     (name string 512 + c, bio 471 + c): 31 Bayou Boo ... 45 Kris Thistle ... 66 Sharona Faster.
+current_area       = 0x02141FEC   # u32 id of the area (lot/street) on screen
+npc_present        = 0x02065AD0   # bool npc_present(int char_id, int area, game_time_t *t)
+npc_schedule_table = 0x020E4FD8   # u8 *[char_id - 31]: u8[24 hours][7 weekdays] = area id (0 = no table)
+npc_busy_list      = 0x02142270   # 10 x {s16 active, u8 char_id, ...} (6 bytes): these NPCs are away
+spawn_npc          = 0x0206499C   # entity *spawn_npc(int char_id, int facing, int x<<16, int y<<16)
+spawn_from_record  = 0x02064ED8   # area placement record {u16 type 7, u16, s16 x, s16 y, u8 char, u8 facing}
+relationships      = 0x02141154   # 36 x 4 bytes: [0] s8 relationship with person c (-128 = never met)
+
+# --- entities (people and objects on screen): pool of 0x148-byte structs from 0x0215E344.
+#     +0x08 u16 type (0 player, 7 person), +0x0A u16 character id, +0x0C flags,
+#     +0x18/+0x1C x/y (16.16), +0x4C behaviour function, +0x104 u8 state, +0x105 u8 action,
+#     +0xC7 u8 animation, +0x146 u16 character id
+entity_new         = 0x020062EC   # entity *entity_new(int type)
+entity_set_state   = 0x02000E20   # (e, state)   +0x104
+entity_set_action  = 0x02000E54   # (e, action)  +0x105
+entity_play_anim   = 0x02000F34   # (e, anim)    player: 0x02037908, people: 0x020647E0
+motive_failure     = 0x0205DEB8   # a need at 0 starts its failure action (accident, pass out...)
+room_motive_tick   = 0x02083CB8   # pulls Room toward the area's score (rows 39/41)
+
+# --- buyable objects (catalog). Index i is the same in both tables, 0x14 bytes per row.
+object_text_table  = 0x020E6D48   # {u32 model id, u32 description string, u32 name string, u32 catalog page, u32 ?}
+object_info_table  = 0x020E8B70   # {u32 price, u32 flags, ...}; e.g. i=200 "The Savvy Shower" $230
+
+# --- stats, jobs
+add_stat           = 0x02035350   # u32 add_stat(int kind, int delta): 0/1 = u16 counters at 0x02141B88/0x02141B86, 2 = money (max 999,999; refreshes the HUD)
+money_max          = 999999
+job_session_ptr    = 0x021420D0   # -> current job shift: +4 s16 Simoleons earned this shift, +0x11 job, +0x12 level
+job_pay_call       = 0x020516AC   # BL add_stat(2, earned) when a shift ends
+schedule_lookup    = 0x02065890   # u8 schedule_lookup(int char_id, game_time_t *t): area this person should be in (82 = out of town)
+npc_relocate_tick  = 0x02066110   # every 150 ticks: people whose schedule says this area walk in, others walk out
+schedule_lookup_call = 0x0206665C # the BL schedule_lookup inside npc_relocate_tick (hook point for NPC Life)
+
+# --- areas (docs/areas.md). Area ids 0-79; name string = 975 + id; 82 = out of town
+area_table         = 0x020C87E0   # 80 x 0x14: {ptr, u32 name string, u32 data asset game id, u8[4], u32}
+area_gfx_table     = 0x020C8E20   # 80 x 0x50: graphics asset ids per area
+area_entry_point   = 0x02141C28   # u8 entry point used when an area loads
+area_variant       = 0x02122794   # u8 story variant: picks the area data section (0 tutorial, 1 after the first job)
+area_enter         = 0x0204C158   # loads the area in current state param, spawns record groups 0 and 1
+set_state          = 0x0204DF7C   # set_state(state, mode, param): doors call set_state(1, 0, area)
+record_handlers    = 0x020C2308   # area record type -> create function (7 person, 3 door, 25 elevator)
+
+# --- player look (docs/player-look.md)
+player_look        = 0x02141144   # u8[10]: gender, skin, hair style, hair colour, shirt style, shirt, overshirt, sleeve, pants, shoes colour
+cab_hair_tables    = 0x0211CDAC   # Create-a-Bod hair part tables per gender -> u32[4 styles]
+city_hair_tables   = 0x020F75D0   # city player hair tables per gender -> u32[4 styles] -> anim table u32[196]
+build_player_palette = 0x02083538 # builds the player's 2 OBJ rows from assets 11543 (skin/hair/shoes) and 11542 (clothes)
+
+# --- palettes and fonts
+npc_palette_table  = 0x020D0054   # u32 palette game id per character id (Kris 45 -> file 09160)
+street_palette_table = 0x020C82C4 # u32 game ids loaded into OBJ rows 2-8 on streets
+font_table         = 0x020C5CEC   # 8 x {u32 font game id, u32 colour base}
+font_descriptors   = 0x02140D60   # 8 x 0x28 resident font descriptors
