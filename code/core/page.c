@@ -35,18 +35,18 @@ typedef struct {
 #define menu_hit_test  GAME_FN(ADDR_menu_hit_test, int (*)(void))
 #define menu_redraw    GAME_FN(ADDR_menu_redraw, void (*)(void))
 #define menu_draw_text GAME_FN(ADDR_menu_draw_text, void (*)(void))
-#define text_get       GAME_FN(ADDR_text_get, const char *(*)(int))
 #define text_draw      GAME_FN(ADDR_text_draw, void (*)(int, int, int, const char *, int))
 #define text_font      GAME_FN(ADDR_text_font, void (*)(int, int, int))
+#define text_width     GAME_FN(ADDR_text_width, int (*)(const char *))
+#define LABEL_MAX_W    150                          /* a label's 40 text tiles hold about 160 px */
 #define ui_sound       GAME_FN(ADDR_ui_sound, void (*)(int))
 #define set_palette_row GAME_FN(ADDR_set_palette_row, void (*)(void *, int))
 #define menu_sprites   ((void **)0x02144D10)        /* 8 button sprites of the open menu */
-#define sprite_set_pos GAME_FN(0x02001DAC, void (*)(void *, int, int))   /* (sprite, x << 16, y << 16) */
 
 enum { MENU_OPTIONS = 2, MENU_MODS = 5, MENU_INFO = 6, N_MENUS = 7 };
-enum { LABEL_BASE = 0xF000, LABEL_LINE = 0xF010, LABEL_BACK = 0xF00E, LABEL_MODS = 0xF00F };
-enum { ACT_ITEM = 0x60, ACT_LINE = 0x7F };        /* 0x60 + button: an item on the Mods page */
-#define INFO_LINES 7
+enum { LABEL_BASE = 0xF000, LABEL_BACK = 0xF00E, LABEL_MODS = 0xF00F };
+enum { ACT_ITEM = 0x60 };                         /* 0x60 + button: an item on the Mods page */
+#define INFO_LINES 5        /* + title + Back = the 6 labels a menu can safely hold (like the Catalog) */
 enum { IT_TOGGLE, IT_INFO, IT_NEXT };
 #define PER_PAGE 6
 
@@ -68,6 +68,16 @@ static const char *mod_name(int i, char *out)
     }
     out[k] = 0;
     return out;
+}
+
+/* Shorten text (in place) until it fits a label; the game corrupts the screen otherwise. */
+static void fit(char *s)
+{
+    int n = 0;
+    while (s[n])
+        n++;
+    while (n > 0 && text_width(s) > LABEL_MAX_W)
+        s[--n] = 0;
 }
 
 static void cat(char *d, const char *s)
@@ -138,6 +148,7 @@ static void build_mods_page(void)
                 frame = r->on ? 1 : 2;               /* bright arrow = on, grey = off */
             }
         }
+        fit(labels[s]);
         mods_menu.b[s] = button(x, y, frame, ACT_ITEM + s, 0, LABEL_BASE + s);
     }
 }
@@ -180,15 +191,14 @@ const char *core_label(int id)
         return "Mods";
     if (id == LABEL_BACK)
         return "Back";
-    if (id >= LABEL_LINE && id < LABEL_LINE + INFO_LINES)
-        return lines[id - LABEL_LINE];
     if (id >= LABEL_BASE && id < LABEL_BASE + 8)
         return labels[id - LABEL_BASE];
     return text_get(id);
 }
 
-/* An info page line (mod_on_page's print): each line is a button label (the game draws and
-   clears those itself); the buttons' icons are moved off-screen. */
+/* An info page line (mod_on_page's print). The core draws the lines into the text tiles the
+   game gives labels 2-6, inside the rectangle the game clears before drawing any menu
+   (x 16-248, y 8-152), so nothing is left behind on other menus. */
 static void page_print(mod_page_t *p, const char *s)
 {
     int k = p->line++ - p->scroll;
@@ -200,6 +210,7 @@ static void page_print(mod_page_t *p, const char *s)
         n++;
     }
     lines[k][n] = 0;
+    fit(lines[k]);
     if (k >= n_lines)
         n_lines = k + 1;
 }
@@ -211,9 +222,7 @@ static void build_info_page(int mod)
     n_lines = 0;
     if (r->ev[EV_PAGE])
         ((void (*)(mod_page_t *))r->ev[EV_PAGE])(&p);
-    info_menu.count = 1 + n_lines;
-    for (int k = 0; k < n_lines; k++)
-        info_menu.b[1 + k] = button(128, 8 + 16 * k, 0, ACT_LINE, 0, LABEL_LINE + k);
+    info_menu.count = 1;                             /* just Back; the lines are drawn below */
 }
 
 /* After the game drew a menu's text: titles and info lines for our menus, icon colours. */
@@ -237,9 +246,8 @@ void core_menu_text(void)
         text_font(3, 0, -1);
         text_draw(1, 128, 8, mod_name(info_mod, nm), 1);
         text_font(1, 0, -1);
-        for (int i = 1; i < info_menu.count; i++)   /* text lines: no icons */
-            if (menu_sprites[i])
-                sprite_set_pos(menu_sprites[i], 0, 208 << 16);
+        for (int k = 0; k < n_lines; k++)
+            text_draw(0x51 + 0x28 * k, 20, 28 + 16 * k, lines[k], 0);
     }
 }
 
@@ -248,8 +256,6 @@ int core_menu_hit(void)
 {
     int r = menu_hit_test();
     menu_ui_t *m = menu_ui;
-    if (m && m->menu == MENU_INFO && r == ACT_LINE)
-        return -1;                                   /* a text line: nothing to do */
     if (!m || m->menu != MENU_MODS || r < ACT_ITEM || r >= ACT_ITEM + 8)
         return r;
     int s = r - ACT_ITEM;

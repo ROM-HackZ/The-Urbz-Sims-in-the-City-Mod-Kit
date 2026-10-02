@@ -1,0 +1,5 @@
+{
+  "name": "fast-clock",
+  "description": "Test mod: one game minute per tick (a day in 48 seconds), for long simulations",
+  "toggle": false
+}

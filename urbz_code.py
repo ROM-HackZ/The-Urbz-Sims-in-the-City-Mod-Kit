@@ -18,6 +18,8 @@ hooks.txt (one per line, # comments)
                      (ARM code only; refused if that instruction uses PC).
   data ADDR hex...   Write bytes, e.g.  data 0x02113B60 01 0F
   u8|u16|u32 ADDR V  Write a number (little-endian).
+  u32 ADDR @name     Write the address of name (a variable or function in this mod), e.g. to
+                     point a game pointer at the mod's own table.
 ADDR may also be a name from code/game.sym (e.g. time_add), or name+offset.
 """
 import json, os, struct
@@ -82,7 +84,20 @@ def parse_hooks(path, syms):
                 raise CodeError('%s: data must be hex bytes' % where)
         elif kind in ('u8', 'u16', 'u32'):
             n = {'u8': 1, 'u16': 2, 'u32': 4}[kind]
-            arg = (int(p[2], 0) & ((1 << 8 * n) - 1)).to_bytes(n, 'little')
+            if p[2].startswith('@'):                    # the address of something in the mod
+                name, _, off = p[2][1:].partition('+')
+                if n != 4 or not name:
+                    raise CodeError('%s: "@name" values need u32 (an address)' % where)
+                try:
+                    arg = ('sym', name, int(off, 0) if off else 0)
+                except ValueError:
+                    raise CodeError('%s: bad offset in "%s"' % (where, p[2]))
+            else:
+                try:
+                    arg = (int(p[2], 0) & ((1 << 8 * n) - 1)).to_bytes(n, 'little')
+                except ValueError:
+                    raise CodeError('%s: "%s" is not a number (use @name for an address in the mod)'
+                                    % (where, p[2]))
             kind = 'data'
         else:
             arg = p[2]
@@ -454,6 +469,8 @@ def apply_code(arm9_data, mods, fmap, core=None):
     for m in switchable:
         for pt in patches[id(m)]:
             addr, new = pt[0], pt[1]
+            if isinstance(new, tuple):
+                new = bytes(4)                          # @symbol: filled in once the mod is placed
             orig = a9.read(addr, len(new))
             pt.append(CODE_BASE + len(region))
             region += orig + bytes(-len(orig) % 4)
@@ -504,6 +521,25 @@ def apply_code(arm9_data, mods, fmap, core=None):
                             'name)' % (where, name, m['name']))
         return m['base'] + m['symbols'][name]
 
+    def data_bytes(m, arg, where):
+        if not isinstance(arg, tuple):
+            return arg
+        if m['base'] is None:
+            raise CodeError('%s: "@%s" needs compiled code; run python urbz_patch.py build %s'
+                            % (where, arg[1], m['name']))
+        return struct.pack('<I', resolve(m, arg[1], where) + arg[2])
+
+    for m in switchable:                                # @symbol values of switchable data hooks
+        k = 0
+        for kind, addr, arg, where in m['hooks']:
+            if kind != 'data':
+                continue
+            pt = patches[id(m)][k]
+            k += 1
+            if isinstance(arg, tuple):
+                o = pt[4] - CODE_BASE
+                region[o:o + 4] = data_bytes(m, arg, where)
+
     # 2. Hooks.
     for addr, chain in call_sites.items():
         fn = _mode_at(fmap, addr)
@@ -534,9 +570,9 @@ def apply_code(arm9_data, mods, fmap, core=None):
             who = '%s (%s)' % (m['name'], where)
             if kind == 'data':
                 if sw:
-                    a9.reserve(addr, len(arg), who)     # the core writes it at boot / when switched
+                    a9.reserve(addr, 4 if isinstance(arg, tuple) else len(arg), who)   # the core writes it
                 else:
-                    a9.write(addr, arg, who)
+                    a9.write(addr, data_bytes(m, arg, where), who)
                 continue
             if sw and kind == 'call':
                 continue                                 # done above (stub chain)

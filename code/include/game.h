@@ -35,6 +35,8 @@ typedef struct {
 /* Decode one chunk (header word + data) with the game's own decoders. Returns the size. */
 #define decode_chunk GAME_FN(ADDR_decode_chunk, u32 (*)(const void *chunk, void *dst))
 #define text_decode GAME_FN(ADDR_text_decode, void (*)(int id, char *buf, int maxlen))
+/* The game's text for a string id (decoded into the game's own buffer). */
+#define text_get    GAME_FN(ADDR_text_get, const char *(*)(int id))
 
 /* ---- small helpers (code/include/runtime.c) --------------------------- */
 void *memcpy(void *d, const void *s, unsigned n);

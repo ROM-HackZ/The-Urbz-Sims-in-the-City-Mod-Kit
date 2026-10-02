@@ -74,6 +74,19 @@ def find_magic(rom, frames, magic, size):
     return r[i:i + size], CODE_BASE + i
 
 
+HEAP_SCAN = '0x0214DE20:0x42000'   # code region + the start of the heap (the entity pool moves with the code)
+
+
+def people_in(mem, base=0x0214DE20):
+    """Character ids of the people (entity type 7) in a RAM dump that starts at base."""
+    out = set()
+    for k in range(0, len(mem) - 0x148, 4):
+        t, i = struct.unpack_from('<HH', mem, k + 8)
+        if t == 7 and 31 <= i < 80 and struct.unpack_from('<H', mem, k + 0x146)[0] == i:
+            out.add(i)
+    return sorted(out)
+
+
 def s824(b, i):
     return struct.unpack_from('<i', b, 4 * i)[0] / 16777216.0
 
@@ -175,13 +188,10 @@ def p_npc_schedule_hook():
     rom, _, _ = build('npc-visit', [os.path.join(KIT, 'mods', 'npc-visit')])
     s, _ = find_magic(rom, 300, 0x54495356, 8)
     answered = struct.unpack_from('<I', s, 4)[0]
-    pool = ram(rom, 300, '0x0215E000:0xC000')['0x0215E000:0xC000']
-    found = [i for i in range(0, len(pool) - 0x148, 4)          # entity: +8 type, +0xA and +0x146 id
-             if struct.unpack_from('<HH', pool, i + 8) == (7, 31)
-             and struct.unpack_from('<H', pool, i + 0x146)[0] == 31]
-    return answered > 0 and bool(found), \
+    found = 31 in people_in(ram(rom, 300, HEAP_SCAN)[HEAP_SCAN])
+    return answered > 0 and found, \
         'schedule hook answered %d time(s); Bayou Boo (type 7, id 31) in the entity pool: %s' % (
-            answered, bool(found))
+            answered, found)
 
 
 # ---------------------------------------------------------------- Phase 5: mod platform
@@ -213,11 +223,9 @@ def p_toggle_call():
 
     def run(pokes):
         early = answered(ram(rom, 30, reg, pokes=pokes)[reg])
-        r = ram(rom, 330, '0x0215E000:0xC000', reg, pokes=pokes)
-        pool, region = r['0x0215E000:0xC000'], r[reg]
-        boo = any(struct.unpack_from('<HH', pool, k + 8) == (7, 31) and
-                  struct.unpack_from('<H', pool, k + 0x146)[0] == 31 for k in range(0, len(pool) - 0x148, 4))
-        return answered(region) - early, boo, region[32 + 28]
+        r = ram(rom, 330, HEAP_SCAN, pokes=pokes)[HEAP_SCAN]
+        region = r[:0x8000]
+        return answered(region) - early, 31 in people_in(r), region[32 + 28]
     on = run(())
     off = run((core_request(rom, 0, 0),))
     ok = on[0] > 0 and on[1] and on[2] == 1 and off[0] == 0 and not off[1] and off[2] == 0
@@ -362,6 +370,170 @@ def p_mods_page():
             r[on][0], r[on][TABLE_ROW], r['0x02113B60:2'].hex(), after[on][TABLE_ROW], after['0x02113B60:2'].hex())
 
 
+# ---------------------------------------------------------------- Phase 5: NPC Life
+
+NPCL_MAGIC = 0x4C43504E          # 'NPCL': mods/npc-life/code/main.c
+FOOD_KINDS = 1                   # places.json "food"
+A_SLEEP, A_WORK, A_EAT = 1, 2, 3
+KRIS = 45
+
+
+def npc_life_rom(name, extra=()):
+    return build(name, [os.path.join(KIT, 'mods', 'npc-life')] + list(extra))[0]
+
+
+def sim_people(region, sim_addr):
+    """The 36 people in the sim state: [{need, money, act, place, home, work}] (npc_sim.h)."""
+    so = sim_addr - CODE_BASE
+    out = []
+    for c in range(36):
+        b = region[so + 8 + 16 * c:so + 24 + 16 * c]
+        out.append({'need': list(b[:8]), 'money': struct.unpack_from('<h', b, 8)[0], 'act': b[10],
+                    'place': b[11], 'home': b[13], 'work': b[14]})
+    return out, struct.unpack_from('<H', region, so + 2)[0]
+
+
+def npcl(region):
+    i = region.find(struct.pack('<I', NPCL_MAGIC))
+    if i < 0:
+        raise RuntimeError('NPC Life state not found')
+    return dict(zip('magic attached ready resets loads saves minutes hours sim'.split(),
+                    struct.unpack_from('<9I', region, i)))
+
+
+def orig_timetables():
+    import ndspy.rom
+    a9 = ndspy.rom.NintendoDSRom.fromFile(os.path.join(PROJ, 'base.nds')).arm9
+    out = []
+    for c in range(36):
+        p = struct.unpack_from('<I', a9, 0x020E4FD8 + 4 * c - 0x02000000)[0]
+        out.append(a9[p - 0x02000000:p - 0x02000000 + 168] if p else None)
+    return out
+
+
+def snapshots(rom, start_save, steps, every, ranges, pokes=()):
+    """One emulator run from a save's city state: RAM ranges every `every` frames."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    out = tempfile.mkdtemp(prefix='urbz-snaps-')
+    script = []
+    for k in range(steps):
+        script += [['wait', every], ['shot', 's%02d' % k]]
+    res = V.run_child({'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
+                       'state': V.city_state(os.path.abspath(rom), None, start_save), 'script': script,
+                       'snap': list(ranges), 'poke': list(pokes)}, timeout=3000)
+    return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
+
+
+def p_npc_life_days():
+    """Three game days with NPC Life (fast clock: a game minute per tick): needs go up and down,
+    money rises at work and falls at meals, and people eat at food places or at home."""
+    rom = npc_life_rom('npc-life-days', [os.path.join(TESTS, 'mods', 'fast-clock')])
+    places = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'places.json')))['places']
+    food = {int(a) for a, p in places.items() if 'food' in p['kinds']}
+    snaps, _ = snapshots(rom, 'lobby', 30, 300, ['0x%08X:0x8000' % CODE_BASE, '0x0214112C:6'])
+    first = npcl(snaps[0][0])
+    rows = [sim_people(r, first['sim'])[0] for r, _ in snaps]
+    tables = orig_timetables()
+    who = [c for c in range(36) if tables[c]]
+    swing = sum(1 for c in who if max(r[c]['need'][0] for r in rows) - min(r[c]['need'][0] for r in rows) >= 25
+                and max(r[c]['need'][2] for r in rows) - min(r[c]['need'][2] for r in rows) >= 25)
+    paid = sum(1 for c in who if any(b[c]['act'] == A_WORK and b[c]['money'] > a[c]['money']
+                                     for a, b in zip(rows, rows[1:])))
+    spent = sum(1 for c in who if any(b[c]['act'] == A_EAT and b[c]['money'] < a[c]['money']
+                                      for a, b in zip(rows, rows[1:])))
+    meals = [(r[c]['place'], r[c]['home']) for r in rows for c in who if r[c]['act'] == A_EAT]
+    good_meals = sum(1 for place, home in meals if place in food or place == home)
+    last = npcl(snaps[-1][0])
+    day0, day1 = struct.unpack_from('<h', snaps[0][1])[0], struct.unpack_from('<h', snaps[-1][1])[0]
+    ok = (swing >= len(who) * 3 // 4 and paid >= 15 and spent >= 10 and meals and good_meals == len(meals)
+          and day1 - day0 >= 2 and last['hours'] >= 60)
+    return ok, ('%d game hours simulated (day %d -> %d); hunger and energy both swung 25+ points for %d/%d '
+                'people; %d earned at work, %d paid for a meal; %d meals seen, all at food places or home: %s') % (
+        last['hours'], day0, day1, swing, len(who), paid, spent, len(meals), good_meals == len(meals))
+
+
+def walkin_run(rom, pokes=()):
+    """From the lobby at 17:01, Kris's energy set to 0 in the sim (a precondition): by 18:00 the sim
+    sends her home to sleep (the lobby, 66), where her usual timetable says the roof (70)."""
+    reg = '0x%08X:0x8000' % CODE_BASE
+    sim = npcl(ram(rom, 1, reg, start=['--from', 'lobby'])[reg])['sim']
+    energy = '0x%08X=00' % (sim + 8 + (KRIS - 31) * 16 + 2)
+    snaps, out = snapshots(rom, 'lobby', 6, 600, [HEAP_SCAN, '0x0214112C:6', '0x02065924:4'],
+                           pokes=[energy] + list(pokes))
+    res = []
+    for mem, clk, lit in snaps:
+        people, _ = sim_people(mem, sim)
+        res.append({'present': KRIS in people_in(mem), 'hour': clk[2], 'act': people[KRIS - 31]['act'],
+                    'place': people[KRIS - 31]['place'], 'literal': struct.unpack('<I', lit)[0]})
+    return res, out
+
+
+def p_npc_life_walkin():
+    """A person walks into the player's area because the simulation sent her there."""
+    rom = npc_life_rom('npc-life-walkin')
+    res, out = walkin_run(rom)
+    usual = orig_timetables()[KRIS - 31][18 * 7 + 0]
+    before = [r for r in res if r['hour'] < 18]
+    after = [r for r in res if r['hour'] >= 18]
+    shot = sorted(glob.glob(os.path.join(out, '*.png')))
+    if shot:
+        shutil.copy(shot[-1], os.path.join(OUT, 'npc-life-walkin.png'))
+    ok = (usual == 70 and before and not any(r['present'] for r in before)
+          and after and after[-1]['present'] and after[-1]['act'] == A_SLEEP and after[-1]['place'] == 66)
+    return ok, ('Kris\'s usual timetable at 18:00 Monday: area %d; before 18:00 in the lobby: %s; after: '
+                'present %s, sim says %s at %d') % (
+        usual, [r['present'] for r in before], [r['present'] for r in after],
+        'asleep' if after and after[-1]['act'] == A_SLEEP else after and after[-1]['act'], after and after[-1]['place'])
+
+
+def p_npc_life_off():
+    """Switched off in the game: the timetable pointers go back and people follow their usual timetable."""
+    rom = npc_life_rom('npc-life-off')
+    res, _ = walkin_run(rom, pokes=[core_request(rom, 0, 0)])
+    lits = set(r['literal'] for r in res)
+    ok = lits == {0x020E4FD8} and not any(r['present'] for r in res)
+    return ok, 'switched off at 17:01: schedule pointer %s (original 020e4fd8); Kris in the lobby: %s' % (
+        ', '.join('%08x' % x for x in lits), [r['present'] for r in res])
+
+
+def p_npc_life_save():
+    """The simulation is saved with the game and comes back exactly after power-off and Load-an-Urb."""
+    import urbz_save
+    from urbz_code import name_hash
+    rom = npc_life_rom('npc-life-save')
+    sav = play_export(rom, 'npc-life-save', ['--from', 'lobby'], SAVEGAME)
+    buf = open(sav, 'rb').read()
+    blk = dict(urbz_save.mod_block(buf[0x20:0x20 + urbz_save.SLOT_SIZE]) or [])
+    saved = blk.get(name_hash('npc-life'))
+    reg = '0x%08X:0x8000' % CODE_BASE
+    after = ram(rom, 30, reg, start=['--sav', sav], script=LOADGAME)[reg]
+    st = npcl(after)
+    so = st['sim'] - CODE_BASE
+    loaded = after[so:so + len(saved)] if saved else b''
+    same_people = saved is not None and loaded[8:] == saved[8:]
+    ok = saved is not None and len(saved) == 584 and st['loads'] == 1 and same_people
+    return ok, 'mod data in the save: %s bytes; after power-off and loading: loads %d, all 36 people identical: %s' % (
+        len(saved) if saved else None, st['loads'], same_people)
+
+
+def p_npc_life_page():
+    """The NPC Life info page, opened with real touches: Options > Mods > npc-life: info."""
+    rom = npc_life_rom('npc-life-page')
+    script = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'page.json')
+    json.dump([['wait', 30], ['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 60],
+               ['shot', 'mods'], ['touch', 192, 28, 8], ['wait', 60], ['shot', 'info']], open(script, 'w'))
+    r = ram(rom, 1, '0x02144CEC:4', start=['--from', 'lobby'], script=script)
+    ui = struct.unpack('<I', r['0x02144CEC:4'])[0]
+    menu = ram(rom, 1, '0x%08X:12' % ui, start=['--from', 'lobby'], script=script)['0x%08X:12' % ui]
+    shots = sorted(glob.glob(os.path.join(KIT, 'verify', 'evidence', '*-ram')))[-1]
+    for n in ('mods', 'info'):
+        shutil.copy(os.path.join(shots, 'ram_%s.png' % n), os.path.join(OUT, 'npc-life-page-%s.png' % n))
+    open_menu = struct.unpack_from('<I', menu, 8)[0]
+    return open_menu == 6, 'open menu after the taps: %d (6 = a mod\'s info page); screenshots ' \
+        'build/proofs/npc-life-page-*.png' % open_menu
+
+
 def p_save_edit():
     """Money and a need edited in a save made later in the game (needs are 8.8 fixed point)."""
     import urbz_save
@@ -494,7 +666,9 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
-          ('mods-page', p_mods_page)]
+          ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
+          ('npc-life-walkin', p_npc_life_walkin), ('npc-life-off', p_npc_life_off),
+          ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page)]
 
 
 def main(argv):

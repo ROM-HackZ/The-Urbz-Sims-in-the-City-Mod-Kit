@@ -63,7 +63,8 @@ typedef struct {
 
 #define mod_table ((mod_table_t *)MOD_TABLE_ADDR)
 
-/* An info page (mod_on_page): print lines of text. */
+/* An info page (mod_on_page): print up to 5 lines of text (each is cut to about 150 pixels,
+   roughly 28 characters; '@' is a name code in the game's fonts, so don't use it). */
 typedef struct mod_page mod_page_t;
 struct mod_page {
     void (*print)(mod_page_t *page, const char *text);   /* one line, advances down */

@@ -1,0 +1,8 @@
+# NPC Life: the game reads everyone's weekly timetable through these 5 words; point them at
+# the live timetables the simulation writes (the mod core puts the originals back when the
+# mod is switched off). The rest happens through events (code/include/mod.h).
+u32 schedule_table_ptr_1 @live_table
+u32 schedule_table_ptr_2 @live_table
+u32 schedule_table_ptr_3 @live_table
+u32 schedule_table_ptr_4 @live_table
+u32 schedule_table_ptr_5 @live_table
