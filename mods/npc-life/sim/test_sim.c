@@ -1,11 +1,12 @@
-/* PC test of the NPC Life simulation: 4 weeks of city time in a second.
+/* PC test of the NPC Life routines: 4 weeks of city time in a second.
    Built and run by run_test.py (which makes orig_tables.h from your project/ folder). */
 #include <stdio.h>
 #include <string.h>
 #include "npc_sim.h"
 #include "orig_tables.h"            /* orig_tables[36][168], has_table[36], names[36] */
 
-static sim_t sim, sim2;
+static sim_t sim;
+static uint8_t week1[SIM_PEOPLE][168];
 static int fails;
 
 #define CHECK(c, ...) do { if (!(c)) { fails++; if (fails < 20) { printf("FAIL: "); printf(__VA_ARGS__); printf("\n"); } } } while (0)
@@ -16,105 +17,85 @@ int main(void)
     for (int i = 0; i < SIM_PEOPLE; i++)
         orig[i] = has_table[i] ? orig_tables[i] : 0;
     sim_setup(&sim, orig);
-    sim_reset(&sim, 8 * 60);                    /* Monday 8:00 */
-    int lo_money[SIM_PEOPLE], hi_money[SIM_PEOPLE], starving[SIM_PEOPLE], worst_starving[SIM_PEOPLE];
-    long need_sum[SIM_PEOPLE][N_NEEDS], acts[SIM_PEOPLE][N_ACTS];
-    int hungry_choices = 0, hungry_ate = 0, hours = 0, visits = 0, away_hours = 0;
-    memset(need_sum, 0, sizeof need_sum);
-    memset(acts, 0, sizeof acts);
-    for (int i = 0; i < SIM_PEOPLE; i++) {
-        lo_money[i] = hi_money[i] = sim.s.p[i].money;
-        starving[i] = worst_starving[i] = 0;
-    }
-    uint8_t hunger_before[SIM_PEOPLE];
-    unsigned total = 4 * SIM_WEEK, done = 0, step = 7;
-    while (done < total) {
-        for (int i = 0; i < SIM_PEOPLE; i++)
-            hunger_before[i] = sim.s.p[i].need[N_HUNGER];
-        unsigned h0 = sim.hours;
-        sim_advance(&sim, step);
-        done += step;
-        if (done == 2 * SIM_WEEK + 7 * 100) {   /* save/load in the middle: both copies must agree */
-            uint8_t buf[sizeof(sim_state_t)];
-            CHECK(sim_save(&sim, buf, sizeof buf) == (int)sizeof buf, "save size");
-            sim_setup(&sim2, orig);
-            CHECK(sim_load(&sim2, buf, sizeof buf), "load");
-        }
-        if (sim.hours == h0)
-            continue;
-        hours++;
-        for (int i = 0; i < SIM_PEOPLE; i++) {
-            if (!orig[i])
-                continue;
-            sim_person_t *p = &sim.s.p[i];
-            for (int n = 0; n < N_NEEDS; n++) {
-                CHECK(p->need[n] <= 100, "%s need %d = %d", names[i], n, p->need[n]);
-                need_sum[i][n] += p->need[n];
+    long acts[N_ACTS] = { 0 }, by_hour[24][N_ACTS];
+    static int first_eat[SIM_PEOPLE][28], first_wake[SIM_PEOPLE][28];
+    memset(first_eat, -1, sizeof first_eat);
+    memset(first_wake, -1, sizeof first_wake);
+    int away = 0, visits = 0, differ = 0;
+    memset(by_hour, 0, sizeof by_hour);
+    for (uint32_t w = 0; w < 4; w++) {
+        sim_plan_week(&sim, w);
+        if (w == 1)
+            memcpy(week1, sim.plan, sizeof week1);
+        if (w == 2)
+            differ = memcmp(week1, sim.plan, sizeof week1) != 0;
+        for (unsigned m = 2; m < SIM_WEEK; m += 5)
+            for (int i = 0; i < SIM_PEOPLE; i++) {
+                if (!orig[i])
+                    continue;
+                unsigned h = m / 60 % 24, wd = m / 1440, o = orig[i][h * 7 + wd], a = sim_area_at(&sim, i, m);
+                int act = sim_act_at(&sim, i, m);
+                CHECK(o == SIM_AWAY || a == o, "%s week %u day %u %02u:00 in %u, the game has them in %u",
+                      names[i], w, wd, h, a, o);                  /* nobody goes missing */
+                CHECK(act >= 0 && act < N_ACTS, "activity %d", act);
+                CHECK((a == SIM_AWAY) == (act == A_AWAY), "%s away in %u but activity %d", names[i], a, act);
+                int known = 0;
+                for (int k = 0; k < 168; k++)
+                    known |= orig[i][k] == a;
+                CHECK(known, "%s sent to %u, not in their timetable", names[i], a);
+                acts[act]++;
+                int day = w * 7 + wd, t = m % 1440;
+                if (act == A_EAT && t >= 600 && first_eat[i][day] < 0)
+                    first_eat[i][day] = t;                         /* when lunch started */
+                if (act != A_SLEEP && act != A_AWAY && t >= 240 && first_wake[i][day] < 0 && a == sim.home[i])
+                    first_wake[i][day] = t;
+                by_hour[h][act]++;
+                if (h >= 8 && h < 23 && m % 60 == 2) {   /* per hour; nights out of town stay away (asleep) */
+                    away += o == SIM_AWAY;
+                    visits += o == SIM_AWAY && a != SIM_AWAY;
+                }
             }
-            acts[i][p->act]++;
-            if (p->money < lo_money[i]) lo_money[i] = p->money;
-            if (p->money > hi_money[i]) hi_money[i] = p->money;
-            unsigned a = sim_area_now(&sim, i);
-            int ok = 0;
-            for (int k = 0; k < 168; k++)
-                ok |= orig[i][k] == a;
-            CHECK(ok, "%s sent to area %u, not in their timetable", names[i], a);
-            {   /* nobody goes missing: away from the original area only in out-of-town hours */
-                unsigned c = sim.s.clock, o = orig[i][(c / 60 % 24) * 7 + c / 1440];
-                CHECK(o == SIM_AWAY || a == o, "%s at %u but the game has them at %u", names[i], a, o);
-                visits += o == SIM_AWAY && a != SIM_AWAY;
-                away_hours += o == SIM_AWAY;
-            }
-            starving[i] = p->need[N_HUNGER] < 10 ? starving[i] + 1 : 0;
-            if (starving[i] > worst_starving[i]) worst_starving[i] = starving[i];
-            (void)hunger_before;
-            if (p->need[N_HUNGER] < 30 && p->act != A_SLEEP && p->act != A_WORK) {   /* at decision time */
-                hungry_choices++;
-                hungry_ate += p->act == A_EAT;
-            }
-        }
     }
-    /* the copy loaded mid-way, run one more day alongside */
-    sim_advance(&sim2, 0);
-    {
-        sim_t a = sim;
-        (void)a;
-    }
-    printf("%-22s %4s %4s  %-28s %6s %6s %6s  %s\n", "person", "home", "job", "average needs (hu hy en so co bl fu)",
-           "$min", "$max", "$end", "time: home/sleep/work/eat/fun/social/park/usual/away %");
-    for (int i = 0; i < SIM_PEOPLE; i++) {
-        if (!orig[i])
-            continue;
-        sim_person_t *p = &sim.s.p[i];
-        char needs[64], *q = needs;
-        for (int n = 0; n < 7; n++)
-            q += sprintf(q, "%2ld ", need_sum[i][n] / hours);
-        char ac[80], *r = ac;
-        for (int k = 0; k < N_ACTS; k++)
-            r += sprintf(r, "%ld/", acts[i][k] * 100 / hours);
-        printf("%-22s %4d %4d  %-28s %6d %6d %6d  %s\n", names[i], p->home, p->work == 255 ? -1 : p->work,
-               needs, lo_money[i], hi_money[i], p->money, ac);
-        CHECK(worst_starving[i] <= 6, "%s was starving for %d hours in a row", names[i], worst_starving[i]);
-        CHECK(lo_money[i] > -400, "%s went broke (%d)", names[i], lo_money[i]);
-        CHECK(p->money > -200, "%s ended broke (%d)", names[i], p->money);
-        if (p->work != 255)
-            CHECK(hi_money[i] - lo_money[i] > 50, "%s's money never moved", names[i]);
-    }
-    printf("\n%d city hours simulated; when hungry (<30) and not asleep or at work, %d%% of choices were to eat (%d/%d)\n",
-           hours, hungry_choices ? hungry_ate * 100 / hungry_choices : 0, hungry_ate, hungry_choices);
-    CHECK(hungry_choices == 0 || hungry_ate * 100 / hungry_choices >= 50, "hungry people don't eat");
-    printf("out-of-town hours turned into visits around the city: %d of %d\n", visits, away_hours);
+    /* the same week planned again comes out the same */
+    sim_plan_week(&sim, 1);
+    CHECK(!memcmp(week1, sim.plan, sizeof week1), "week 1 planned twice differs");
+    CHECK(differ, "weeks 1 and 2 are identical (no variety)");
+    CHECK(visits * 3 > away, "only %d of %d out-of-town hours became visits", visits, away);
+    CHECK(by_hour[3][A_SLEEP] > 0 && by_hour[3][A_EAT] == 0, "night: nobody asleep, or someone eating at 3 am");
+    CHECK(by_hour[12][A_EAT] > 0 && by_hour[19][A_EAT] > 0, "nobody eats at 12 or 19");
+    CHECK(by_hour[10][A_WORK] > 0, "nobody works at 10");
 
-    /* determinism after save/load: run both for a day from the same state */
-    {
-        uint8_t buf[sizeof(sim_state_t)];
-        sim_save(&sim, buf, sizeof buf);
-        sim_setup(&sim2, orig);
-        sim_load(&sim2, buf, sizeof buf);
-        sim_advance(&sim, 1440);
-        sim_advance(&sim2, 1440);
-        CHECK(memcmp(&sim.s, &sim2.s, sizeof sim.s) == 0, "a loaded copy behaves differently");
+    /* nobody eats lunch at the same minute every day */
+    int same = 0, people = 0;
+    for (int i = 0; i < SIM_PEOPLE; i++) {
+        int lo = 1440, hi = -1, n = 0;
+        for (int day = 0; day < 28; day++)
+            if (first_eat[i][day] >= 0) {
+                n++;
+                if (first_eat[i][day] < lo) lo = first_eat[i][day];
+                if (first_eat[i][day] > hi) hi = first_eat[i][day];
+            }
+        if (n >= 5) {
+            people++;
+            same += hi - lo < 30;
+        }
     }
+    CHECK(people > 10 && same == 0, "%d of %d people eat at the same time every day", same, people);
+    printf("lunch/dinner start varies day to day for all %d people who eat out or at home\n", people);
+    printf("example, %s: first meal after 10:00 on days 1-7:", names[23]);
+    for (int day = 0; day < 7; day++)
+        if (first_eat[23][day] >= 0)
+            printf(" %d:%02d", first_eat[23][day] / 60, first_eat[23][day] % 60);
+        else
+            printf(" -");
+    printf("\n4 weeks, 36 people: activities (person-hours)\n");
+    for (int a = 0; a < N_ACTS; a++)
+        printf("  %-14s %6ld\n", sim_act_name(a), acts[a] / 12);
+    printf("by hour (sleep/wash/eat/work/out):\n");
+    for (int h = 0; h < 24; h += 3)
+        printf("  %02d:00  %3ld %3ld %3ld %3ld %3ld\n", h, by_hour[h][A_SLEEP] / 12, by_hour[h][A_WASH] / 12,
+               by_hour[h][A_EAT] / 12, by_hour[h][A_WORK] / 12, by_hour[h][A_AWAY] / 12);
+    printf("daytime out-of-town hours (8-23) turned into visits around the city: %d of %d\n", visits, away);
     printf("%s (%d problem(s))\n", fails ? "TEST_SIM FAIL" : "TEST_SIM PASS", fails);
     return fails ? 1 : 0;
 }

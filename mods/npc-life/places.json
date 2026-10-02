@@ -1,5 +1,5 @@
 {
-  "_about": "What each area offers the simulated townspeople. kinds: food, fun, social, park, gym. cost: Simoleons per visit. Area ids and names: docs/areas.md. People only go to areas from their own original timetable.",
+  "_about": "What each area offers the townspeople in their free time (hours the original game has them out of town) and what they do there. kinds: food (lunch and dinner), fun, social, park, gym. cost is not used. Area ids and names: docs/areas.md. People only go to areas from their own original timetable.",
   "places": {
     "0":  {"name": "Streetball Court", "kinds": ["fun", "gym"], "cost": 0},
     "1":  {"name": "Bayou", "kinds": ["park"], "cost": 0},

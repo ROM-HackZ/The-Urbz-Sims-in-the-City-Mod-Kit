@@ -1,9 +1,8 @@
 {
   "name": "npc-life",
-  "version": "1.0",
+  "version": "3.0",
   "author": "Urbz kit",
-  "description": "A living city: the 36 townspeople have needs, jobs, money and rent, and go where their needs take them (meals, sleep, work, fun) instead of following fixed timetables. Saved with the game. Tune it in places.json and npcs.json, then run make_data.py.",
+  "description": "A living city: the 36 townspeople keep to the places the original game puts them, visit cafés, clubs and parks in their free time, and act out their day where you can see them (sit down to eat, wash, use the toilet, chat). Tune the places in places.json, then run make_data.py.",
   "toggle": true,
-  "default": true,
-  "save_bytes": 600
+  "default": true
 }

@@ -1,29 +1,12 @@
-/* NPC Life simulation (see npc_sim.h). Portable C: no game addresses, no C library. */
+/* NPC Life routines (see npc_sim.h). Portable C: no game addresses, no C library. */
 #include "npc_sim.h"
 #include "sim_data.h"
 
 #define NONE 0xFF
 
-/* Needs drop this much per game hour while awake (x the person's decay %, from npcs.json). */
-static const uint8_t base_decay[N_NEEDS] = { 6, 4, 5, 5, 2, 9, 5, 0 };
-
-/* What an hour of each activity gives back, per need (added after the hourly drop). */
-static const int8_t gains[N_ACTS][N_NEEDS] = {
-    /*            hung hyg  ener soc  comf blad fun  room */
-    [A_HOME]   = { 0,  35,  2,   4,   8,  45,  18,   0 },
-    [A_SLEEP]  = { 3,   7, 16,   5,   6,   5,   5,   0 },
-    [A_WORK]   = { 0,   0, -1,   7,   0,  25,   2,   0 },
-    [A_EAT]    = { 45,  0,  0,   4,   2,  12,   3,   0 },
-    [A_FUN]    = { 0,   0,  0,   6,   0,  12,  30,   0 },
-    [A_SOCIAL] = { 0,   0,  0,  30,   0,  12,  10,   0 },
-    [A_PARK]   = { 0,   0,  1,   8,  10,   6,  15,   0 },
-    [A_USUAL]  = { 0,   0,  0,   6,   0,  15,   6,   0 },
-    [A_AWAY]   = { 4,   2,  0,   6,   0,   9,   6,   0 },
-};
-
 static const char *const act_names[N_ACTS] = {
     "at home", "asleep", "at work", "eating", "having fun", "socialising", "in the park",
-    "out and about", "out of town"
+    "out and about", "out of town", "washing"
 };
 
 const char *sim_act_name(int act)
@@ -31,13 +14,15 @@ const char *sim_act_name(int act)
     return act >= 0 && act < N_ACTS ? act_names[act] : "?";
 }
 
-static uint32_t rnd(sim_t *sim)
+/* A fixed hash: the same person, week and hour always give the same number. */
+static uint32_t mix(uint32_t a, uint32_t b, uint32_t c)
 {
-    uint32_t x = sim->s.seed ? sim->s.seed : 0x9E3779B9u;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    sim->s.seed = x;
+    uint32_t x = a * 0x9E3779B1u ^ b * 0x85EBCA77u ^ c * 0xC2B2AE3Du ^ 0x5EED1234u;
+    x ^= x >> 15;
+    x *= 0x2C1B3C6Du;
+    x ^= x >> 12;
+    x *= 0x297A2D39u;
+    x ^= x >> 15;
     return x;
 }
 
@@ -50,6 +35,7 @@ static const sim_place_t *place_of(unsigned area)
 }
 
 static unsigned slot(unsigned hour, unsigned wd) { return hour * 7 + wd; }
+static int meal(unsigned hour) { return hour == 12 || hour == 13 || hour == 18 || hour == 19; }
 
 /* ---- setup --------------------------------------------------------------- */
 
@@ -77,12 +63,10 @@ static uint8_t most_common(const uint8_t *t, int h0, int h1, int wd1, int not)
 static void derive(sim_t *sim, int i)
 {
     const uint8_t *t = sim->orig[i];
-    sim_person_t *p = &sim->s.p[i];
     sim->n_allowed[i] = 0;
-    if (!t) {
-        p->home = p->work = NONE;
+    sim->home[i] = sim->work[i] = NONE;
+    if (!t)
         return;
-    }
     for (int k = 0; k < 24 * 7; k++) {
         int seen = 0;
         for (int j = 0; j < sim->n_allowed[i]; j++)
@@ -90,277 +74,147 @@ static void derive(sim_t *sim, int i)
         if (!seen && sim->n_allowed[i] < 24)
             sim->allowed[i][sim->n_allowed[i]++] = t[k];
     }
-    p->home = most_common(t, 0, 6, 7, NONE);
-    if (p->home == NONE)
-        p->home = t[slot(2, 0)];
-    p->work = most_common(t, 9, 17, 5, p->home);
-    if (p->work == SIM_AWAY)
-        p->work = NONE;
+    sim->home[i] = most_common(t, 0, 6, 7, NONE);
+    if (sim->home[i] == NONE)
+        sim->home[i] = t[slot(2, 0)];
+    sim->work[i] = most_common(t, 9, 17, 5, sim->home[i]);
+    if (sim->work[i] == SIM_AWAY)
+        sim->work[i] = NONE;
 }
 
 void sim_setup(sim_t *sim, const uint8_t *const orig[SIM_PEOPLE])
 {
     for (int i = 0; i < SIM_PEOPLE; i++) {
         sim->orig[i] = orig[i];
-        for (int k = 0; k < 24 * 7; k++)
-            sim->plan[i][k] = orig[i] ? orig[i][k] : SIM_AWAY;
         derive(sim, i);
     }
-    sim->hours = 0;
+    sim->week = 0xFFFFFFFF;
+    sim_plan_week(sim, 0);
 }
 
-/* ---- deciding ------------------------------------------------------------- */
+/* ---- visits in free time --------------------------------------------------- */
 
-static int allowed(const sim_t *sim, int i, unsigned area)
+/* A place this person knows that offers one of `kinds` (0 = none), picked by `r`. */
+static unsigned pick_place(const sim_t *sim, int i, unsigned kinds, uint32_t r)
 {
-    for (int j = 0; j < sim->n_allowed[i]; j++)
-        if (sim->allowed[i][j] == area)
-            return 1;
-    return 0;
-}
-
-static int value(const sim_person_t *p, int act, const sim_tweak_t *tw)
-{
-    int v = 0;
-    for (int n = 0; n < N_NEEDS; n++) {
-        int g = gains[act][n] + base_decay[n] * tw->decay[n] / 100;   /* net effect vs. idle */
-        if (gains[act][n] > 0 && g > 0) {
-            int u = 100 - p->need[n];
-            v += u * u / 100 * g;
-        }
-    }
-    return v / 50;
-}
-
-typedef struct { uint8_t act, area, cost; int score; } choice_t;
-
-static void consider(choice_t *best, int act, unsigned area, int cost, int score)
-{
-    if (score > best->score) {
-        best->act = act;
-        best->area = area;
-        best->cost = cost;
-        best->score = score;
-    }
-}
-
-/* Pick what a person does this hour.
-   Where: always the area of their original timetable (nobody goes missing from where the game puts them).
-   Only in hours the original game has them out of town (82) are they free to visit places they know
-   (cafés, clubs, parks, home). What: the activity that area supports and their needs call for. */
-static void decide(sim_t *sim, int i, unsigned hour, unsigned wd)
-{
-    sim_person_t *p = &sim->s.p[i];
-    const sim_tweak_t *tw = &sim_tweaks[i];
-    const uint8_t *t = sim->orig[i];
-    unsigned usual = t[slot(hour, wd)];
-    int free = usual == SIM_AWAY;                      /* out of town in the original game: free time */
-    int night = hour >= 22 || hour < 6;
-    int broke = p->money < 40;
-    choice_t best = { free ? A_AWAY : A_USUAL, (uint8_t)usual, 0, -1000 };
-    int hungry = p->need[N_HUNGER] < 30 ? 20 : 0;     /* a proper meal comes first */
-    p->flags &= ~1;
-
-    /* keep sleeping through the night while tired (if they may stay where they are) */
-    if (p->act == A_SLEEP && (night || hour < 8) && p->need[N_ENERGY] < 90 &&
-        p->need[N_HUNGER] > 10 && p->need[N_BLADDER] > 10 && (free || p->place == usual)) {
-        sim->plan[i][slot(hour, wd)] = p->place;
-        return;
-    }
-#define J (int)(rnd(sim) % 7)
-#define MOVE(a) ((a) == p->place ? 6 : -4)
-#define HERE(a) (free || (a) == usual)
-    /* their usual place this hour (the game's own timetable) */
-    if (free)
-        consider(&best, A_AWAY, usual, 0, value(p, A_AWAY, tw) + 30 + J);
-    else
-        consider(&best, A_USUAL, usual, 0, value(p, A_USUAL, tw) + 18 + J);
-    /* home */
-    if (p->home != NONE && HERE(p->home)) {
-        consider(&best, A_HOME, p->home, 0, value(p, A_HOME, tw) + MOVE(p->home) + J);
-        consider(&best, A_SLEEP, p->home, 0, value(p, A_SLEEP, tw) + (night ? 25 : -20) +
-                 (p->need[N_ENERGY] < 25 ? 40 : 0) + MOVE(p->home) + J);
-        consider(&best, A_EAT, p->home, 3, value(p, A_EAT, tw) - 8 + hungry + MOVE(p->home) + J);  /* groceries */
-    }
-    /* sleep is invisible: at night they rest wherever the game has them */
-    if (!free && usual != p->home && (night || p->need[N_ENERGY] < 20))
-        consider(&best, A_SLEEP, usual, 0, value(p, A_SLEEP, tw) + (night ? 25 : 0) +
-                 (p->need[N_ENERGY] < 25 ? 40 : 0) + J);
-    /* their job, during their usual hours there */
-    if (p->work != NONE && usual == p->work)
-        consider(&best, A_WORK, p->work, 0, value(p, A_WORK, tw) + 60 + (broke ? 30 : 0) + J);
-    /* a quick bite where they are (a break at work, a snack while out) */
-    if (!free && p->need[N_HUNGER] < 25)
-        consider(&best, A_EAT, usual, p->money >= 4 ? 4 : 0, value(p, A_EAT, tw) - 12 + hungry +
-                 (p->need[N_HUNGER] < 15 ? 40 : 0) + J);           /* starving beats everything */
-    /* places they go to that offer something */
+    unsigned found[24], n = 0;
     for (int j = 0; j < sim->n_allowed[i]; j++) {
-        unsigned a = sim->allowed[i][j];
-        const sim_place_t *pl = place_of(a);
-        if (!pl || a == SIM_AWAY || !HERE(a))
+        const sim_place_t *pl = place_of(sim->allowed[i][j]);
+        if (pl && (pl->kinds & kinds) && sim->allowed[i][j] != SIM_AWAY)
+            found[n++] = sim->allowed[i][j];
+    }
+    return n ? found[r % n] : 0;
+}
+
+/* Out-of-town hours become visits, in 2-hour blocks: lunch and dinner at a food place,
+   daytime in a park or with friends, evenings out; nights and early mornings stay away. */
+void sim_plan_week(sim_t *sim, uint32_t week)
+{
+    if (sim->week == week)
+        return;
+    sim->week = week;
+    sim->visits = 0;
+    for (int i = 0; i < SIM_PEOPLE; i++) {
+        const uint8_t *t = sim->orig[i];
+        for (int k = 0; k < 24 * 7; k++)
+            sim->plan[i][k] = t ? t[k] : SIM_AWAY;
+        if (!t)
             continue;
-        int bonus = MOVE(a) + (a == usual ? 10 : 0) + J;
-        if (pl->cost > p->money) {
-            if (pl->kinds & K_FOOD && p->need[N_HUNGER] < 40)
-                p->flags |= 1;                       /* hungry and can't afford to eat out */
-            continue;
-        }
-        if (pl->kinds & K_FOOD)
-            consider(&best, A_EAT, a, pl->cost, value(p, A_EAT, tw) + bonus + hungry - (p->money < 60 ? 15 : 0));
+        for (unsigned wd = 0; wd < 7; wd++)
+            for (unsigned h = 0; h < 24; h++) {
+                if (t[slot(h, wd)] != SIM_AWAY || h < 8 || h == 23)
+                    continue;
+                uint32_t r = mix(i, week, wd * 12 + h / 2);
+                unsigned kinds = 0, chance = 0;
+                if (meal(h)) {
+                    kinds = K_FOOD;
+                    chance = 70;
+                } else if (h >= 20) {
+                    kinds = K_FUN | K_SOCIAL;
+                    chance = 60;
+                } else {
+                    kinds = K_PARK | K_SOCIAL | K_FUN | K_GYM;
+                    chance = 45;
+                }
+                if (r % 100 >= chance)
+                    continue;
+                unsigned a = pick_place(sim, i, kinds, r >> 8);
+                if (a) {
+                    sim->plan[i][slot(h, wd)] = a;
+                    sim->visits++;
+                }
+            }
+    }
+}
+
+/* ---- now ------------------------------------------------------------------ */
+
+unsigned sim_area_at(const sim_t *sim, int i, unsigned m)
+{
+    m %= SIM_WEEK;
+    return sim->plan[i][slot(m / 60 % 24, m / 1440)];
+}
+
+/* A person's day, in minutes after midnight. Habits are fixed per person (early bird or night owl,
+   shower in the morning or the evening, early or late eater); every day then shifts them a little,
+   and now and then a meal is skipped. So nobody does the same thing at the same time every day. */
+typedef struct { int wake, bed, wash, lunch, lunch_len, dinner, dinner_len; } day_t;
+
+static day_t day_of(const sim_t *sim, int i, unsigned wd)
+{
+    uint32_t hb = mix(i, 0xAB1E, 7), r = mix(i, sim->week, wd + 100);
+    day_t d;
+    d.wake = 300 + (int)(hb % 180) + (int)(r % 91) - 45;                 /* 5:00-8:00, +-45 min */
+    d.bed = d.wake + 930 + (int)((hb >> 8) % 120) + (int)((r >> 6) % 41) - 20;   /* awake 15.5-17.5 h */
+    d.wash = (hb >> 16) & 1 ? d.bed - 50 : d.wake;                       /* evening or morning */
+    d.lunch = 690 + (int)((hb >> 20) % 90) + (int)((r >> 12) % 81) - 40; /* 11:30-13:00, +-40 min */
+    d.lunch_len = (r >> 18) % 8 == 0 ? 0 : 35 + (int)((r >> 21) % 35);  /* skipped 1 day in 8 */
+    d.dinner = 1050 + (int)((hb >> 24) % 120) + (int)((r >> 23) % 81) - 40;  /* 17:30-19:30, +-40 min */
+    d.dinner_len = 45 + (int)((r >> 27) % 30);
+    return d;
+}
+
+static int in(int t, int from, int len) { return t >= from && t < from + len; }
+
+int sim_act_at(const sim_t *sim, int i, unsigned m)
+{
+    m %= SIM_WEEK;
+    unsigned h = m / 60 % 24, wd = m / 1440, area = sim->plan[i][slot(h, wd)];
+    if (!sim->orig[i] || area == SIM_AWAY)
+        return A_AWAY;
+    const sim_place_t *pl = place_of(area);
+    uint32_t r = mix(i, sim->week, wd * 24 + h);
+    int t = (int)(m % 1440);
+    day_t d = day_of(sim, i, wd);
+    int asleep = t < d.wake || t >= d.bed;
+    if (d.bed >= 1440)                                  /* night owls go to bed after midnight */
+        asleep = t >= d.bed - 1440 && t < d.wake;
+    if (area == sim->home[i]) {
+        if (asleep)
+            return A_SLEEP;
+        if (in(t, d.wash, 25))
+            return A_WASH;
+        if (in(t, d.wake + 25, 30) || in(t, d.lunch, d.lunch_len) || in(t, d.dinner, d.dinner_len))
+            return A_EAT;
+        return A_HOME;
+    }
+    if (area == sim->work[i] && sim->orig[i][slot(h, wd)] == area) {
+        if (in(t, d.lunch, d.lunch_len) && pl && (pl->kinds & K_FOOD))
+            return A_EAT;                            /* lunch break where they work */
+        return A_WORK;
+    }
+    if (pl) {
+        unsigned ph = (h + 23) % 24, pw = h ? wd : (wd + 6) % 7;
+        int settling = sim->plan[i][slot(ph, pw)] != area && (int)(t % 60) < (int)(r % 41);   /* just arrived */
+        if ((pl->kinds & K_FOOD) && !settling &&
+            (in(t, d.lunch, d.lunch_len + 30) || in(t, d.dinner, d.dinner_len + 30)))
+            return A_EAT;
         if (pl->kinds & (K_FUN | K_GYM))
-            consider(&best, A_FUN, a, pl->cost, value(p, A_FUN, tw) + bonus - (broke ? 15 : 0));
-        if (pl->kinds & K_SOCIAL)
-            consider(&best, A_SOCIAL, a, 0, value(p, A_SOCIAL, tw) + bonus);
+            return (pl->kinds & K_SOCIAL) && (r & 3) == 0 ? A_SOCIAL : A_FUN;
         if (pl->kinds & K_PARK)
-            consider(&best, A_PARK, a, 0, value(p, A_PARK, tw) + bonus);
+            return A_PARK;
+        if (pl->kinds & (K_SOCIAL | K_FOOD))
+            return A_SOCIAL;
     }
-#undef J
-#undef MOVE
-#undef HERE
-    p->act = best.act;
-    p->place = best.area;
-    p->money -= best.cost;
-    sim->plan[i][slot(hour, wd)] = best.area;
-    unsigned nh = (hour + 1) % 24, nw = nh ? wd : (wd + 1) % 7;
-    sim->plan[i][slot(nh, nw)] = t[slot(nh, nw)];      /* the next hour: their usual (phone lines) */
-}
-
-/* ---- the hour ------------------------------------------------------------- */
-
-static void live_hour(sim_t *sim, int i)
-{
-    sim_person_t *p = &sim->s.p[i];
-    const sim_tweak_t *tw = &sim_tweaks[i];
-    for (int n = 0; n < N_NEEDS; n++) {
-        int v = p->need[n] - base_decay[n] * tw->decay[n] / 100 + gains[p->act][n];
-        if (p->act == A_FUN && n == N_ENERGY) {
-            const sim_place_t *pl = place_of(p->place);
-            if (pl && pl->kinds & K_GYM)
-                v -= 4;                              /* a workout is tiring */
-        }
-        if (n == N_ROOM)
-            v += (70 - v) / 4;                       /* their surroundings: fairly constant */
-        p->need[n] = v < 0 ? 0 : v > 100 ? 100 : v;
-    }
-    if (p->act == A_WORK && p->money < 30000)
-        p->money += tw->pay;
-}
-
-static void hour_tick(sim_t *sim)
-{
-    unsigned clock = sim->s.clock, wd = clock / 1440, hour = clock / 60 % 24;
-    sim->hours++;
-    for (int i = 0; i < SIM_PEOPLE; i++) {
-        if (!sim->orig[i])
-            continue;
-        live_hour(sim, i);
-        sim_person_t *p = &sim->s.p[i];
-        if (clock == 0) {                            /* Monday 00:00: rent */
-            int shift = 0;
-            for (int k = 0; k < 24 * 7; k++)
-                shift += p->work != NONE && sim->orig[i][k] == p->work;
-            int rent = sim_tweaks[i].rent_div5 * 5, afford = shift * sim_tweaks[i].pay / 3;
-            if (p->work != NONE)
-                p->money -= rent < afford ? rent : afford;   /* rent fits what the job pays */
-            else
-                p->money += 60;                      /* no job: family helps out */
-        }
-        decide(sim, i, hour, wd);
-    }
-}
-
-void sim_reset(sim_t *sim, unsigned minute_of_week)
-{
-    sim->s.version = SIM_VERSION;
-    sim->s.clock = minute_of_week % SIM_WEEK;
-    sim->s.seed = 0x5EED1234u ^ minute_of_week;
-    unsigned hour = sim->s.clock / 60 % 24, wd = sim->s.clock / 1440;
-    for (int i = 0; i < SIM_PEOPLE; i++) {
-        sim_person_t *p = &sim->s.p[i];
-        static const uint8_t start[N_NEEDS] = { 70, 75, 70, 65, 70, 80, 65, 70 };
-        for (int n = 0; n < N_NEEDS; n++)
-            p->need[n] = start[n] - (rnd(sim) % 15);
-        p->money = sim_tweaks[i].start_money;
-        p->flags = 0;
-        p->until = 0;
-        derive(sim, i);
-        if (!sim->orig[i]) {
-            p->act = A_AWAY;
-            p->place = SIM_AWAY;
-            continue;
-        }
-        p->place = sim->orig[i][slot(hour, wd)];
-        p->act = p->place == SIM_AWAY ? A_AWAY : A_USUAL;
-        for (int k = 0; k < 24 * 7; k++)
-            sim->plan[i][k] = sim->orig[i][k];
-        decide(sim, i, hour, wd);
-    }
-}
-
-void sim_set_clock(sim_t *sim, unsigned minute_of_week)
-{
-    sim->s.clock = minute_of_week % SIM_WEEK;
-}
-
-void sim_advance(sim_t *sim, unsigned minutes)
-{
-    if (minutes > 3 * 1440)
-        minutes = 3 * 1440;                          /* a huge jump: don't stall the game */
-    while (minutes) {
-        unsigned to_hour = 60 - sim->s.clock % 60, step = minutes < to_hour ? minutes : to_hour;
-        sim->s.clock = (sim->s.clock + step) % SIM_WEEK;
-        minutes -= step;
-        if (sim->s.clock % 60 == 0)
-            hour_tick(sim);
-    }
-}
-
-unsigned sim_area_now(const sim_t *sim, int i)
-{
-    unsigned c = sim->s.clock;
-    return sim->plan[i][slot(c / 60 % 24, c / 1440)];
-}
-
-/* ---- save ------------------------------------------------------------------ */
-
-int sim_save(const sim_t *sim, uint8_t *buf, int max)
-{
-    int n = sizeof(sim_state_t);
-    if (max < n)
-        return -1;
-    const uint8_t *s = (const uint8_t *)&sim->s;
-    for (int k = 0; k < n; k++)
-        buf[k] = s[k];
-    return n;
-}
-
-int sim_load(sim_t *sim, const uint8_t *buf, int len)
-{
-    sim_state_t tmp;
-    uint8_t *d = (uint8_t *)&tmp;
-    if (len != (int)sizeof(sim_state_t))
-        return 0;
-    for (int k = 0; k < len; k++)
-        d[k] = buf[k];
-    if (tmp.version != SIM_VERSION || tmp.clock >= SIM_WEEK)
-        return 0;
-    sim->s = tmp;
-    unsigned hour = sim->s.clock / 60 % 24, wd = sim->s.clock / 1440;
-    for (int i = 0; i < SIM_PEOPLE; i++) {
-        sim_person_t *p = &sim->s.p[i];
-        for (int n = 0; n < N_NEEDS; n++)
-            if (p->need[n] > 100)
-                p->need[n] = 100;
-        if (p->act >= N_ACTS)
-            p->act = A_USUAL;
-        derive(sim, i);                              /* home / job / allowed come from the timetable */
-        if (!sim->orig[i])
-            continue;
-        if (!allowed(sim, i, p->place))
-            p->place = sim->orig[i][slot(hour, wd)];
-        for (int k = 0; k < 24 * 7; k++)
-            sim->plan[i][k] = sim->orig[i][k];
-        sim->plan[i][slot(hour, wd)] = p->place;    /* where they are now */
-    }
-    return 1;
+    return (r & 3) == 0 ? A_SOCIAL : A_USUAL;        /* now and then they stop for a chat */
 }

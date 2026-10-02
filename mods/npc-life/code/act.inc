@@ -1,6 +1,7 @@
-/* NPC Life: visible actions (Phase 6). People in your area act out what the simulation says
-   they are doing, with the game's own objects and animations: a hungry person sits down at a
-   table, a tired one sits on a chair or sofa, someone who needs the toilet uses it.
+/* NPC Life: visible actions (Phase 6). People in your area act out what their routine says
+   they are doing, with the game's own objects and animations: at meal times they sit down at a
+   table, at home they relax on a chair or sofa, in the morning they wash, and now and then they
+   use the toilet.
 
    It uses the game's own "walk to an object and use it" (npc_goto_object; docs/systems.md "People:
    movement and object use"), which the original game offers to only six people. Rules:
@@ -160,16 +161,17 @@ static int dir_to(u8 *a, u8 *b)
     return dx > 0 ? (dy > 0 ? 3 : 1) : (dy > 0 ? 5 : 7);
 }
 
-/* What this person would do here: needs in order of preference, from the sim's activity and needs. */
+/* What this person would do here, from their routine: the needs an object should serve, in order
+   of preference (the game's objects say which need each of their activities serves). */
 static int wants(int i, u8 *out)
 {
-    const sim_person_t *s = &sim.s.p[i];
-    int n = 0;
-    if (s->need[N_BLADDER] < 30 && has_anim(31 + i, 0x7B))
-        out[n++] = NEED_BLADDER;
-    if (s->need[N_HYGIENE] < 25)
+    int n = 0, act = sim_act_at(&sim, i, week_minute());
+    if (has_anim(31 + i, 0x7B) && (act == A_WASH || act_rnd() % 6 == 0))
+        out[n++] = NEED_BLADDER;                         /* now and then, and every morning */
+    switch (act) {
+    case A_WASH:
         out[n++] = NEED_HYGIENE;
-    switch (s->act) {
+        break;
     case A_EAT:
         out[n++] = NEED_HUNGER;
         out[n++] = NEED_COMFORT;                         /* no food object here: sit at a table */
@@ -184,14 +186,17 @@ static int wants(int i, u8 *out)
         out[n++] = NEED_COMFORT;
         break;
     case A_SLEEP:
+        out[n++] = NEED_ENERGY;                          /* a bed or sofa if there is one */
+        out[n++] = NEED_COMFORT;
+        break;
     case A_HOME:
-        out[n++] = NEED_ENERGY;
+        out[n++] = NEED_FUN;
         out[n++] = NEED_COMFORT;
         break;
     case A_WORK:
         break;                                           /* at work: keep to their spot */
     default:
-        if (s->need[N_COMFORT] < 50 || (act_rnd() & 3) == 0)
+        if ((act_rnd() & 3) == 0)
             out[n++] = NEED_COMFORT;
     }
     return n;
@@ -249,8 +254,7 @@ static int may_act(u8 *e, int who)
 /* A chats with someone else here who is free: A walks up to them. Social people chat more. */
 static int start_chat(int slot, u8 *e, int who)
 {
-    const sim_person_t *s = &sim.s.p[who - 31];
-    if (!gesture_of(who, 0) || (s->act != A_SOCIAL && (act_rnd() % 3)))
+    if (!gesture_of(who, 0) || (sim_act_at(&sim, who - 31, week_minute()) != A_SOCIAL && (act_rnd() % 3)))
         return 0;
     u8 *best = 0;
     int best_d = 0x7FFFFFFF;
@@ -381,8 +385,8 @@ static void start_one(void)
                 continue;
             }
             if (!*(s32 **)(e + 0x114)) {
-                for (int k = 0; k < N_NEEDS; k++)
-                    needs_block[i][k] = (s32)sim.s.p[i].need[k] << 24;
+                for (int k = 0; k < 8; k++)
+                    needs_block[i][k] = 50 << 24;            /* the game's use code reads and writes these */
                 *(s32 **)(e + 0x114) = needs_block[i];
             }
             if (goto_object(e, obj, activity) != 1) {
