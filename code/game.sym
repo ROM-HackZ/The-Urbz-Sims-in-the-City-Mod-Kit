@@ -205,3 +205,13 @@ npc_end_activity   = 0x02000D70   # (e, activity record): drops it from e+0x100 
 entity_face        = 0x02000F08   # (e, dir 1-8): clockwise, 8 = up (screen), 3 = down-right, 7 = up-left
 npc_has_anim       = 0x020644A8   # int (id, anim): in the person's animation list (0x0211CDF4, 12-byte rows, ends 0xC4)
 npc_anim_lists     = 0x0211CDF4   # u8 *[id]: {u8 anim, ...} x 12 bytes; 0x6B sit / 0x7B toilet only for 33 39 41 45 52 53 54 58
+player_body_setup  = 0x0208327C   # (e, look): fills drawing slots 0-3 (+0xCC, 12 bytes: +1 palette row, +8 anim table) from the look, index e+0xC7
+load_look_palette  = 0x020833E0   # (look, row_a, row_b): builds the player's 2 palette rows from a look into OBJ rows a (skin/hair) and b (clothes)
+entity_set_frames  = 0x02003130   # (e, anim, facing record): picks the facing's records (player: facing from player_facing_table[e+0x12])
+entity_set_script  = 0x02002B68   # (e, frame script, start): the animation's frame sequence (+0xA0)
+player_gfx_refresh = 0x020374B8   # the player's graphics update: body setup, frames, script when e+0x106 & 0x14
+player_facing_table = 0x020C22B4  # s8 per direction (0x020C22C8 when e+0xC bit 29 is set)
+player_scripts_a   = 0x021204EC   # u32[anim] frame scripts (game_state+0x24 == 0)
+player_scripts_b   = 0x0211EC5C   # u32[anim] frame scripts (game_state+0x24 != 0)
+player_body_tables = 0x020F75E0   # u32[gender] -> u32[196] body anim tables (0 = no such animation)
+entity_layered     = 0x020031F4   # (e): e+0xC5 |= 0x40 (draw from 4 slots, like the player) and resets the slots (+0xD2 = 0xFFFF: no sprite memory yet)

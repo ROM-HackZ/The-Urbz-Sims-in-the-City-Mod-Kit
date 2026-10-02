@@ -71,3 +71,8 @@ state 0x23 (handler 0x0200A1F0; corrected in step 2); player body drawn by FUN_0
   and 33 chat with gestures 0x87/0x78/0xDB; nobody without the sit animation sent to a chair) and
   `npc-act-release`. Rules are in C rather than an acts.json: the game's own object data
   (activity -> need) already says which object serves what. The harness gained a `poke` script step.
+- **Step 4 done (2026-10-02).** Mod `npc-body-proto` (off by default; Options > Mods): Kris drawn with the
+  player's female body and animations in her own colours. Works in melonDS (switched on with real taps
+  from a save at 16:30 on the plaza) and DeSmuME (proof `npc-body-prototype`). For Jonathan to judge:
+  her cap and jeans become a ponytail and a skirt, and each such person uses 2 of the ~7 people's
+  palette rows. Save tool: `urbz_save.py set --clock HH:MM`.

@@ -1,0 +1,30 @@
+{
+ "relocs": [
+  148,
+  152,
+  184,
+  188,
+  800,
+  804,
+  812,
+  820,
+  824,
+  828
+ ],
+ "symbols": {
+  "body": 864,
+  "kris": 900,
+  "kris_look": 852,
+  "last_anim": 897,
+  "last_face": 896,
+  "mod_on_area_enter": 156,
+  "mod_on_disable": 0,
+  "mod_on_tick": 192,
+  "palette_area": 892
+ },
+ "bss": 4,
+ "sources": {
+  "main.c": "bcf33da4faf9ea4a1fb20c89466570d4190e775a",
+  "hooks.txt": "ee0013d90844bcc81ad1c78f93b64208cfcd69c5"
+ }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "npc-body-proto",
+  "version": "0.1",
+  "description": "Prototype (off by default): Kris Thistle drawn with the player's body and animations, in her own colours",
+  "toggle": true,
+  "default": false
+}

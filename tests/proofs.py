@@ -631,6 +631,29 @@ def p_npc_act_release():
         acting_before, still or 'nobody', {i: '%x/%x' % (st, ac) for i, (st, ac, an) in after.items()})
 
 
+def p_npc_body_prototype():
+    """Prototype (mod npc-body-proto, off by default): switched on, Kris (45) is drawn with the player's
+    female body in her own colours: layered drawing (+0xC5 bit 0x40), the player's body/clothes/hair tables
+    in her slots, two palette rows of her own (9-15); switched off again, she gets her own sprite back."""
+    rom = build('npc-body-prototype', [os.path.join(KIT, 'mods', 'npc-body-proto')])[0]
+    on, off = core_request(rom, 0, 1), core_request(rom, 0, 0)
+    snaps, out = snapshots(rom, 'lobby', 6, 150, [HEAP_SCAN], pokes=['0x0214112E=1205', on], goto=70,
+                           pokes_at={4: [off]})
+    def kris(mem):
+        for k in range(0, len(mem) - 0x148, 4):
+            if struct.unpack_from('<HH', mem, k + 8) == (7, KRIS) and struct.unpack_from('<H', mem, k + 0x146)[0] == KRIS:
+                e = mem[k:k + 0x148]
+                return {'layered': bool(e[0xC5] & 0x40), 'tables': [struct.unpack_from('<I', e, 0xD4 + 12 * j)[0] for j in range(3)],
+                        'rows': (e[0xCD], e[0xD9])}
+        return None
+    states = [kris(m[0]) for m in snaps]
+    female = [0x0211E32C, 0x0211DD0C]                      # the player's female body and clothes tables
+    during, after = states[3], states[-1]
+    ok = (during and during['layered'] and during['tables'][:2] == female and min(during['rows']) >= 9
+          and after and not after['layered'] and after['tables'][1:] == [0, 0])
+    return ok, 'switched on: %s; switched off: %s (a picture needs melonDS: docs/systems.md)' % (during, after)
+
+
 def p_npc_life_off():
     """Switched off in the game: the timetable pointers go back and people follow their usual timetable."""
     rom = npc_life_rom('npc-life-off')
@@ -844,7 +867,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
-          ('npc-act-release', p_npc_act_release), ('npc-life-off', p_npc_life_off),
+          ('npc-act-release', p_npc_act_release), ('npc-body-prototype', p_npc_body_prototype), ('npc-life-off', p_npc_life_off),
           ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 

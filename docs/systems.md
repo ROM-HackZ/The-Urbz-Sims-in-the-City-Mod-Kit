@@ -362,6 +362,27 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
 
+## Player body on a person (Phase 6 prototype, mod `npc-body-proto`)
+
+- An entity draws either one sprite (people: slot 0, records set by their animation list) or, with
+  **+0xC5 bit 0x40** (`entity_layered` 0x020031F4), up to 4 layered slots like the player: slot k at
+  +0xCC + 12k = {+1 palette row, +2 sprite number (player: 4-7), +4 sprite memory (filled by the
+  renderer; +6 = 0xFFFF until then), +8 animation table}. The "Load an Urb" screen draws saved Urbs this
+  way (`FUN_02046F94`).
+- `player_body_setup(e, look)` (0x0208327C) fills the slots from a look and e+0xC7; then
+  `entity_set_frames(e, anim, player_facing_table[e+0x12])` (0x02003130) and
+  `entity_set_script(e, scripts[anim], 0)` (0x02002B68), as the player's own update (0x020374B8) does.
+  `load_look_palette(look, a, b)` (0x020833E0) builds the look's two rows into OBJ rows a and b.
+- Look colours: clothing colour c = palette 11542 row c % 16, shades 1-3 (c < 16) or 4-6 (c >= 16);
+  skin tone and hair colour = rows of 11543 (skin in shades 1-5, hair in 6-10).
+- People get OBJ palette rows from a pool starting at 9 (Coffee Shop with 3 people: 9, 10, 11;
+  12-15 empty). The player body needs 2 rows per person, so at most ~3 people could have it at once.
+- Proven (proof `npc-body-prototype`, RAM; pictures in melonDS and DeSmuME): switched on, Kris is drawn
+  with the female player body in a look of ours (brown skin, dark hair, white and denim), idles and walks
+  with the player's animations; switched off, her own sprite comes back. Without the layered flag and
+  sprite numbers, the parts are drawn scattered. Limits: the female body always has a skirt and no cap;
+  person animations the player lacks (ids >= 196 or empty) show as standing.
+
 ## Buyable objects (catalog)
 
 - Two parallel tables indexed by object number, 0x14 bytes per row:

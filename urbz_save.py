@@ -3,6 +3,7 @@
 
   python urbz_save.py info game.sav                   header, both slots, clock, money, needs
   python urbz_save.py set game.sav out.sav [--slot 1|2] [--money N] [--motive NAME=0..100 ...]
+                                           [--clock HH:MM]  (time of day; the day stays)
   python urbz_save.py fix game.sav out.sav            recompute checksums (after editing by hand)
 
 Layout (see docs/systems.md):
@@ -153,6 +154,13 @@ def main(argv):
                 if not 0 <= val <= 100:
                     sys.exit('error: motive values are 0-100')
                 struct.pack_into('<H', buf, s + F_MOTIVES + 2 * MOTIVES.index(name), round(val * 256))
+            elif k == '--clock':
+                h, _, m = v.partition(':')
+                if not (0 <= int(h) < 24 and 0 <= int(m or 0) < 60):
+                    sys.exit('error: --clock is HH:MM (00:00-23:59)')
+                buf[s + F_CLOCK + 2] = int(h)
+                buf[s + F_CLOCK + 3] = int(m or 0)
+                buf[s + F_CLOCK + 4] = 0                     # seconds
             elif k != '--slot':
                 sys.exit('error: unknown option ' + k)
             i += 2
