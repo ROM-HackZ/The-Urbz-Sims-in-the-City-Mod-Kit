@@ -1,0 +1,22 @@
+[
+["wait", 120],
+["touch", 128, 180, 8],
+["wait", 60],
+["touch", 203, 52, 8],
+["wait", 90],
+["shot", "save-slot"],
+["touch", 220, 117, 10],
+["wait", 160],
+["press", "A"],
+["wait", 300],
+["shot", "overwrite"],
+["press", "RIGHT"],
+["wait", 10],
+["press", "A"],
+["wait", 120],
+["touch", 168, 98, 3],
+["wait", 3],
+["touch", 168, 98, 3],
+["wait", 300],
+["shot", "saved"]
+]

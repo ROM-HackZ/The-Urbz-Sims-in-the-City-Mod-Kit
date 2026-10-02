@@ -69,6 +69,66 @@ def test_wrap_trampoline():
     assert struct.unpack_from('<I', code, 44)[0] == func
 
 
+def pc_loads(code, at):
+    """[(mnemonic, dest reg, literal value)] for every ldr rX, [pc, #imm] in an ARM stub."""
+    out = []
+    for i in ARM.disasm(code, at):
+        if i.mnemonic.startswith('ldr') and '[pc, #' in i.op_str:
+            imm = int(i.op_str.split('#')[1].rstrip(']'), 16)
+            if '#-' in i.op_str:
+                imm = -int(i.op_str.split('#-')[1].rstrip(']'), 16)
+            lit = i.address + 8 + imm - at
+            out.append((i.mnemonic, i.op_str.split(',')[0], struct.unpack_from('<I', code, lit)[0]))
+    return out
+
+
+def test_switch_call_stub():
+    """Chain of 2 mods at one call site: each tests its switch byte, else the original target."""
+    at, chain, orig = 0x0214DF10, [(0x0214DE5C, 0x0214F220), (0x0214DEAC, 0x0214F301)], 0x02065890
+    code = C._switch_call_stub(at, chain, orig)
+    names = [i.mnemonic for i in ARM.disasm(code[:4 * 9], at)]
+    assert names == ['ldr', 'ldrb', 'cmp', 'ldrne'] * 2 + ['ldr'], names
+    assert pc_loads(code, at) == [('ldr', 'ip', 0x0214DE5C), ('ldrne', 'pc', 0x0214F220),
+                                  ('ldr', 'ip', 0x0214DEAC), ('ldrne', 'pc', 0x0214F301),
+                                  ('ldr', 'pc', 0x02065890)], pc_loads(code, at)
+
+
+def test_call_target_decoding():
+    """The original target of a BL/BLX, so the off path of a stub goes where the game went."""
+    class A9:
+        def __init__(self, site, b): self.site, self.b = site, b
+        def read(self, addr, n): return self.b[addr - self.site:addr - self.site + n]
+    fmap_arm, fmap_thumb = [[0x02000000, 0x03000000, 0]], [[0x02000000, 0x03000000, 1]]
+    for site, tgt in ((0x0206665C, 0x02065890), (0x0204C06C, 0x02084104)):
+        assert C._call_target(A9(site, C._arm_branch(site, tgt, True)), fmap_arm, site) == tgt
+        assert C._call_target(A9(site, C._arm_branch(site, tgt | 1, True)), fmap_arm, site) == tgt | 1
+    for site in (0x020B88BC, 0x020B88BE):
+        for tgt in (0x0214DE21, 0x0214DE20, 0x020B7C98):
+            got = C._call_target(A9(site, C._thumb_bl(site, tgt)), fmap_thumb, site)
+            assert got == tgt, (hex(site), hex(tgt), hex(got))
+
+
+def test_switch_wrap_trampoline():
+    t, site, func, on = 0x0214DE20, 0x02084104, 0x0214DE80, 0x0214DE5C
+    orig = 0xE92D4FF0
+    code = C._switch_wrap_trampoline(t, site, orig, func, on)
+    names = [i.mnemonic for i in ARM.disasm(code[:52], t)]
+    assert names == ['push', 'mrs', 'push', 'ldr', 'ldrb', 'cmp', 'ldrne', 'blxne', 'pop', 'msr',
+                     'pop', 'push', 'ldr'], names
+    loads = pc_loads(code, t)
+    assert loads[0] == ('ldr', 'r0', on) and loads[1] == ('ldrne', 'ip', func), loads
+    assert loads[2] == ('ldr', 'pc', site + 4), loads
+
+
+def test_switch_jump_stub():
+    at, site, func, on = 0x0214DF40, 0x0205DD70, 0x0214F000, 0x0214DE5C
+    orig2 = (0xE92D4070, 0xE1A04000)                    # push {r4-r6, lr}; mov r4, r0
+    code = C._switch_jump_stub(at, site, orig2, func, on)
+    names = [i.mnemonic for i in ARM.disasm(code[:28], at)]
+    assert names == ['ldr', 'ldrb', 'cmp', 'ldrne', 'push', 'mov', 'ldr'], names
+    assert pc_loads(code, at) == [('ldr', 'ip', on), ('ldrne', 'pc', func), ('ldr', 'pc', site + 8)]
+
+
 def test_uses_pc():
     assert C._uses_pc(struct.pack('<I', 0xE59F0010), 0x02000000)        # ldr r0, [pc, #16]
     assert C._uses_pc(struct.pack('<I', 0xEB000000), 0x02000000)        # bl

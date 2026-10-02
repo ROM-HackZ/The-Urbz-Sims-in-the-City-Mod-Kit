@@ -240,6 +240,12 @@ def load_mod_list(kit_dir, config=None):
 
 def build(proj, out_path, mod_dirs=(), quiet=False):
     manifest = json.load(open(os.path.join(proj, 'manifest.json')))
+    from urbz_code import check_mod_set, CodeError
+    try:
+        for w in check_mod_set(mod_dirs):
+            print(w)
+    except CodeError as e:
+        raise BuildError(str(e))
     ov = Overlay(proj, mod_dirs)
     n_existing = len(manifest['entries'])
 

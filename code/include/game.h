@@ -39,6 +39,7 @@ typedef struct {
 /* ---- small helpers (code/include/runtime.c) --------------------------- */
 void *memcpy(void *d, const void *s, unsigned n);
 void *memset(void *d, int c, unsigned n);
+int memcmp(const void *a, const void *b, unsigned n);
 
 /* ---- people ------------------------------------------------------------- */
 #define current_area GAME_VAR(ADDR_current_area, u32)
@@ -51,3 +52,29 @@ void *memset(void *d, int c, unsigned n);
 #define schedule_lookup GAME_FN(ADDR_schedule_lookup, unsigned (*)(unsigned char_id, game_time_t *t))
 /* Create a person on the current screen (x, y in the area's map units, 16.16 fixed point). */
 #define spawn_npc    GAME_FN(ADDR_spawn_npc, void *(*)(unsigned char_id, int facing, int x, int y))
+
+/* ---- save file (docs/systems.md "Save file") ----------------------------- */
+typedef struct {                 /* save_ctx: the slot stream being written or read */
+    u8 pad0[0x20];
+    u8 *slot;                    /* +0x20 slot buffer (0xFE0 bytes; u16 checksum at +0xFDE) */
+    u8 pad1[0x84 - 0x24];
+    u8 *cursor;                  /* +0x84 next byte */
+    s32 bit;                     /* +0x88 bits used in the current byte (0 = aligned) */
+    u32 used;                    /* +0x8C bytes used (set after a full save/load) */
+} save_ctx_t;
+#define save_ctx            (*(volatile save_ctx_t *)ADDR_save_ctx)
+#define SAVE_SLOT_DATA      0xFDE          /* bytes of a slot before its checksum */
+#define save_serialize_all   GAME_FN(ADDR_save_serialize_all, u32 (*)(u32, u32, u32, u32))
+#define save_deserialize_all GAME_FN(ADDR_save_deserialize_all, u32 (*)(u32, u32, u32, u32))
+#define save_boot_read_slots GAME_FN(ADDR_save_boot_read_slots, u32 (*)(u32, u32, u32, u32))
+#define game_start           GAME_FN(ADDR_game_start, u32 (*)(u32, u32, u32, u32))
+#define area_enter_finish    GAME_FN(ADDR_area_enter_finish, u32 (*)(u32, u32, u32, u32))
+#define world_tick           GAME_FN(ADDR_world_tick, u32 (*)(u32, u32, u32, u32))
+/* Cartridge save memory (8 KB EEPROM). Return 1 on success. */
+#define eeprom_read   GAME_FN(ADDR_eeprom_read, int (*)(u32 offset, u32 len, void *dst))
+#define eeprom_write  GAME_FN(ADDR_eeprom_write, int (*)(u32 offset, u32 len, const void *src))
+
+/* ---- CPU caches (NitroSDK) ----------------------------------------------- */
+#define DC_FlushRange           GAME_FN(ADDR_DC_FlushRange, void (*)(const void *, u32))
+#define DC_WaitWriteBufferEmpty GAME_FN(ADDR_DC_WaitWriteBufferEmpty, void (*)(void))
+#define IC_InvalidateRange      GAME_FN(ADDR_IC_InvalidateRange, void (*)(const void *, u32))

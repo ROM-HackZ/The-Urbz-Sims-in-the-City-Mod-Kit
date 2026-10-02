@@ -51,6 +51,31 @@ save_finish_slot   = 0x0207EB28   # serialize + checksum (u16 at +0xFDE)
 save_write_slot    = 0x0207E850   # (int slot) EEPROM write
 save_read_slot     = 0x0207E87C   # (int slot) EEPROM read
 save_slot_valid    = 0x0207E8A8   # (int slot) u16 sum == 0
+save_read_bits     = 0x0207EC48   # (u8 *bits, int n)  mirror of save_write_bits
+save_read_nibbles  = 0x0207ECBC   # (u8 *vals, int n)
+save_read_bytes    = 0x0207ED78   # (void *dst, int n)  byte-aligns the cursor first, like save_write_bytes
+save_deserialize_all = 0x020356D8 # reads the whole game from the slot buffer (mirror of save_serialize_all)
+save_load_slot     = 0x0207EE00   # reset cursor, deserialize, count bytes (called from area_enter's load mode)
+save_game          = 0x0207EBAC   # (int slot) serialize + write + read back + verify (the Save Game screen)
+save_boot_init     = 0x0207EE88   # boot: check the header, read both slots (frame ~10, before the title)
+save_boot_read_slots = 0x0207E8E8 # boot: read and check both slots
+eeprom_read        = 0x02015860   # int (u32 offset, u32 len, void *dst)  cartridge save memory
+eeprom_write       = 0x020157D4   # int (u32 offset, u32 len, const void *src)  returns 1 on success; locks the card itself
+# hook sites used by the mod core (proven in the emulator 2026-10-02: boot frame 10-15, load and save see
+# the cursor go 0 -> 2,569 bytes on city.sav). The game never writes save memory 0x1FE0-0x1FFF (0xFF on a real save).
+save_boot_read_call = 0x0207EF00  # BL save_boot_read_slots in save_boot_init
+save_serialize_call = 0x0207EB44  # BL save_serialize_all in save_finish_slot (slot buffer zeroed just before)
+save_deserialize_call = 0x0207EE1C # BL save_deserialize_all in save_load_slot
+world_tick_call    = 0x0204C06C   # the only BL world_tick (city update 0x0204C014)
+area_enter_last_call = 0x0204C58C # last BL in area_enter (to 0x0204B19C), after the area and its people are set up
+area_enter_finish  = 0x0204B19C
+game_start         = 0x0204BA98   # first city entry after the title: loads the slot (load modes) or sets up a new game; runs once
+game_start_call    = 0x0204C268   # the BL game_start in area_enter
+new_game_init      = 0x02035C48   # new-game setup (seen once, from game_start, in a new game; not on a load)
+# NitroSDK cache maintenance (r0 = address, r1 = size)
+DC_FlushRange      = 0x020B7C70
+DC_WaitWriteBufferEmpty = 0x020B7C8C
+IC_InvalidateRange = 0x020B7C98
 
 # --- people
 talk_partner       = 0x021474F8   # u32 index of the character being talked to; name string = 481 + index

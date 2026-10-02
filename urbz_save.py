@@ -35,6 +35,46 @@ def slot_valid(buf, n):
     return u16sum(buf[s:s + SLOT_SIZE]) == 0 and any(buf[s:s + SLOT_SIZE - 2])
 
 
+def mod_block(slot):
+    """The mod core's block after the game's data: [(hash, data)] or None.
+    'MODS', u8 version 1, u8 0, then {u32 hash, u16 length, data} ..., then u32 0."""
+    data = bytes(slot[:SLOT_SIZE - 2])
+    i = data.find(b'MODS\x01\x00')
+    while i >= 0:
+        q, out = i + 6, []
+        while q + 4 <= len(data):
+            h = struct.unpack_from('<I', data, q)[0]
+            if h == 0:
+                return out
+            if q + 6 > len(data):
+                break
+            n = struct.unpack_from('<H', data, q + 4)[0]
+            if q + 6 + n > len(data):
+                break
+            out.append((h, data[q + 6:q + 6 + n]))
+            q += 6 + n
+        i = data.find(b'MODS\x01\x00', i + 1)
+    return None
+
+
+def switch_record(buf):
+    """The in-game mod switches (save memory 0x1FE0): [(hash15, on)] or None."""
+    r = bytes(buf[0x1FE0:0x2000])
+    if r[:4] != b'MODS' or r[4] != 1 or r[5] > 12:
+        return None
+    if sum(r[8:]) & 0xFFFF != struct.unpack_from('<H', r, 6)[0]:
+        return None
+    return [(e & 0x7FFF, e >> 15) for e in struct.unpack_from('<%dH' % r[5], r, 8)]
+
+
+def _mod_names():
+    import os
+    from urbz_code import name_hash
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mods')
+    names = os.listdir(root) if os.path.isdir(root) else []
+    return {name_hash(n): n for n in names}
+
+
 def load(path):
     buf = bytearray(open(path, 'rb').read())
     if len(buf) < 0x2000:
@@ -57,6 +97,16 @@ def info(path):
         print('slot %d: day %d %02d:%02d:%02d  money %d  (about %d of %d bytes used)'
               % (n + 1, day, h, m, sec, money, used, SLOT_SIZE))
         print('        needs: ' + ', '.join('%s %.1f' % (k, v) for k, v in zip(MOTIVES, mot)))
+        blk = mod_block(buf[s:s + SLOT_SIZE])
+        if blk is not None:
+            names = _mod_names()
+            print('        mod data: ' + (', '.join('%s %d bytes' % (names.get(h, '%08x' % h), len(d))
+                                                 for h, d in blk) or 'none'))
+    rec = switch_record(buf)
+    if rec is not None:
+        names = {h & 0x7FFF: n for h, n in _mod_names().items()}
+        print('mod switches: ' + (', '.join('%s %s' % (names.get(h, '%04x' % h), 'on' if on else 'off')
+                                            for h, on in rec) or 'none saved'))
 
 
 def main(argv):

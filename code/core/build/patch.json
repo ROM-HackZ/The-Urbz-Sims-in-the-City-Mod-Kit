@@ -1,0 +1,41 @@
+{
+ "relocs": [
+  520,
+  528,
+  788,
+  792,
+  876,
+  880,
+  1008,
+  1012,
+  1536,
+  1892,
+  2176,
+  2760,
+  2768,
+  3308
+ ],
+ "symbols": {
+  "apply_patches": 532,
+  "carry": 4464,
+  "carry_add": 884,
+  "carry_find": 672,
+  "carry_remove": 796,
+  "core": 3380,
+  "core_area_entered": 1908,
+  "core_boot": 1016,
+  "core_game_start": 2028,
+  "core_load": 2772,
+  "core_save": 2188,
+  "core_set": 0,
+  "core_set.tmp": 3440,
+  "core_tick": 1540,
+  "memcpy": 3320,
+  "memset": 3352
+ },
+ "bss": 3072,
+ "sources": {
+  "modcore.c": "ec016f7bb7f969e8abd2946b4398e4254108c27c",
+  "hooks.txt": "3966a469bd98b11a3c3ee6af61bb15c6c0d1a719"
+ }
+}

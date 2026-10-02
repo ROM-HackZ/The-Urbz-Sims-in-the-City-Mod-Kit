@@ -1,4 +1,6 @@
 {
   "name": "clock-speed",
-  "description": "Slower (or faster) days: change how much time passes per game tick"
+  "description": "Slower (or faster) days: change how much time passes per game tick",
+  "version": "1.0",
+  "author": "Urbz kit"
 }

@@ -53,17 +53,27 @@ def mod_dir(name, must_exist=True):
 
 
 def cmd_list(_):
+    from urbz_code import mod_info
     cfg = load_cfg()
     names = sorted(n for n in os.listdir(MODS)) if os.path.isdir(MODS) else []
     if not names:
         print('no mods yet. Create one with: python urbz_mod.py new my-first-mod')
     for n in names:
-        info = {}
-        mj = os.path.join(MODS, n, 'mod.json')
-        if os.path.exists(mj):
-            info = json.load(open(mj))
+        info = mod_info(os.path.join(MODS, n))
         order = cfg['enabled'].index(n) + 1 if n in cfg['enabled'] else None
-        print('%-4s %-28s %s' % ('#%d' % order if order else 'off', n, info.get('description', '')))
+        print('%-4s %-24s %-8s %s' % ('#%d' % order if order else 'off', n, info['version'],
+                                      info['description']))
+        extra = []
+        if info['author']:
+            extra.append('by ' + info['author'])
+        if info['toggle']:
+            extra.append('in-game switch, starts %s' % ('on' if info['default'] else 'off'))
+        if info['save_bytes']:
+            extra.append('saves up to %d bytes' % info['save_bytes'])
+        if info['conflicts']:
+            extra.append('conflicts with ' + ', '.join(info['conflicts']))
+        if extra:
+            print('     %s' % '; '.join(extra))
 
 
 def cmd_new(args):

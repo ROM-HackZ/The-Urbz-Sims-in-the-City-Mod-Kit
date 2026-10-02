@@ -13,6 +13,15 @@ void *memset(void *d, int c, unsigned n)
     return d;
 }
 
+int memcmp(const void *a, const void *b, unsigned n)
+{
+    const unsigned char *x = a, *y = b;
+    for (; n; n--, x++, y++)
+        if (*x != *y)
+            return *x - *y;
+    return 0;
+}
+
 /* ARMv5 has no divide instruction; the compiler calls these. */
 unsigned __aeabi_uidiv(unsigned n, unsigned d)
 {

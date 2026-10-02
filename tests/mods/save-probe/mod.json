@@ -1,0 +1,6 @@
+{
+  "name": "save-probe",
+  "version": "1.0",
+  "description": "Test mod for the mod core's save block: counts game minutes and saves the count",
+  "save_bytes": 8
+}

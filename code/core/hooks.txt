@@ -1,0 +1,8 @@
+# The mod core's game hooks (urbz_code.py applies them whenever the core is built in).
+# Each core function calls the original first, then the mods that are switched on.
+call save_boot_read_call   core_boot          # boot: read the switch record, apply data patches
+call world_tick_call       core_tick          # every city tick: on_tick, on_minute
+call area_enter_last_call  core_area_entered  # on_area_enter
+call game_start_call       core_game_start    # first city entry: new game -> on_load(0, 0)
+call save_serialize_call   core_save          # append the mod block to the save slot
+call save_deserialize_call core_load          # read it back

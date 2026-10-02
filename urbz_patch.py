@@ -104,6 +104,8 @@ def build(mod):
     """mod: a mod name under mods/, or a path to a mod folder."""
     mdir = mod if os.path.isdir(mod) and os.path.sep in mod else os.path.join(KIT, 'mods', mod)
     cdir = os.path.join(mdir, 'code')
+    if not os.path.isdir(cdir) and os.path.exists(os.path.join(mdir, 'hooks.txt')):
+        cdir = mdir                      # a code folder itself (the mod core: code/core)
     mod = os.path.basename(os.path.normpath(mdir))
     srcs = sorted(f for f in os.listdir(cdir) if f.endswith(('.c', '.s', '.S'))) \
         if os.path.isdir(cdir) else []
@@ -113,6 +115,8 @@ def build(mod):
     objcopy, nm = find_tool('llvm-objcopy'), find_tool('llvm-nm')
     readelf = find_tool('llvm-readelf')
     roots = hook_functions(cdir)
+    from urbz_code import EVENT_NAMES
+    keep = roots + EVENT_NAMES           # mod events (mod.h) are found by name, keep them
     with tempfile.TemporaryDirectory() as tmp:
         inc = os.path.join(tmp, 'include')
         os.makedirs(inc)
@@ -130,7 +134,7 @@ def build(mod):
             open(ld, 'w').write(LDSCRIPT % hex(base))
             elf = os.path.join(tmp, 'p%x.elf' % base)
             run([lld, '-T', ld, '--gc-sections', '-o', elf] +
-                [a for r in roots for a in ('-u', r)] + objs)
+                [a for r in keep for a in ('-u', r)] + objs)
             b = os.path.join(tmp, 'p%x.bin' % base)
             run([objcopy, '-O', 'binary', '--only-section=.text', '--only-section=.rodata',
                  '--only-section=.data', elf, b])
@@ -179,8 +183,8 @@ def build(mod):
                         for f in srcs + (['hooks.txt'] if os.path.exists(
                             os.path.join(cdir, 'hooks.txt')) else [])}}
     json.dump(info, open(os.path.join(out, 'patch.json'), 'w'), indent=1)
-    print('built mods/%s/code/build/patch.bin: %d bytes code+data, %d bytes zeroed, %d pointer(s) '
-          'to relocate, %d hook function(s)' % (mod, len(b0), bss, len(relocs), len(roots)))
+    print('built %s/build/patch.bin: %d bytes code+data, %d bytes zeroed, %d pointer(s) '
+          'to relocate, %d hook function(s)' % (os.path.relpath(cdir, KIT), len(b0), bss, len(relocs), len(roots)))
 
 
 def new(mod):

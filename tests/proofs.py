@@ -184,6 +184,160 @@ def p_npc_schedule_hook():
             answered, bool(found))
 
 
+# ---------------------------------------------------------------- Phase 5: mod platform
+
+CORE_MAGIC = 0x45524F43          # 'CORE': the mod core's state (code/core/core.h)
+TABLE_ROW = 80
+
+
+def core_request(rom, index, on):
+    """--poke that asks the mod core to switch mod `index` on/off at the next tick."""
+    _, addr = find_magic(rom, 1, CORE_MAGIC, 8)
+    return '0x%08X=%s' % (addr + 4, struct.pack('<I', 0x80000000 | on << 8 | index).hex())
+
+
+def table_on(rom, frames, index, pokes=()):
+    """The switch byte of mod `index` in the mod table (0x0214DE20)."""
+    a = CODE_BASE + 32 + TABLE_ROW * index + 28
+    return ram(rom, frames, '0x%08X:1' % a, pokes=pokes)['0x%08X:1' % a][0]
+
+
+def p_toggle_call():
+    """A call hook (npc-visit) switched off in-game: the game's own schedule answers again."""
+    rom, _, _ = build('toggle-call', [os.path.join(KIT, 'mods', 'npc-visit')])
+    reg = '0x%08X:0x8000' % CODE_BASE
+
+    def answered(region):
+        i = region.find(struct.pack('<I', 0x54495356))
+        return struct.unpack_from('<I', region, i + 4)[0]
+
+    def run(pokes):
+        early = answered(ram(rom, 30, reg, pokes=pokes)[reg])
+        r = ram(rom, 330, '0x0215E000:0xC000', reg, pokes=pokes)
+        pool, region = r['0x0215E000:0xC000'], r[reg]
+        boo = any(struct.unpack_from('<HH', pool, k + 8) == (7, 31) and
+                  struct.unpack_from('<H', pool, k + 0x146)[0] == 31 for k in range(0, len(pool) - 0x148, 4))
+        return answered(region) - early, boo, region[32 + 28]
+    on = run(())
+    off = run((core_request(rom, 0, 0),))
+    ok = on[0] > 0 and on[1] and on[2] == 1 and off[0] == 0 and not off[1] and off[2] == 0
+    return ok, 'on: hook answered %d time(s) in 300 frames, Bayou Boo present %s; switched off: answered %d, ' \
+        'present %s, switch byte %d' % (on[0], on[1], off[0], off[1], off[2])
+
+
+def p_toggle_data():
+    """A data hook (clock-speed) switched off and on in-game: the core restores and re-applies the bytes."""
+    rom, _, _ = build('toggle-data', [os.path.join(KIT, 'mods', 'clock-speed')])
+    secs = lambda t: t[2] * 3600 + t[3] * 60 + t[4] + t[5] / 30
+
+    def rate(pokes):
+        a = ram(rom, 2, '0x0214112C:6', pokes=pokes)['0x0214112C:6']
+        r = ram(rom, 62, '0x0214112C:6', '0x02113B60:2', pokes=pokes)
+        return secs(r['0x0214112C:6']) - secs(a), r['0x02113B60:2'].hex()
+    on = rate(())
+    req_off = core_request(rom, 0, 0)
+    off = rate((req_off,))
+    ok = abs(on[0] - 45) < 1 and on[1] == '010f' and abs(off[0] - 90) < 1 and off[1] == '0300'
+    return ok, 'on: %.1f s per 60 frames, table %s; switched off: %.1f s, table %s (original 90 s, 0300)' % (
+        on[0], on[1], off[0], off[1])
+
+
+SAVEGAME = os.path.join(KIT, 'verify', 'scripts', 'savegame.json')
+LOADGAME = os.path.join(KIT, 'verify', 'scripts', 'loadgame.json')
+
+
+def play_export(rom, name, start, script, pokes=()):
+    """Run an input script and export the cartridge save memory -> path of the .sav."""
+    os.makedirs(OUT, exist_ok=True)
+    sav = os.path.join(OUT, name + '.sav')
+    cmd = VERIFY + ['play', rom] + list(start) + ['--script', script, '--save',
+                                                  os.path.join(OUT, name + '.dst'), '--export-sav', sav]
+    for p in pokes:
+        cmd += ['--poke', p]
+    run(cmd)
+    return sav
+
+
+def with_switches(sav, out, entries):
+    """Copy of a .sav with a switch record [(mod folder name, on)] at 0x1FE0 (as the core writes it)."""
+    from urbz_code import name_hash
+    buf = bytearray(open(sav, 'rb').read())
+    rec = bytearray(b'\xff' * 32)
+    rec[0:6] = b'MODS' + bytes([1, len(entries)])
+    for k, (name, on) in enumerate(entries):
+        struct.pack_into('<H', rec, 8 + 2 * k, (name_hash(name) & 0x7FFF) | (0x8000 if on else 0))
+    struct.pack_into('<H', rec, 6, sum(rec[8:]) & 0xFFFF)
+    buf[0x1FE0:0x2000] = rec
+    open(out, 'wb').write(buf)
+    return out
+
+
+def probe_state(rom, start, frames, script=None):
+    """save-probe's counters after a run: dict."""
+    reg = '0x%08X:0x8000' % CODE_BASE
+    r = ram(rom, frames, reg, '0x02141FEC:4', '0x0214112C:6', start=start, script=script)
+    b = r[reg]
+    i = b.find(struct.pack('<I', 0x52505653))
+    names = 'magic minutes saves loads fresh last_loaded boots enables disables ticks'.split()
+    st = dict(zip(names, struct.unpack_from('<10I', b, i))) if i >= 0 else {}
+    st['area'] = struct.unpack('<I', r['0x02141FEC:4'])[0]
+    st['clock'] = r['0x0214112C:6']
+    return st
+
+
+def p_save_block():
+    """Per-mod save data: written after the game's data, read back after power-off, defaults on a
+    vanilla save, ignored by a vanilla build, and kept unchanged while the mod is switched off."""
+    import urbz_save
+    from urbz_code import name_hash
+    rom, _, _ = build('save-block', ['save-probe'])
+    van, _, _ = build('vanilla', [])
+    h = name_hash('save-probe')
+    fresh = probe_state(rom, ['--city'], 1)                       # city.sav is a vanilla save
+    s1 = play_export(rom, 'save-block-1', ['--city'], SAVEGAME)
+    buf = open(s1, 'rb').read()
+    blk = urbz_save.mod_block(buf[0x20:0x20 + urbz_save.SLOT_SIZE]) or []
+    mine = [d for hh, d in blk if hh == h]
+    saved = struct.unpack_from('<I', mine[0], 4)[0] if mine and mine[0][:4] == b'PRB1' else None
+    valid = urbz_save.slot_valid(bytearray(buf), 0)
+    back = probe_state(rom, ['--sav', s1], 30, LOADGAME)           # power-off, boot, Load-an-Urb
+    vback = probe_state(van, ['--sav', s1], 30, LOADGAME)          # a build without mods
+    off_sav = with_switches(s1, os.path.join(OUT, 'save-block-off.sav'), [('save-probe', False)])
+    s2 = play_export(rom, 'save-block-2', ['--sav', off_sav], LOADGAME)
+    s3 = play_export(rom, 'save-block-3', ['--state', os.path.join(OUT, 'save-block-2.dst')], SAVEGAME)
+    blk3 = urbz_save.mod_block(open(s3, 'rb').read()[0x20:0x20 + urbz_save.SLOT_SIZE]) or []
+    kept = [d for hh, d in blk3 if hh == h]
+    ok = (fresh.get('fresh') == 1 and fresh.get('loads') == 0 and saved and valid
+          and back.get('loads') == 1 and back.get('last_loaded') == saved
+          and vback['area'] == back['area'] != 82 and vback['clock'][:3] == back['clock'][:3]
+          and kept == mine)
+    return ok, ('vanilla save -> fresh %s; block %s, minutes %s, slot checksum %s; reloaded: loads %s, '
+                'value %s; vanilla build loads it: area %d (modded %d); switched off and saved again: '
+                'block kept unchanged %s') % (fresh.get('fresh'), [(hex(x), len(d)) for x, d in blk], saved,
+                                            'OK' if valid else 'BAD', back.get('loads'), back.get('last_loaded'),
+                                            vback['area'], back['area'], kept == mine)
+
+
+def p_switch_persist():
+    """A switch changed in the game is written to save memory at once and holds after power-off
+    (checked at the title screen, before any game is loaded)."""
+    import urbz_save, tempfile
+    rom, _, _ = build('switch-persist', [os.path.join(KIT, 'mods', 'npc-visit'),
+                                         os.path.join(KIT, 'mods', 'clock-speed')])
+    wait = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'wait.json')
+    json.dump([['wait', 60]], open(wait, 'w'))
+    sav = play_export(rom, 'switch-persist', ['--city'], wait, pokes=[core_request(rom, 1, 0)])
+    rec = urbz_save.switch_record(bytearray(open(sav, 'rb').read()))
+    from urbz_code import name_hash
+    want = [(name_hash('npc-visit') & 0x7FFF, 1), (name_hash('clock-speed') & 0x7FFF, 0)]
+    on_bytes = '0x%08X:%d' % (CODE_BASE + 32 + 28, TABLE_ROW + 1)
+    r = ram(rom, 1700, on_bytes, '0x02113B60:2', start=['--sav', sav])
+    b = r[on_bytes]
+    ok = rec == want and b[0] == 1 and b[TABLE_ROW] == 0 and r['0x02113B60:2'] == b'\x03\x00'
+    return ok, 'record in save memory: %s; after power-off at the title: npc-visit on=%d, clock-speed on=%d, ' \
+        'clock table %s (original 0300)' % (rec, b[0], b[TABLE_ROW], r['0x02113B60:2'].hex())
+
+
 def p_save_edit():
     """Money and a need edited in a save made later in the game (needs are 8.8 fixed point)."""
     import urbz_save
@@ -313,7 +467,9 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row)]
+          ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row),
+          ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
+          ('save-block', p_save_block), ('switch-persist', p_switch_persist)]
 
 
 def main(argv):
