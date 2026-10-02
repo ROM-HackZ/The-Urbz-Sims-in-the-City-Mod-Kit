@@ -49,3 +49,11 @@ state 0x23 (handler 0x02008874); player body drawn by FUN_0208327c(entity, look)
 - Walking to arbitrary points may hit walls: use object use spots and the game's way points.
 - Areas without matching objects: people keep the original wandering (no fake actions).
 - Story scripts moving people: we release anyone not in state 0x23/ours.
+
+## Status
+- **Step 1 done (2026-10-02).** Proven: PC test (4 weeks, nobody away from an original non-82 slot; 1303 of
+  2220 out-of-town hours became visits); emulator proofs `npc-life-stays` (exhausted Kris still goes to the roof
+  at 18:00, her usual place), `npc-life-visit` (Phoebe, starving at midnight in an out-of-town hour, is sent to
+  eat at 51 and the game walks her in there), `npc-life-days` (3 game days: 0 people away from where the game
+  puts them). Bug found and fixed on the way: the connector jumped the sim clock to the game clock, and a
+  one-minute gap at midnight skipped that hour's decisions; it now always advances minute by minute.

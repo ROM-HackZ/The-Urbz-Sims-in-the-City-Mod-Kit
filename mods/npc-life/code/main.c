@@ -77,9 +77,13 @@ void mod_on_minute(int n)
 {
     if (!npc_life.ready)
         start_fresh();
-    sim_advance(&sim, n);
-    if (sim.s.clock != week_minute())
-        sim_set_clock(&sim, week_minute());   /* stay in step with the game clock */
+    /* move to the game's time; never jump forward, or a skipped hour boundary means nobody
+       decides that hour (a clock 1 minute behind skipped midnight) */
+    unsigned now = week_minute(), ahead = (now + SIM_WEEK - sim.s.clock) % SIM_WEEK;
+    if (ahead <= 3 * 1440)
+        sim_advance(&sim, ahead);
+    else
+        sim_set_clock(&sim, now);             /* the clock went back: just follow it */
     npc_life.minutes += n;
     npc_life.hours = sim.hours;
 }

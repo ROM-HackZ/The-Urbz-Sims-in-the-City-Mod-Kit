@@ -411,23 +411,29 @@ def orig_timetables():
     return out
 
 
-def snapshots(rom, start_save, steps, every, ranges, pokes=()):
-    """One emulator run from a save's city state: RAM ranges every `every` frames."""
+def snapshots(rom, start_save, steps, every, ranges, pokes=(), goto=None):
+    """One emulator run from a save's city state: RAM ranges every `every` frames.
+    goto = an area to load first (through the game's own loader, after the pokes)."""
     sys.path.insert(0, os.path.join(KIT, 'verify'))
     import urbz_verify as V
     out = tempfile.mkdtemp(prefix='urbz-snaps-')
     script = []
     for k in range(steps):
         script += [['wait', every], ['shot', 's%02d' % k]]
-    res = V.run_child({'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
-                       'state': V.city_state(os.path.abspath(rom), None, start_save), 'script': script,
-                       'snap': list(ranges), 'poke': list(pokes)}, timeout=3000)
+    job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
+           'state': V.city_state(os.path.abspath(rom), None, start_save), 'script': script,
+           'snap': list(ranges), 'poke': list(pokes)}
+    if goto is not None:
+        pts = json.load(open(V.AREAS_JSON))['areas'][goto]['entry_points']
+        job['goto'] = (goto, pts[0]['id'] if pts else 0)
+    res = V.run_child(job, timeout=3000)
     return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
 
 
 def p_npc_life_days():
     """Three game days with NPC Life (fast clock: a game minute per tick): needs go up and down,
-    money rises at work and falls at meals, and people eat at food places or at home."""
+    money rises at work and falls at meals, people eat at food places, at home or where they are, and
+    nobody is ever away from where the original game puts them."""
     rom = npc_life_rom('npc-life-days', [os.path.join(TESTS, 'mods', 'fast-clock')])
     places = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'places.json')))['places']
     food = {int(a) for a, p in places.items() if 'food' in p['kinds']}
@@ -442,15 +448,24 @@ def p_npc_life_days():
                                      for a, b in zip(rows, rows[1:])))
     spent = sum(1 for c in who if any(b[c]['act'] == A_EAT and b[c]['money'] < a[c]['money']
                                       for a, b in zip(rows, rows[1:])))
-    meals = [(r[c]['place'], r[c]['home']) for r in rows for c in who if r[c]['act'] == A_EAT]
-    good_meals = sum(1 for place, home in meals if place in food or place == home)
+    # the sim's hour of the week at each snapshot -> the original timetable slot
+    so = first['sim'] - CODE_BASE
+    slots = [(lambda c: c // 60 % 24 * 7 + c // 1440)(struct.unpack_from('<H', r, so + 2)[0]) for r, _ in snaps]
+    usual = lambda c, k: tables[c][slots[k]]
+    meals = [(r[c]['place'], r[c]['home'], usual(c, k)) for k, r in enumerate(rows) for c in who
+             if r[c]['act'] == A_EAT]
+    good_meals = sum(1 for place, home, u in meals if place in food or place == home or place == u)
+    # nobody goes missing: in every snapshot, everyone is where the game puts them, or on a visit in
+    # an hour the game has them out of town (82)
+    misplaced = sum(1 for k, r in enumerate(rows) for c in who if usual(c, k) != 82 and r[c]['place'] != usual(c, k))
     last = npcl(snaps[-1][0])
     day0, day1 = struct.unpack_from('<h', snaps[0][1])[0], struct.unpack_from('<h', snaps[-1][1])[0]
     ok = (swing >= len(who) * 3 // 4 and paid >= 15 and spent >= 10 and meals and good_meals == len(meals)
-          and day1 - day0 >= 2 and last['hours'] >= 60)
+          and not misplaced and day1 - day0 >= 2 and last['hours'] >= 60)
     return ok, ('%d game hours simulated (day %d -> %d); hunger and energy both swung 25+ points for %d/%d '
-                'people; %d earned at work, %d paid for a meal; %d meals seen, all at food places or home: %s') % (
-        last['hours'], day0, day1, swing, len(who), paid, spent, len(meals), good_meals == len(meals))
+                'people; %d earned at work, %d paid for a meal; %d meals seen, all at food places, home or '
+                'where they were anyway: %s; people away from where the game puts them: %d') % (
+        last['hours'], day0, day1, swing, len(who), paid, spent, len(meals), good_meals == len(meals), misplaced)
 
 
 def walkin_run(rom, pokes=()):
@@ -469,22 +484,57 @@ def walkin_run(rom, pokes=()):
     return res, out
 
 
-def p_npc_life_walkin():
-    """A person walks into the player's area because the simulation sent her there."""
-    rom = npc_life_rom('npc-life-walkin')
-    res, out = walkin_run(rom)
+def p_npc_life_stays():
+    """Nobody goes missing: Kris, exhausted at 17:01, still keeps to the game's own timetable at 18:00
+    (the roof, 70): she rests there instead of turning up in the lobby (her home)."""
+    rom = npc_life_rom('npc-life-stays')
+    res, _ = walkin_run(rom)
     usual = orig_timetables()[KRIS - 31][18 * 7 + 0]
-    before = [r for r in res if r['hour'] < 18]
     after = [r for r in res if r['hour'] >= 18]
+    ok = usual == 70 and after and not any(r['present'] for r in res) and all(r['place'] == usual for r in after)
+    return ok, ('Kris exhausted; her timetable at 18:00 Monday: area %d; the sim keeps her at %s; in the lobby: %s') % (
+        usual, sorted(set(r['place'] for r in after)), [r['present'] for r in res])
+
+
+PHOEBE = 54                      # out of town at midnight going into Tuesday; knows 3 food places
+
+
+def visit_run(rom, goto=None):
+    """Clock set to Monday 23:58 and Phoebe starving (preconditions); RAM after 600 and 1500 frames."""
+    reg = '0x%08X:0x8000' % CODE_BASE
+    sim = npcl(ram(rom, 1, reg, start=['--from', 'lobby'])[reg])['sim']
+    _, core = find_magic(rom, 1, CORE_MAGIC, 8)
+    pokes = ['0x0214112E=173A',                                         # game clock 23:58
+             '0x%08X=00000000' % (core + 36),                           # core: resync minutes, don't replay
+             '0x%08X=%s' % (sim + 2, struct.pack('<H', 23 * 60 + 58).hex()),   # sim clock too
+             '0x%08X=00' % (sim + 8 + (PHOEBE - 31) * 16),              # Phoebe's hunger 0,
+             '0x%08X=08' % (sim + 8 + (PHOEBE - 31) * 16 + 10)]         # and not eating now (away)
+    snaps, out = snapshots(rom, 'lobby', 3, 600, [HEAP_SCAN, '0x0214112C:6'], pokes=pokes, goto=goto)
+    res = []
+    for mem, clk in snaps:
+        people, _ = sim_people(mem, sim)
+        res.append({'present': PHOEBE in people_in(mem), 'day': struct.unpack_from('<h', clk)[0], 'hour': clk[2],
+                    'act': people[PHOEBE - 31]['act'], 'place': people[PHOEBE - 31]['place']})
+    return res, out
+
+
+def p_npc_life_visit():
+    """A living city: in an hour the original game has someone out of town, the sim sends them out (Phoebe,
+    starving at midnight, goes to eat) and the game walks them into that place."""
+    rom = npc_life_rom('npc-life-visit')
+    first, _ = visit_run(rom)
+    place = first[-1]['place']
+    usual = orig_timetables()[PHOEBE - 31][0 * 7 + 1]                   # Tuesday 00:00
+    if place == 82:
+        return False, 'Phoebe stayed out of town (sim activity %d)' % first[-1]['act']
+    res, out = visit_run(rom, goto=place)
     shot = sorted(glob.glob(os.path.join(out, '*.png')))
     if shot:
-        shutil.copy(shot[-1], os.path.join(OUT, 'npc-life-walkin.png'))
-    ok = (usual == 70 and before and not any(r['present'] for r in before)
-          and after and after[-1]['present'] and after[-1]['act'] == A_SLEEP and after[-1]['place'] == 66)
-    return ok, ('Kris\'s usual timetable at 18:00 Monday: area %d; before 18:00 in the lobby: %s; after: '
-                'present %s, sim says %s at %d') % (
-        usual, [r['present'] for r in before], [r['present'] for r in after],
-        'asleep' if after and after[-1]['act'] == A_SLEEP else after and after[-1]['act'], after and after[-1]['place'])
+        shutil.copy(shot[-1], os.path.join(OUT, 'npc-life-visit.png'))
+    ok = usual == 82 and first[-1]['act'] == A_EAT and res[-1]['present'] and res[-1]['hour'] == 0
+    return ok, ('Phoebe at Tuesday 00:00 in the original game: area %d (out of town); the sim sends her to eat at '
+                '%d; there, she is present: %s (day %d %02d:00)') % (
+        usual, place, [r['present'] for r in res], res[-1]['day'], res[-1]['hour'])
 
 
 def p_npc_life_off():
@@ -699,7 +749,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
-          ('npc-life-walkin', p_npc_life_walkin), ('npc-life-off', p_npc_life_off),
+          ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-life-off', p_npc_life_off),
           ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 

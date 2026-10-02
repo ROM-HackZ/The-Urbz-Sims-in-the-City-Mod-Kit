@@ -19,7 +19,7 @@ int main(void)
     sim_reset(&sim, 8 * 60);                    /* Monday 8:00 */
     int lo_money[SIM_PEOPLE], hi_money[SIM_PEOPLE], starving[SIM_PEOPLE], worst_starving[SIM_PEOPLE];
     long need_sum[SIM_PEOPLE][N_NEEDS], acts[SIM_PEOPLE][N_ACTS];
-    int hungry_choices = 0, hungry_ate = 0, hours = 0;
+    int hungry_choices = 0, hungry_ate = 0, hours = 0, visits = 0, away_hours = 0;
     memset(need_sum, 0, sizeof need_sum);
     memset(acts, 0, sizeof acts);
     for (int i = 0; i < SIM_PEOPLE; i++) {
@@ -59,6 +59,12 @@ int main(void)
             for (int k = 0; k < 168; k++)
                 ok |= orig[i][k] == a;
             CHECK(ok, "%s sent to area %u, not in their timetable", names[i], a);
+            {   /* nobody goes missing: away from the original area only in out-of-town hours */
+                unsigned c = sim.s.clock, o = orig[i][(c / 60 % 24) * 7 + c / 1440];
+                CHECK(o == SIM_AWAY || a == o, "%s at %u but the game has them at %u", names[i], a, o);
+                visits += o == SIM_AWAY && a != SIM_AWAY;
+                away_hours += o == SIM_AWAY;
+            }
             starving[i] = p->need[N_HUNGER] < 10 ? starving[i] + 1 : 0;
             if (starving[i] > worst_starving[i]) worst_starving[i] = starving[i];
             (void)hunger_before;
@@ -97,6 +103,7 @@ int main(void)
     printf("\n%d city hours simulated; when hungry (<30) and not asleep or at work, %d%% of choices were to eat (%d/%d)\n",
            hours, hungry_choices ? hungry_ate * 100 / hungry_choices : 0, hungry_ate, hungry_choices);
     CHECK(hungry_choices == 0 || hungry_ate * 100 / hungry_choices >= 50, "hungry people don't eat");
+    printf("out-of-town hours turned into visits around the city: %d of %d\n", visits, away_hours);
 
     /* determinism after save/load: run both for a day from the same state */
     {

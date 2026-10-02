@@ -11,7 +11,7 @@ static const uint8_t base_decay[N_NEEDS] = { 6, 4, 5, 5, 2, 9, 5, 0 };
 static const int8_t gains[N_ACTS][N_NEEDS] = {
     /*            hung hyg  ener soc  comf blad fun  room */
     [A_HOME]   = { 0,  35,  2,   4,   8,  45,  18,   0 },
-    [A_SLEEP]  = { 3,   0, 16,   5,   4,   5,   5,   0 },
+    [A_SLEEP]  = { 3,   7, 16,   5,   6,   5,   5,   0 },
     [A_WORK]   = { 0,   0, -1,   7,   0,  25,   2,   0 },
     [A_EAT]    = { 45,  0,  0,   4,   2,  12,   3,   0 },
     [A_FUN]    = { 0,   0,  0,   6,   0,  12,  30,   0 },
@@ -144,47 +144,60 @@ static void consider(choice_t *best, int act, unsigned area, int cost, int score
     }
 }
 
+/* Pick what a person does this hour.
+   Where: always the area of their original timetable (nobody goes missing from where the game puts them).
+   Only in hours the original game has them out of town (82) are they free to visit places they know
+   (cafés, clubs, parks, home). What: the activity that area supports and their needs call for. */
 static void decide(sim_t *sim, int i, unsigned hour, unsigned wd)
 {
     sim_person_t *p = &sim->s.p[i];
     const sim_tweak_t *tw = &sim_tweaks[i];
     const uint8_t *t = sim->orig[i];
     unsigned usual = t[slot(hour, wd)];
+    int free = usual == SIM_AWAY;                      /* out of town in the original game: free time */
     int night = hour >= 22 || hour < 6;
     int broke = p->money < 40;
-    choice_t best = { A_USUAL, (uint8_t)usual, 0, -1000 };
+    choice_t best = { free ? A_AWAY : A_USUAL, (uint8_t)usual, 0, -1000 };
     int hungry = p->need[N_HUNGER] < 30 ? 20 : 0;     /* a proper meal comes first */
     p->flags &= ~1;
 
-    /* hard rules: keep sleeping through the night while tired */
+    /* keep sleeping through the night while tired (if they may stay where they are) */
     if (p->act == A_SLEEP && (night || hour < 8) && p->need[N_ENERGY] < 90 &&
-        p->need[N_HUNGER] > 10 && p->need[N_BLADDER] > 10) {
+        p->need[N_HUNGER] > 10 && p->need[N_BLADDER] > 10 && (free || p->place == usual)) {
         sim->plan[i][slot(hour, wd)] = p->place;
         return;
     }
 #define J (int)(rnd(sim) % 7)
 #define MOVE(a) ((a) == p->place ? 6 : -4)
+#define HERE(a) (free || (a) == usual)
     /* their usual place this hour (the game's own timetable) */
-    if (usual == SIM_AWAY)
+    if (free)
         consider(&best, A_AWAY, usual, 0, value(p, A_AWAY, tw) + 30 + J);
     else
-        consider(&best, A_USUAL, usual, 0, value(p, A_USUAL, tw) + 18 + MOVE(usual) + J);
+        consider(&best, A_USUAL, usual, 0, value(p, A_USUAL, tw) + 18 + J);
     /* home */
-    if (p->home != NONE) {
+    if (p->home != NONE && HERE(p->home)) {
         consider(&best, A_HOME, p->home, 0, value(p, A_HOME, tw) + MOVE(p->home) + J);
         consider(&best, A_SLEEP, p->home, 0, value(p, A_SLEEP, tw) + (night ? 25 : -20) +
                  (p->need[N_ENERGY] < 25 ? 40 : 0) + MOVE(p->home) + J);
         consider(&best, A_EAT, p->home, 3, value(p, A_EAT, tw) - 8 + hungry + MOVE(p->home) + J);  /* groceries */
     }
+    /* sleep is invisible: at night they rest wherever the game has them */
+    if (!free && usual != p->home && (night || p->need[N_ENERGY] < 20))
+        consider(&best, A_SLEEP, usual, 0, value(p, A_SLEEP, tw) + (night ? 25 : 0) +
+                 (p->need[N_ENERGY] < 25 ? 40 : 0) + J);
     /* their job, during their usual hours there */
     if (p->work != NONE && usual == p->work)
-        consider(&best, A_WORK, p->work, 0, value(p, A_WORK, tw) + 60 + (broke ? 30 : 0) +
-                 MOVE(p->work) + J);
+        consider(&best, A_WORK, p->work, 0, value(p, A_WORK, tw) + 60 + (broke ? 30 : 0) + J);
+    /* a quick bite where they are (a break at work, a snack while out) */
+    if (!free && p->need[N_HUNGER] < 25)
+        consider(&best, A_EAT, usual, p->money >= 4 ? 4 : 0, value(p, A_EAT, tw) - 12 + hungry +
+                 (p->need[N_HUNGER] < 15 ? 40 : 0) + J);           /* starving beats everything */
     /* places they go to that offer something */
     for (int j = 0; j < sim->n_allowed[i]; j++) {
         unsigned a = sim->allowed[i][j];
         const sim_place_t *pl = place_of(a);
-        if (!pl || a == SIM_AWAY)
+        if (!pl || a == SIM_AWAY || !HERE(a))
             continue;
         int bonus = MOVE(a) + (a == usual ? 10 : 0) + J;
         if (pl->cost > p->money) {
@@ -203,6 +216,7 @@ static void decide(sim_t *sim, int i, unsigned hour, unsigned wd)
     }
 #undef J
 #undef MOVE
+#undef HERE
     p->act = best.act;
     p->place = best.area;
     p->money -= best.cost;

@@ -30,9 +30,13 @@ then build the ROM as usual.
 
 - `sim/npc_sim.c` is the simulation: plain C with no game addresses, so it also runs on the PC
   (`sim/test_sim.c`) and could move to a PC version of the game later.
-- People only go to areas from their own original timetable, so nobody is sent somewhere the
-  game can't show them. Home = where they are at night, job = where they are on weekday
-  working hours (both read from the timetable when the game starts).
+- Nobody goes missing (Phase 6): every hour, each person is in the area their original
+  timetable gives them, and the sim only picks what they do there (work, eat a snack, rest).
+  Only in hours the original game has someone out of town (area 82) are they free: then they
+  may visit a place they know (a café when hungry, a club, a park, home). Sleep is invisible:
+  at night they rest wherever the game has them. Home = where they are at night, job = where
+  they are on weekday working hours (both read from the timetable when the game starts).
+- The sim follows the game clock minute by minute, so no hour's decision is ever skipped.
 - `code/main.c` connects it to the game: the game reads everyone's timetable through 5 words
   (`schedule_table_ptr_1..5`); `code/hooks.txt` points them at the simulation's live timetables
   (`u32 ... @live_table`). Quest rules in the game are checked before the timetable, so the
