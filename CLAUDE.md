@@ -1,7 +1,7 @@
 # Working on this repo (for Claude sessions)
 
 Mod kit and reverse-engineering notes for *The Urbz: Sims in the City* (DS, USA). Owner: Jonathan.
-Read **PLAN.md** first (goal, status, next phase), then **docs/systems.md** (engine facts).
+Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next phase), then **docs/systems.md** (engine facts).
 
 ## Setup in a fresh environment
 - The ROM is never in git. Ask Jonathan for it if it isn't already in the environment
