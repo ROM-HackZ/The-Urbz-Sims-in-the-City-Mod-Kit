@@ -1,6 +1,6 @@
 # The Urbz DS: the plan
 
-*Living document. Last updated 2026-10-02 (end of Phase 6: NPC Life v2, visible actions).*
+*Living document. Last updated 2026-10-02 (end of Phase 7: NPC Life v3, routines and drawn animations).*
 
 ## Goal
 
@@ -39,7 +39,8 @@ that hook).
 | - | Gap-closing pass (all known gaps from phases 1-4) | Done, see below |
 | 5 | Mod platform (in-game switches, mod save data, Mods page, manager) + NPC Life v1 | Done (Windows check of the manager open) |
 | 6 | NPC Life v2: visible actions, placement that keeps to the original timetables, player-body prototype | Done (Jonathan's check on the Thor open) |
-| 7 | Content wiring: new items, clothes, characters | **Next** |
+| 7 | NPC Life v3: daily routines (no needs), drawn animations pipeline, new assets that load | Done (art to draw; Jonathan's check on the Thor open) |
+| 8 | Content wiring: new items, clothes, characters | **Next** |
 
 ## What exists (phases 1-4)
 
@@ -146,7 +147,13 @@ Not done / later: eating at real food objects (the places we tried have none: pe
 the needs that objects restore don't flow back into the sim yet, the 28 people without object
 animations can't sit (the player body could fix that), people don't say different things yet.
 
-## Phase 7: Content wiring
+## Phase 7: NPC Life v3 (routines) and drawn animations — done
+
+Plan and status: `docs/plan-phase7.md`. People keep their own look; no needs, money or rent; daily routines
+that vary from day to day; `urbz_anims.py` to draw the missing animations per person; the builder now makes
+added assets actually load (the game's asset tables are moved to fit them).
+
+## Phase 8: Content wiring
 
 - **Outfits:** clothes are palette choices (`docs/player-look.md`): new colours = palette rows in 11542 +
   UI limits; a new shirt style = a new case in the colour-composition code (`FUN_02083538`).
@@ -154,7 +161,7 @@ animations can't sit (the player body could fix that), people don't say differen
   sprite sheets (appended assets, composite PNG import) + the UI limit (to find).
 - **Catalog objects:** append rows to the object tables (`0x020E6D48`, `0x020E8B70`, descriptors
   `0x020EAF84`) — the tables are in arm9, so appending means moving them into a code-mod region and
-  re-pointing their users.
+  re-pointing their users. New art can now be added as new assets (Phase 7 fixed asset loading).
 - **Characters:** new character ids need entries in the schedule, palette (`0x020D0054`) and name tables.
 
 **Gate:** buy and use/wear the new thing in the harness.

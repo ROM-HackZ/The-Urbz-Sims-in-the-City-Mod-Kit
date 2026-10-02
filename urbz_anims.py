@@ -39,6 +39,7 @@ CHUNK_FLAGS = 0x60                        # EA-compressed chunk, like the game's
 GROUPS = {
     'sit': (45, [0x6B, 0x6C, 0x6D]),     # sit down, stay seated (chairs, sofas, benches)
     'eat': (45, [0x41]),                 # eat a snack standing (fridge, vending, grill)
+    # (vending machines also play 0x7F, pressing the button: nobody but the player has it)
     'toilet': (54, [0x7B]),
     'shower': (45, [0x69]),
     'sleep': (45, [0x21, 0x20]),         # lie down, get up (beds)

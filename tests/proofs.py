@@ -586,6 +586,39 @@ def p_npc_act():
         sits, wrong or 'none', len(talk), ['%02x' % g for g in gest], res[-1]['sent'])
 
 
+def routine_day(cid, week=0, wd=0):
+    """[(minute of the day, area, activity name)] from the routines on the PC (run_test.py day)."""
+    out = run([sys.executable, os.path.join(KIT, 'mods', 'npc-life', 'sim', 'run_test.py'), 'day', str(cid),
+               str(week), str(wd)])
+    rows = []
+    for line in out.splitlines()[1:]:
+        hm, _, area, act = line.split(None, 3)
+        rows.append((int(hm[:2]) * 60 + int(hm[3:]), int(area), act))
+    return rows
+
+
+def p_npc_act_eat():
+    """Routines drive object use: Kris's routine has breakfast at home (the Tower Lobby, 66) on Monday of
+    week 0 (time from the routines on the PC); at that time NPC Life sends her to the vending machine and
+    she eats (state 0x11, animation 0x41: only she has it)."""
+    eat = next(((m, a) for m, a, act in routine_day(KRIS) if act == 'eating' and a == 66), None)
+    if not eat:
+        return False, 'no breakfast at home in Kris\'s routine'
+    m = eat[0] - 4                                                      # a few minutes before
+    rom = npc_life_rom('npc-act-eat')
+    _, core = find_magic(rom, 1, CORE_MAGIC, 8)
+    pokes = ['0x0214112E=%02x%02x' % (m // 60, m % 60), '0x%08X=00000000' % (core + 36)]
+    snaps, out = snapshots(rom, 'lobby', 16, 150, [HEAP_SCAN], pokes=pokes)
+    seen = [people_states(mem).get(KRIS) for mem, in snaps]
+    ate = any(s and s[0] == 0x11 and s[2] == 0x41 for s in seen)
+    shot = sorted(glob.glob(os.path.join(out, '*.png')))
+    if ate:
+        k = next(i for i, s in enumerate(seen) if s and s[0] == 0x11 and s[2] == 0x41)
+        shutil.copy(shot[k], os.path.join(OUT, 'npc-act-eat.png'))
+    return ate, 'breakfast at %02d:%02d in the lobby; Kris (state, action, animation) every 150 frames: %s' % (
+        eat[0] // 60, eat[0] % 60, ['%x/%x/%x' % s if s else '-' for s in seen])
+
+
 def p_npc_act_release():
     """Switching NPC Life off in the game releases everyone acting: nobody stays seated or chatting, and
     they go back to the game's own wandering (state 0x23, actions 7/0x19)."""
@@ -867,7 +900,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
-          ('npc-act-release', p_npc_act_release), ('npc-body-prototype', p_npc_body_prototype),
+          ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 

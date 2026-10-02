@@ -376,6 +376,9 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   set have 0x20/0x21/0x69/0x6B-0x6D/0x7B. Where they could be used (docs/objects.md "Objects placed by
   area records"): seats and invisible park benches in 10+ public areas, toilets in 5, vending machines in 3,
   grills in 3, showers in 5, beds (mostly invisible ones) in 6.
+- **Start checks know animations:** the vending machine's (0x020ADB90) refuses a townsperson without 0x7F (press
+  the button) and 0x41 (eat); nobody but the player has 0x7F. A person sent anyway stands still for that
+  part, then eats (proof `npc-act-eat`).
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.

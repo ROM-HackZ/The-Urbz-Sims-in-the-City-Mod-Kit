@@ -11,9 +11,10 @@
    - a use is ended after a while (stop byte 3: they stand up and wander again), at once if the
      game wants them to leave, and for everyone when NPC Life is switched off;
    - a person stuck walking (no path) is put back to wandering;
-   - only the 8 people with the game's object animations (sit 0x6B, toilet 0x7B) use objects; the
-     others chat instead: one walks up to another, they face each other and take turns gesturing
-     (0x87, 0x78, 0xDB: the gestures 20 of them have). */
+   - a person only uses an object if they have the animation it plays (activity_anim: the 8 with
+     the game's object set, or anyone given new art with urbz_anims.py); otherwise, or when there is
+     nothing to use, they chat: one walks up to another, they face each other and take turns
+     gesturing (0x87, 0x78, 0xDB: the gestures 20 of them have). */
 
 #define MAX_ACTORS 4
 #define ST_WANDER  0x23
@@ -31,7 +32,7 @@ typedef struct {
     u8 who, need, obj_number, kind;
     u32 since, until;         /* ticks */
     u8 *partner;              /* chat: the other person */
-    u8 partner_who, phase, turn, pad;
+    u8 partner_who, phase, turn, ract;      /* ract: their routine's activity when this started */
     u32 next_gesture;
 } actor_t;
 
@@ -135,7 +136,21 @@ static int acting(u8 *e)
     return 0;
 }
 
-static int uses_objects(int who) { return has_anim(who, 0x6B); }
+/* The animation an object activity plays on a person (docs/systems.md): a person only uses an object
+   when they have it (the 8 with the game's object set, plus anyone given new art: urbz_anims.py).
+   Activities not listed are not offered to townspeople. */
+static int activity_anim(int activity)
+{
+    switch (activity) {
+    case 56: return 0x6B;                             /* Sit (chairs, sofas, benches) */
+    case 57: return 0x21;                             /* Sleep (beds, benches, sofas) */
+    case 60: return 0x69;                             /* Take a Shower */
+    case 66: return 0x7B;                             /* Use (toilet) */
+    case 12: case 13: case 35: case 90: case 113: case 115:
+        return 0x41;                                  /* grill, have/buy a snack, snow cone, popcorn */
+    }
+    return 0;
+}
 
 static const u8 gestures[3] = { 0x87, 0x78, 0xDB };
 
@@ -223,10 +238,15 @@ static u8 *find_object(u8 *person, int need, int *activity, int *number)
         for (int k = 0; k < 7 && acts[k]; k++) {
             if (*(u16 *)(ADDR_activity_need_table + acts[k] * 4) != need)
                 continue;
-            /* free to use (the game's check), and may start it: seats refuse anyone but the
-               player (activity 0x38), though townspeople have sit animations (proof npc-act-sit) */
+            int anim = activity_anim(acts[k]);
+            if (!anim || !has_anim(E16(person, 10), anim))
+                continue;                                 /* they couldn't show it */
+            /* free to use (the game's check), and may start it. The game's own start checks refuse
+               townspeople seats (activity 0x38) and snacks without 0x7F (press the button), which
+               nobody has; with the sit / eat animation they look right, so those two are skipped. */
+            int lenient = acts[k] == ACT_SIT || anim == 0x41;
             if (((int (*)(void *, void *))CLASS(num, 0x1C))(node, person) != 1 ||
-                (acts[k] != ACT_SIT && ((int (*)(void *, void *, int))CLASS(num, 8))(node, person, acts[k]) != 1))
+                (!lenient && ((int (*)(void *, void *, int))CLASS(num, 8))(node, person, acts[k]) != 1))
                 continue;
             int d = dist2(person, ent);
             if (d < best_d) {
@@ -292,6 +312,7 @@ static int start_chat(int slot, u8 *e, int who)
     a->since = act_ticks;
     a->need = NEED_SOCIAL;
     a->obj_number = 0;
+    a->ract = (u8)sim_act_at(&sim, who - 31, week_minute());
     set_action(e, ACT_OURS);
     play_anim(e, 0x0A);
     set_action(best, ACT_OURS);                       /* they wait for us */
@@ -371,11 +392,6 @@ static void start_one(void)
         int i = who - 31;
         u8 want[6];
         rest_until[i] = act_ticks + 300;             /* look again in 10 s whatever happens */
-        if (!uses_objects(who)) {
-            if (start_chat(slot, e, who))
-                return;
-            continue;
-        }
         int n = wants(i, want);
         for (int w = 0; w < n; w++) {
             int activity, number;
@@ -399,6 +415,7 @@ static void start_one(void)
             a->need = want[w];
             a->obj_number = number;
             a->kind = K_OBJECT;
+            a->ract = (u8)sim_act_at(&sim, i, week_minute());
             a->since = act_ticks;
             a->until = act_ticks + (want[w] == NEED_BLADDER || want[w] == NEED_HYGIENE ? 1800 :
                                     450 + act_rnd() % 600);           /* sit for 15-35 s */
@@ -408,6 +425,8 @@ static void start_one(void)
             npc_act.last_obj = number;
             return;                                  /* one new action per round */
         }
+        if (start_chat(slot, e, who))                /* nothing to use here they can show: a chat */
+            return;
     }
 }
 
@@ -426,6 +445,12 @@ static void act_tick(void)
             if (a->kind == K_CHAT)
                 resume(a->partner, a->partner_who);
             a->e = 0;
+            continue;
+        }
+        if (a->ract != sim_act_at(&sim, a->who - 31, week_minute())) {
+            int who = a->who;
+            finish(a, 1);                            /* their day moved on (e.g. breakfast time) */
+            rest_until[who - 31] = act_ticks + 30;   /* pick the next thing almost at once */
             continue;
         }
         if (a->kind == K_CHAT) {

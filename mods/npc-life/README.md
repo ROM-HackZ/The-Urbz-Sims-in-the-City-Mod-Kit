@@ -42,19 +42,21 @@ then build the ROM as usual.
   (`u32 ... @live_table`). Quest rules in the game are checked before the timetable, so the
   story still wins.
 
-## Visible actions (v2, Phase 6)
+## Visible actions
 
-In the area you're in, people act out what they're doing, with the game's own objects and
-animations (`code/act.inc`):
-- the 8 people who have the game's object animations (Cannonball Coleman, Dusty Hogg, Ewan
-  Watahmee, Kris Thistle, Misty Waters, Olde Salty, Phoebe Twiddle, Sue Pirnova) walk to a chair
-  and sit down when they're eating (where there's no food object), relaxing or taking a break;
-  they use the toilet now and then;
-- the others chat: one walks up to another, they face each other and take turns gesturing;
-- at most 4 actions at once; a person rests 20-50 s between actions; nobody is taken from a
-  story scene, from talking to you, or from leaving for their next place;
+In the area you're in, people act out their routine with the game's own objects and animations
+(`code/act.inc`):
+- someone eating walks to a vending machine, grill or fridge and eats; with no food object there,
+  they sit down at a table; relaxing at home, they sit on a bench or sofa; at night, a bed if
+  there is one; now and then, the toilet; washing time, a shower;
+- a person only does what they have the animation for (only Kris can eat; 8 people can sit,
+  shower, sleep and use the toilet; anyone you give new art with `urbz_anims.py` joins in);
+- everyone else, or when there's nothing to use, chats: one walks up to another, they face each
+  other and take turns gesturing;
+- at most 4 actions at once; when their routine moves on (breakfast time), they stop and go;
+  nobody is taken from a story scene, from talking to you, or from leaving for their next place;
 - switched off on the Mods page, everyone stops and goes back to the game's own wandering.
-- The info page shows "sitting here" / "chatting here" for people acting it out.
+- The info page shows "eating here" / "chatting here" for people acting it out.
 
 ## Not yet
 

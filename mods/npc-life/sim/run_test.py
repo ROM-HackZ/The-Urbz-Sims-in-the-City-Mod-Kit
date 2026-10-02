@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Build and run the NPC Life simulation test on the PC (needs a C compiler: clang or gcc).
 
+  python run_test.py                      4 city weeks: a report and PASS/FAIL
+  python run_test.py day <id> [week] [weekday]   one person's day, minute by minute
+
 The people's original timetables come from your own extracted game (project/base.nds) and
 are written to orig_tables.h here at test time; that file is never committed."""
 import os, shutil, struct, subprocess, sys, tempfile
@@ -40,10 +43,11 @@ def main():
     cc = shutil.which('clang') or shutil.which('gcc') or shutil.which('cc')
     if not cc:
         sys.exit('no C compiler found (install clang or gcc)')
+    day = sys.argv[1:2] == ['day']
     exe = os.path.join(tempfile.mkdtemp(), 'test_sim')
-    subprocess.check_call([cc, '-O2', '-Wall', '-o', exe, os.path.join(HERE, 'test_sim.c'),
+    subprocess.check_call([cc, '-O2', '-Wall', '-o', exe, os.path.join(HERE, 'day.c' if day else 'test_sim.c'),
                            os.path.join(HERE, 'npc_sim.c'), '-I', HERE])
-    sys.exit(subprocess.call([exe]))
+    sys.exit(subprocess.call([exe] + sys.argv[2:]))
 
 
 if __name__ == '__main__':

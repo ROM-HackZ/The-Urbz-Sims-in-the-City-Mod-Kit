@@ -36,3 +36,13 @@ Decided with Jonathan (2026-10-02):
   loaded added assets (fixed-size asset tables); the builder now moves them when mods add assets (hidden
   generated mod `new-assets`; mods can be `"hidden": true`). Proof `npc-anims`: Gramma Hattie gets a
   placeholder sit animation built at test time and sits with it; the build runs in melonDS.
+- **Step 4 done.** The behaviour layer follows the routine: a person uses an object only if they have the
+  animation it plays (sit 0x6B, sleep 0x21, shower 0x69, toilet 0x7B, snacks 0x41), otherwise they chat; an
+  action ends as soon as their routine moves on (a game half hour is ~20 real seconds). The game's own start
+  checks refuse townspeople seats and snacks without 0x7F (nobody has it); those two are skipped. Proof
+  `npc-act-eat`: Kris's breakfast time (from `run_test.py day 45`) in the Tower Lobby, she eats at the
+  vending machine. `npc-act`, `npc-act-release` still pass.
+
+## What Jonathan can do now
+- Draw animations: `python urbz_anims.py template my-anims <person> sit` (README "New animations").
+- See anyone's day: `python mods/npc-life/sim/run_test.py day <id> [week] [weekday]`.

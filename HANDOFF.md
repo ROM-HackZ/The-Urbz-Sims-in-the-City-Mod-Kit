@@ -1,6 +1,6 @@
-# Handoff (2026-10-02, end of Phase 6)
+# Handoff (2026-10-02, end of Phase 7)
 
-For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase6.md`.
+For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase7.md`.
 
 ## The project
 Jonathan's "dream version" of *The Urbz: Sims in the City* (DS, USA, ROM SHA1
@@ -26,10 +26,17 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
     waits for its window and measures the menu bar (the melonds proof now matches DeSmuME 100%),
     urbz_patch tracks `.inc`/`.h` files, test mod `tests/mods/obj-probe`.
 
+- **Phase 7 (same session), decided with Jonathan:** people keep their own look (the player-body prototype stays
+  a prototype); NPC Life has **no needs, money or rent** any more: daily routines from the clock and the place,
+  with per-person habits and daily variation, nothing saved (week plan from the game's week number). New
+  animations come from **drawn art**: `urbz_anims.py` (template / build). Found and fixed: the game never
+  loaded added assets; `urbz_build.py` now moves its asset tables (hidden generated mod `new-assets`).
+  Proofs: npc-life-days/stays/visit/reload, npc-act, npc-act-eat, npc-act-release, npc-anims.
+
 ## Next
-- Jonathan tests NPC Life v2 and the prototype on the Thor and decides about the player body.
-- Phase 7 (content) per PLAN.md, or more NPC life: needs from object use flowing back into the sim,
-  real food objects (survey which areas have hunger activities), dialogue that reflects needs/money.
+- Jonathan tests NPC Life v3 on the Thor (Slice O' Life Pizza around 5 pm on a weekday: people sit and chat;
+  the Tower Lobby around 8 am: Kris eats at the vending machine) and starts drawing (README "New animations").
+- Phase 8 (content) per PLAN.md.
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
@@ -54,6 +61,10 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - Only 8 people have object animations (33 39 41 45 52 53 54 58); seats refuse townspeople in their own
   check. Person 43 is Gramma Hattie (names: string 512 + id - 31).
 - To see Kris in melonDS: `urbz_save.py set verify/saves/city.sav x.sav --clock 16:30` (King Tower roof, 16-19h).
+- Anyone's day from the routines: `python mods/npc-life/sim/run_test.py day <id> [week] [weekday]`.
+- The game's start checks know animations (vending needs 0x7F + 0x41); NPC Life skips them for seats and snacks.
+- Added assets need the moved asset tables (urbz_build does it); keep one mod adding assets (numbers are
+  baked into urbz_anims' generated data).
 
 ## Rules (from CLAUDE.md)
 - Never commit ROMs, `project/`, `build/`, `*.dst`, or anything extracted from the game.
@@ -64,6 +75,5 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 ## Working with Jonathan
 - Plain language, short sentences, say what's proven vs not. He uses "plan mode" by asking in a message.
 - Don't spawn heavy subagents casually.
-- Open items for him: try NPC Life v2 on the Thor (Slice O' Life Pizza around 5 pm on a weekday: people sit and chat);
-  switch on npc-body-proto and find Kris on the King Tower roof between 4 and 7 pm; say whether to roll
-  the player body out; `manager.bat` on Windows.
+- Open items for him: try NPC Life v3 on the Thor; draw animations; `manager.bat` on Windows. He chose not to
+  roll out the player body (npc-body-proto stays, off by default).
