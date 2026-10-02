@@ -153,7 +153,7 @@ Plan and status: `docs/plan-phase7.md`. People keep their own look; no needs, mo
 that vary from day to day; `urbz_anims.py` to draw the missing animations per person; the builder now makes
 added assets actually load (the game's asset tables are moved to fit them).
 
-## Phase 8: Content wiring
+## Phase 8: Content wiring (plan: docs/plan-phase8.md: clothes and catalog objects first)
 
 - **Outfits:** clothes are palette choices (`docs/player-look.md`): new colours = palette rows in 11542 +
   UI limits; a new shirt style = a new case in the colour-composition code (`FUN_02083538`).
