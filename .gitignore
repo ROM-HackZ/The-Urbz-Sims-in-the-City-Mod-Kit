@@ -27,3 +27,4 @@ mods/*
 !mods/npc-life/
 mods/npc-life/sim/orig_tables.h
 tests/mods/*/code/build/
+verify/melonds/

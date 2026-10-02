@@ -534,6 +534,38 @@ def p_npc_life_page():
         'build/proofs/npc-life-page-*.png' % open_menu
 
 
+def p_melonds():
+    """The NPC Life build in melonDS (stricter than DeSmuME): boots, loads the city save, and the
+    Mods page matches DeSmuME's. Skipped (FAIL with a message) if melonDS isn't set up."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_melon as M
+    if not M.available():
+        return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
+    rom = npc_life_rom('melonds', [os.path.join(KIT, 'mods', 'clock-speed')])
+    taps = [['wait', 120], ['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 90],
+            ['shot', 'mods']]
+    load = [['wait', 600]] + [['press', 'START'], ['wait', 300]] * 4 + [['wait', 300], ['press', 'DOWN', 10],
+            ['wait', 60], ['press', 'A', 10], ['wait', 150], ['touch', 220, 117, 15], ['wait', 600],
+            ['shot', 'city']]
+    boot = dict(M.run(rom, M.BOOT_SCRIPT))
+    _, spread = M.screen_stats(boot['boot-20s'])
+    shots = dict(M.run(rom, load + taps, sav=os.path.join(KIT, 'verify', 'saves', 'city.sav')))
+    script = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'mods.json')
+    json.dump(taps, open(script, 'w'))
+    run(VERIFY + ['play', rom, '--city', '--script', script, '--save', os.path.join(OUT, 'melonds-ref.dst')])
+    ref = os.path.join(sorted(glob.glob(os.path.join(KIT, 'verify', 'evidence', '*-play')))[-1], 'play_mods.png')
+    from PIL import Image
+    a = Image.open(shots['mods']).convert('RGB').crop((0, 192, 256, 384))
+    b = Image.open(ref).convert('RGB').crop((0, 192, 256, 384))
+    same = sum(1 for p, q in zip(a.tobytes()[::3], b.tobytes()[::3]) if abs(p - q) < 24) / (256 * 192)
+    for n, f in (('boot', boot['boot-20s']), ('mods', shots['mods'])):
+        shutil.copy(f, os.path.join(OUT, 'melonds-%s.png' % n))
+    ok = spread > 10 and same > 0.95
+    return ok, ('melonDS: top screen after 20 s has detail %.0f (0 = blank); after loading the city save and '
+                'tapping Options > Mods, the bottom screen matches DeSmuME %.1f%%; build/proofs/melonds-*.png') % (
+        spread, 100 * same)
+
+
 def p_save_edit():
     """Money and a need edited in a save made later in the game (needs are 8.8 fixed point)."""
     import urbz_save
@@ -668,7 +700,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
           ('npc-life-walkin', p_npc_life_walkin), ('npc-life-off', p_npc_life_off),
-          ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page)]
+          ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 
 def main(argv):

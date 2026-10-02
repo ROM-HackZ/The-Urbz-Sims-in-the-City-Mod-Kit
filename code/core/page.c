@@ -70,7 +70,9 @@ static const char *mod_name(int i, char *out)
     return out;
 }
 
-/* Shorten text (in place) until it fits a label; the game corrupts the screen otherwise. */
+/* Shorten text (in place) until it fits a label; the game corrupts the screen otherwise.
+   Only call this while a menu is being drawn: it measures with the game's fonts, which are not
+   loaded yet at boot (measuring then hung the game in melonDS: a white screen). */
 static void fit(char *s)
 {
     int n = 0;
@@ -148,7 +150,6 @@ static void build_mods_page(void)
                 frame = r->on ? 1 : 2;               /* bright arrow = on, grey = off */
             }
         }
-        fit(labels[s]);
         mods_menu.b[s] = button(x, y, frame, ACT_ITEM + s, 0, LABEL_BASE + s);
     }
 }
@@ -191,8 +192,10 @@ const char *core_label(int id)
         return "Mods";
     if (id == LABEL_BACK)
         return "Back";
-    if (id >= LABEL_BASE && id < LABEL_BASE + 8)
+    if (id >= LABEL_BASE && id < LABEL_BASE + 8) {
+        fit(labels[id - LABEL_BASE]);                /* drawn now: the fonts are loaded */
         return labels[id - LABEL_BASE];
+    }
     return text_get(id);
 }
 
@@ -210,7 +213,6 @@ static void page_print(mod_page_t *p, const char *s)
         n++;
     }
     lines[k][n] = 0;
-    fit(lines[k]);
     if (k >= n_lines)
         n_lines = k + 1;
 }
@@ -246,8 +248,10 @@ void core_menu_text(void)
         text_font(3, 0, -1);
         text_draw(1, 128, 8, mod_name(info_mod, nm), 1);
         text_font(1, 0, -1);
-        for (int k = 0; k < n_lines; k++)
+        for (int k = 0; k < n_lines; k++) {
+            fit(lines[k]);
             text_draw(0x51 + 0x28 * k, 20, 28 + 16 * k, lines[k], 0);
+        }
     }
 }
 
