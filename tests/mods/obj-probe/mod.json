@@ -1,0 +1,5 @@
+{
+  "name": "obj-probe",
+  "version": "1.0",
+  "description": "Research/test mod: lists the objects in the current area with their activities, and sends a person to use one (requests poked by tests)"
+}

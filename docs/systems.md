@@ -313,6 +313,42 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
 - Proven: patching row 64's bladder gain from +2.0 to +1.0 made the accident refill bladder to
   49.6 instead of 99.6.
 
+## People: movement and object use (Phase 6)
+
+From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc-use-object`.
+- `npc_state_dispatch` (0x0200BE50) runs the state at entity+0x104; +0x105 is the action inside it,
+  +0x108 a countdown, +0x10A the state to go back to, +0x10B a path result. Townspeople wander in
+  **state 0x23** (`npc_wander_state` 0x0200A1F0): action 7 = stand (anim 0x04) for 150-300 ticks; then
+  action 0x19 = walk (anim 0x0A) in a random direction for 30-90 ticks, stopping when blocked; Kris
+  alone has a hard-coded random gesture (anim 0xD5, action 0x29). State 0x22 walks someone to an exit;
+  state 0x1A (set by story scripts) walks between way points and uses objects. (Proven: Kris on the roof
+  cycles actions 7/0x19/0x29 with anims 4/0x0A/0xD5.)
+- **Paths:** `path_request(e, xy, &result, 0)` (0x0207DC08) walks e to a point (16.16) around obstacles;
+  there are only 3 path slots (0x02146F1C, 0xA0 bytes each; count at 0x02146F18). Result byte: 2 walking,
+  1 arrived, 3 failed. `path_cancel` (0x0207DB10) frees the slot.
+- **Objects in the area:** a list from `object_list_head` (*0x0214490C): node `{next, ?, u16 object
+  number @+8, ..., entity @+0x24}`. `object_class_table` (0x020EAF84), 0x24 bytes per object number:
+  +4 list activities (node, u8 out[7]), +8 can start (node, person, activity), +0xC start, +0x10 tick,
+  +0x1C usable by (node, person). `activity_need_table` (0x020EA9B0, 4 bytes per activity) = the need an
+  activity serves. Example, Coffee Shop (51): 3 chairs (object 137, activity 56, comfort), 2 tables (158,
+  none), sink (203, 68, hygiene), toilet (208, 66, bladder), 170 (18, fun; refuses townspeople), no food.
+- **Using an object:** `npc_goto_object(person, object entity, activity)` (0x0200D720) finds the use spot,
+  requests a path and sets state 0x26 (`npc_goto_object_state`); on arrival the object starts the activity
+  (state 0x11, the activity at entity+0x100; it ends when its tick says so, then the person goes back to
+  state +0x10A). Animations are the person's own: sit 0x6B, stand up 0x72, toilet 0x7B. Proven: Phoebe
+  (54) and Ian (43) walk to a café chair and sit; Phoebe uses the toilet.
+- **Needs:** activities update entity+0x114, a block of 8 needs (s32, 0-100 in the top byte, +0x20 also
+  written). Townspeople have **none** (null); `motive_apply_effect` skips null, but other code writes +0x20,
+  and address 0 mirrors ITCM code, so give a person a block (64 bytes) before sending them. Without one a
+  chair reads junk and stands them up at once.
+- The game's own picker `npc_pick_object` (0x02008A18, action 0x3E) chooses by the person's low needs
+  (only hygiene, energy, comfort, bladder, fun; never hunger) and only for people whose record has +0x36 set
+  (`npc_record` table 0x020E5E5C, 0x38 bytes each: ids 33 39 41 52 54 58). Calling `npc_goto_object`
+  directly works for anyone.
+- **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
+  stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
+  2 had no visible effect.
+
 ## Buyable objects (catalog)
 
 - Two parallel tables indexed by object number, 0x14 bytes per row:

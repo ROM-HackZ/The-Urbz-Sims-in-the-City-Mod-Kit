@@ -537,6 +537,36 @@ def p_npc_life_visit():
         usual, place, [r['present'] for r in res], res[-1]['day'], res[-1]['hour'])
 
 
+OBJP_MAGIC = 0x504A424F
+
+
+def p_npc_use_object():
+    """People can use the area's objects with the game's own code (Phase 6 groundwork): in the Coffee Shop
+    (51) at 17:05, Phoebe (54) is sent to a chair (activity 56) by `npc_goto_object`: she walks there,
+    sits down (state 0x11, sitting animation 0x6B) and stays seated, and when we abort the use (stop byte 3) she stands up
+    and goes back to wandering (state 0x23)."""
+    rom = build('npc-use-object', ['obj-probe'])[0]
+    _, probe = find_magic(rom, 1, OBJP_MAGIC, 4)
+    pokes = ['0x0214112E=1105',                                          # 17:05: Phoebe's timetable says 51
+             '0x%08X=%s' % (probe + 16, struct.pack('<III', PHOEBE, 400, 56).hex()),   # who, ticks, activity
+             '0x%08X=04000000' % (probe + 4)]                            # request 4: the whole sequence
+    snaps, out = snapshots(rom, 'lobby', 4, 300, ['0x%08X:0x500' % probe], pokes=pokes, goto=51)
+    mem = snaps[-1][0]
+    n = struct.unpack_from('<I', mem, 1060)[0]
+    log = [struct.unpack_from('<IBBBB', mem, 1064 + 8 * k) for k in range(min(n, 16))]
+    steps = {st: (t, state, act, anim) for t, st, state, act, anim in reversed(log) if st}
+    shot = sorted(glob.glob(os.path.join(out, '*.png')))
+    if len(shot) > 1:
+        shutil.copy(shot[1], os.path.join(OUT, 'npc-use-object.png'))
+    t2, t4 = steps.get(2, (0,))[0], steps.get(4, (1 << 30,))[0]
+    sat = any(st == 0 and state == 0x11 and anim == 0x6B and t2 <= t <= t4 for t, st, state, act, anim in log)
+    ok = (struct.unpack_from('<i', mem, 28)[0] == 1 and 2 in steps and sat and 5 in steps
+          and steps[5][1] == 0x23)
+    fmt = lambda k: ('tick %d state %x action %x anim %x' % steps[k]) if k in steps else 'never'
+    return ok, ('sent to a chair: %d; started using it: %s; sitting animation 0x6B: %s; after the abort: '
+                '%s; build/proofs/npc-use-object.png') % (struct.unpack_from('<i', mem, 28)[0], fmt(2), sat, fmt(5))
+
+
 def p_npc_life_off():
     """Switched off in the game: the timetable pointers go back and people follow their usual timetable."""
     rom = npc_life_rom('npc-life-off')
@@ -749,7 +779,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
-          ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-life-off', p_npc_life_off),
+          ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-life-off', p_npc_life_off),
           ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 

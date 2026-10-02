@@ -16,9 +16,9 @@ nobody goes missing from the places the game puts them. He asked for my best rec
 3. **Placement follows the original timetables** (nobody goes missing): the sim only fills hours when the game
    has someone out of town with visits to cafés/clubs/parks; sleep is invisible.
 
-Already known (ROM, 2026-10-02): per-person animation lists 0x0211CDF4 (all: 0x0A stand, 0x04 walk; ~half
+Already known (ROM, 2026-10-02): per-person animation lists 0x0211CDF4 (all: 0x04 stand, 0x0A walk (corrected in step 2); ~half
 gestures; story people more); behaviour 0x020643C8, states at entity+0x104 via 0x0200BE50, townspeople in
-state 0x23 (handler 0x02008874); player body drawn by FUN_0208327c(entity, look), palettes by 0x02083538.
+state 0x23 (handler 0x0200A1F0; corrected in step 2); player body drawn by FUN_0208327c(entity, look), palettes by 0x02083538.
 
 ## Steps
 1. **Placement rule** (`mods/npc-life/sim/npc_sim.c`): each hour's area = original timetable; out-of-town hours
@@ -57,3 +57,10 @@ state 0x23 (handler 0x02008874); player body drawn by FUN_0208327c(entity, look)
   eat at 51 and the game walks her in there), `npc-life-days` (3 game days: 0 people away from where the game
   puts them). Bug found and fixed on the way: the connector jumped the sim clock to the game clock, and a
   one-minute gap at midnight skipped that hour's decisions; it now always advances minute by minute.
+- **Step 2 done (2026-10-02).** The game already has "walk to an object and use it" for townspeople
+  (`npc_goto_object`), with their own animations (sit 0x6B, stand up 0x72, toilet 0x7B), but only offers it
+  to 6 people and needs a needs block they don't have. Proof `npc-use-object` (Phoebe sits on a café chair
+  and stands up when we end it). Details: docs/systems.md "People: movement and object use".
+  Changes to the plan for step 3: use objects through `npc_goto_object` (not our own walking); give each
+  acting person a 64-byte needs block first; end uses with the stop byte (3). Eating: where a place has
+  no food object (the Coffee Shop has none), "eat" = sit at a table.

@@ -184,3 +184,18 @@ text_font          = 0x02034754   # (int font, int colour, -1): font slot for th
 ui_sound           = 0x02097B58   # (int id): 1 select, 3 refused, 4 open sub-menu
 touch_state        = 0x02141D70   # +0x0E u16 x, +0x10 u16 y, +0x52 u16 touched this frame
 
+
+# --- people: movement and object use (Phase 6)
+npc_state_dispatch = 0x0200BE50   # (e): switch on e+0x104 (state) -> handler; 0x22 walk out, 0x23 wander, 0x26 go to object
+npc_wander_state   = 0x0200A1F0   # state 0x23: action 7 stand (timer +0x108), 0x19 walk a random line, 0x29 gesture, 0x2d path to e+0x38, 0x3e use an object
+npc_goto_object_state = 0x0200D584 # state 0x26: path result +0x10b: 1 arrived -> object starts activity +0x122, 3 failed -> action 0x13 (back to e+0x10a state)
+npc_pick_object    = 0x02008A18   # int (e, &obj_entity, &activity): object in this area whose activity serves a need (mask 0x76) below 31; needs e+0x114
+npc_use_object     = 0x02067C68   # int (obj_entity, person, activity): checks, then npc_goto_object
+npc_goto_object    = 0x0200D720   # int (person, obj_entity, activity): use spot, path there, state 0x26, action 3, anim 0x0A
+npc_can_use_objects = 0x02066960  # u8 (id): person record +0x36 (only 33 39 41 52 54 58 in the original)
+npc_record         = 0x02066858   # (id): 0x38-byte record, table 0x020E5E5C (+0x36 = may use objects)
+path_request       = 0x0207DC08   # int (e, s32 xy[2] (16.16), u8 *result, 0): 3 slots (0x02146F1C, 0xA0 each); result 2 walking, 1 arrived, 3 failed
+path_cancel        = 0x0207DB10   # (e): frees e's path slot
+object_class_table = 0x020EAF84   # 0x24 bytes per object number: +4 list activities, +8 can start, +0xC start, +0x1C usable by
+object_list_head   = 0x0214490C   # first node of this area's objects: {next, ?, u16 object number @+8, ..., entity @+0x24}
+activity_need_table = 0x020EA9B0  # u32 per activity: which need it serves (u16)
