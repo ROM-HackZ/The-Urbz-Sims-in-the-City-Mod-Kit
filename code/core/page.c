@@ -103,6 +103,8 @@ static void build_mods_page(void)
     int n = 0, skip = page * (PER_PAGE - 1), more = 0, k = 0;
     /* the list: each mod's switch, then "info" for mods with an info page */
     for (int i = 0; i < t->count; i++) {
+        if (t->rows[i].flags & MODF_HIDDEN)
+            continue;                               /* kit parts (e.g. new-assets) */
         for (int kind = IT_TOGGLE; kind <= IT_INFO; kind++) {
             if (kind == IT_INFO && !t->rows[i].ev[EV_PAGE])
                 continue;
@@ -268,7 +270,8 @@ int core_menu_hit(void)
         mod_table_t *t = mod_table;
         int total = 0;
         for (int i = 0; i < t->count; i++)
-            total += 1 + (t->rows[i].ev[EV_PAGE] != 0);
+            if (!(t->rows[i].flags & MODF_HIDDEN))
+                total += 1 + (t->rows[i].ev[EV_PAGE] != 0);
         page = (page + 1) * (PER_PAGE - 1) < total ? page + 1 : 0;
     } else if (items[s].kind == IT_INFO) {
         info_mod = items[s].mod;

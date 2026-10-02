@@ -32,3 +32,7 @@ Decided with Jonathan (2026-10-02):
   toilet 0x7B, shower 0x69 (+0xCC/0xCD towel), sleep 0x21 lie down / 0x20 get up. Art priority by how often
   you'd see it: sit (seats and benches in 10+ public areas), eat (vending, grills), toilet (5 areas), shower
   (5), sleep (6, mostly invisible beds). A full set is ~6 animations x 2 views x 10-20 frames per person.
+- **Step 3 done.** `urbz_anims.py` (template / placeholder / build / list). Found and fixed: the game never
+  loaded added assets (fixed-size asset tables); the builder now moves them when mods add assets (hidden
+  generated mod `new-assets`; mods can be `"hidden": true`). Proof `npc-anims`: Gramma Hattie gets a
+  placeholder sit animation built at test time and sits with it; the build runs in melonDS.

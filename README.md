@@ -208,6 +208,24 @@ people are doing on its info page, and tune it with two JSON files: see `mods\np
 and animations in her own colours. Switch it on in Options > Mods and find Kris on the King Tower
 roof between 4 and 7 pm.
 
+## New animations for the townspeople (drawn by you)
+
+Only 8 townspeople have the game's sit/toilet/shower/sleep animations (and only Kris can eat).
+`urbz_anims.py` lets you draw the missing ones for anyone, in their own look:
+```
+python urbz_anims.py list                         who has which animation
+python urbz_anims.py template my-anims hattie sit # Gramma Hattie: frames to draw + a guide
+```
+Then draw `mods\my-anims\people\43-gramma\sit_6b\front\NN.png` and `...\back\NN.png`: each starts
+as her own standing frame, and `guide\sit_6b\...` shows the same frame on Kris (pose and timing to
+copy). Every PNG is 96x96 with the feet on pixel (40, 72); use her own colours. Then:
+```
+python urbz_anims.py build my-anims               new sprite sheets + the game data
+python urbz_patch.py build my-anims               (needs LLVM)
+```
+and build the ROM with `my-anims` enabled. NPC Life then sends her to chairs like the others. Groups:
+sit, eat, toilet, shower, sleep. The frames come from the game's art, so keep your mod to yourself.
+
 ## Save files
 
 ```

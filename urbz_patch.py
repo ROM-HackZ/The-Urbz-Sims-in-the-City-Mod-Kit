@@ -96,8 +96,13 @@ def hook_functions(cdir):
     hp = os.path.join(cdir, 'hooks.txt')
     if not os.path.exists(hp):
         return []
-    return [arg for kind, _, arg, _ in parse_hooks(hp, game_symbols(KIT))
-            if kind in ('call', 'jump', 'wrap')]
+    out = []
+    for kind, _, arg, _ in parse_hooks(hp, game_symbols(KIT)):
+        if kind in ('call', 'jump', 'wrap'):
+            out.append(arg)
+        elif kind == 'data' and isinstance(arg, tuple) and arg[0] == 'sym' and arg[1] not in out:
+            out.append(arg[1])           # `u32 ADDR @name`: keep name even if no code uses it
+    return out
 
 
 def build(mod):

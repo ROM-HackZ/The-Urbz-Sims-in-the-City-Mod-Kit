@@ -624,6 +624,37 @@ def p_npc_body_prototype():
     return ok, 'switched on: %s; switched off: %s (a picture needs melonDS: docs/systems.md)' % (during, after)
 
 
+def p_npc_anims():
+    """New animations for a townsperson (urbz_anims.py): Gramma Hattie (43) has no sit animation; a
+    placeholder one (Kris's sit frames in Hattie's colours, made at test time) is built into new assets
+    (the game's asset tables are moved to fit them). Sent to a chair, she sits with it: state 0x11,
+    animation 0x6B, and the game has loaded the new sheet."""
+    work = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'anim-proof')
+    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'placeholder', work, '43', 'sit'])
+    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'build', work])
+    run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', os.path.join(work, 'code')])
+    rom = build('npc-anims', ['obj-probe', work])[0]
+    _, probe = find_magic(rom, 1, OBJP_MAGIC, 4)
+    pokes = ['0x0214112E=1105',                                          # 17:05: Hattie is in area 51
+             '0x%08X=%s' % (probe + 16, struct.pack('<III', 43, 400, 56).hex()),
+             '0x%08X=04000000' % (probe + 4)]
+    first_new = len(json.load(open(os.path.join(PROJ, 'manifest.json')))['entries']) + 1
+    ptrs = struct.unpack('<I', ram(rom, 1, '0x02032CA0:4', start=['--from', 'lobby'])['0x02032CA0:4'])[0]
+    table = '0x%08X:%d' % (ptrs + 4 * (first_new - 1), 4 * 7)             # the new assets' load slots
+    snaps, out = snapshots(rom, 'lobby', 3, 300, ['0x%08X:0x500' % probe, table], pokes=pokes, goto=51)
+    mem, loaded = snaps[1]
+    n = struct.unpack_from('<I', mem, 1060)[0]
+    log = [struct.unpack_from('<IBBBB', mem, 1064 + 8 * k) for k in range(min(n, 16))]
+    sat = any(state == 0x11 and anim == 0x6B for t, st, state, act, anim in log)
+    gfx = [first_new + k for k in range(7) if struct.unpack_from('<I', loaded, 4 * k)[0]]
+    shot = sorted(glob.glob(os.path.join(out, '*.png')))
+    if len(shot) > 1:
+        shutil.copy(shot[1], os.path.join(OUT, 'npc-anims.png'))
+    ok = ptrs != 0x02130654 and sat and bool(gfx)
+    return ok, ('asset tables moved: %s; Hattie on the chair with animation 0x6B: %s; new assets the game loaded: '
+                '%s (new ones start at %d); build/proofs/npc-anims.png') % (ptrs != 0x02130654, sat, gfx, first_new)
+
+
 def p_npc_life_off():
     """Switched off in the game: the timetable pointers go back and people follow their usual timetable."""
     rom = npc_life_rom('npc-life-off')
@@ -836,7 +867,8 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
-          ('npc-act-release', p_npc_act_release), ('npc-body-prototype', p_npc_body_prototype), ('npc-life-off', p_npc_life_off),
+          ('npc-act-release', p_npc_act_release), ('npc-body-prototype', p_npc_body_prototype),
+          ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 

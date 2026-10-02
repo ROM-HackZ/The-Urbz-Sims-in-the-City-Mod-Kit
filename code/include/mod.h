@@ -32,7 +32,7 @@
 #define MOD_EVENTS 9
 enum { EV_BOOT, EV_TICK, EV_MINUTE, EV_AREA_ENTER, EV_SAVE, EV_LOAD, EV_ENABLE, EV_DISABLE, EV_PAGE };
 
-enum { MODF_TOGGLE = 1, MODF_EVENTS = 2, MODF_DEFAULT_ON = 4 };
+enum { MODF_TOGGLE = 1, MODF_EVENTS = 2, MODF_DEFAULT_ON = 4, MODF_HIDDEN = 8 };   /* hidden: kit parts, not on the Mods page */
 
 typedef struct {
     u32 addr, len;                /* game bytes this mod changes (a data/u8/u16/u32 hook) */

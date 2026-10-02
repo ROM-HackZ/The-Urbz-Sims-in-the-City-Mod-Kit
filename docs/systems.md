@@ -9,6 +9,17 @@ Addresses are ARM9 RAM addresses (code loads at 0x02000000; ITCM code at 0x01FF8
 - `0x02032CA8` = *get asset by game ID* (r0 = ID). `FUN_02032f74` is a thunk to it.
   Hooking it gives per-scene asset traces (`verify/urbz_verify.py trace`).
 - `rom.bin` (FAT file 0) = u32 offset table (13,385 assets + EOF sentinel) + assets, 4-byte aligned.
+- **The asset manager only fits the original assets** (proven, Phase 7): `asset_load` (0x02032B08) refuses
+  game IDs >= 0x344A (13,386), and its 3 tables are sized for exactly 13,386 entries: `asset_offsets`
+  0x0212352C (rom.bin's index, read at boot: 0xD128 bytes, literal 0x02032B04), `asset_ptrs` 0x02130654
+  (where each loaded asset is) and `asset_refs` 0x0213D77C (a use count byte each). Code: 0x02032A60-
+  0x020331F4 (5 count literals, 13 table addresses). When mods add assets, `urbz_build.py` adds a generated
+  hidden code mod (`build/new-assets/`) that moves the 3 tables into the code region, sized for the build
+  (9 bytes per asset of heap), and patches those literals in the ROM. Proven: proof `npc-anims` (the game
+  loads a new asset; it plays in DeSmuME and the build runs in melonDS). Before this, added assets were
+  silently never loaded.
+- Frame scripts (an animation's frame order and timing) are assets too: pairs `{u8 frame, u8 ticks}`, then
+  0xFF (hold the last frame) or 0xFD (loop). An animation row's script 0 = the default.
 
 ## Chunks
 

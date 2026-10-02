@@ -36,7 +36,7 @@ EVENT_NAMES = ['mod_on_boot', 'mod_on_tick', 'mod_on_minute', 'mod_on_area_enter
                'mod_on_load', 'mod_on_enable', 'mod_on_disable', 'mod_on_page']
 TABLE_MAGIC = 0x43444F4D        # 'MODC'
 TABLE_HEADER, TABLE_ROW = 32, 80
-MODF_TOGGLE, MODF_EVENTS, MODF_DEFAULT_ON = 1, 2, 4
+MODF_TOGGLE, MODF_EVENTS, MODF_DEFAULT_ON, MODF_HIDDEN = 1, 2, 4, 8
 MAX_SWITCHES = 12               # entries in the switch record (save memory 0x1FE0)
 
 
@@ -132,7 +132,8 @@ def mod_info(md):
     out = {'name': info.get('name', name), 'version': str(info.get('version', '')),
            'author': info.get('author', ''), 'description': info.get('description', ''),
            'toggle': bool(info.get('toggle', code)), 'default': bool(info.get('default', True)),
-           'conflicts': list(info.get('conflicts', [])), 'save_bytes': int(info.get('save_bytes', 0))}
+           'conflicts': list(info.get('conflicts', [])), 'save_bytes': int(info.get('save_bytes', 0)),
+           'hidden': bool(info.get('hidden', False))}
     if not 0 <= out['save_bytes'] <= 0xFFFF:
         raise CodeError('%s: save_bytes must be 0..65535' % p)
     return out
@@ -654,7 +655,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
             ver = meta.get('version', '').encode('ascii', 'replace')[:7]
             sw = m in switchable
             flags = (MODF_TOGGLE if sw else 0) | (MODF_EVENTS if any(m['events']) else 0) | \
-                (MODF_DEFAULT_ON if meta['default'] else 0)
+                (MODF_DEFAULT_ON if meta['default'] else 0) | (MODF_HIDDEN if meta.get('hidden') else 0)
             on = 1 if (not sw or meta['default']) else 0
             pl = patches[id(m)]
             ev = [(m['base'] + v) if v is not None and m['base'] is not None else 0

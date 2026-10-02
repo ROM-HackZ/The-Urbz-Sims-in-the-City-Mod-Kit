@@ -215,3 +215,7 @@ player_scripts_a   = 0x021204EC   # u32[anim] frame scripts (game_state+0x24 == 
 player_scripts_b   = 0x0211EC5C   # u32[anim] frame scripts (game_state+0x24 != 0)
 player_body_tables = 0x020F75E0   # u32[gender] -> u32[196] body anim tables (0 = no such animation)
 entity_layered     = 0x020031F4   # (e): e+0xC5 |= 0x40 (draw from 4 slots, like the player) and resets the slots (+0xD2 = 0xFFFF: no sprite memory yet)
+asset_load         = 0x02032B08   # int (game id, unpack): loads into asset_ptrs; ids >= the count literal are refused
+asset_offsets      = 0x0212352C   # u32[13386]: rom.bin's index (read at boot); moved by urbz_build when mods add assets
+asset_ptrs         = 0x02130654   # u32[13386]: where each loaded asset is (0 = not loaded)
+asset_refs         = 0x0213D77C   # u8[13386]: use counts
