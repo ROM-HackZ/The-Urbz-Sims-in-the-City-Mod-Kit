@@ -1,6 +1,6 @@
 # The Urbz DS: the plan
 
-*Living document. Last updated 2026-10-02 (end of Phase 5: mod platform + NPC Life v1).*
+*Living document. Last updated 2026-10-02 (end of Phase 6: NPC Life v2, visible actions).*
 
 ## Goal
 
@@ -38,8 +38,8 @@ that hook).
 | 4 | Code patching (C + hooks) and the game-systems map | Done |
 | - | Gap-closing pass (all known gaps from phases 1-4) | Done, see below |
 | 5 | Mod platform (in-game switches, mod save data, Mods page, manager) + NPC Life v1 | Done (Windows check of the manager open) |
-| 6 | NPC Life v2: visible actions | **Next** |
-| 7 | Content wiring: new items, clothes, characters | Planned |
+| 6 | NPC Life v2: visible actions, placement that keeps to the original timetables, player-body prototype | Done (Jonathan's check on the Thor open) |
+| 7 | Content wiring: new items, clothes, characters | **Next** |
 
 ## What exists (phases 1-4)
 
@@ -130,18 +130,21 @@ Still open from Phase 5:
 - The area-load spawn with NPC Life wasn't tested on its own (walk-in was); fun/social balance is
   simple (people mostly meet those needs at home and their usual places).
 
-## Phase 6: NPC Life v2 (visible actions)
+## Phase 6: NPC Life v2 (visible actions) — done
 
-- In the player's current area, people the brain says are "eating/sitting/using X" walk to a matching object
-  and play its animation: `entity_set_state` / `entity_set_action` / `entity_play_anim` (people route to
-  0x020647E0), positions from the area's object records, effect rows applied with `motive_apply_effect` on
-  the NPC's own needs.
-- Reuse the player's object-use flow where possible (action → walk → animation → effect); fall back to
-  "walk to the object and play the animation in place".
-- Cap the number of simultaneously acting people (entity pool ≈127, OAM limits, heap ≥ 700 KB free).
+Plan and status: `docs/plan-phase6.md`. In short:
+- **Placement:** every hour, each person is where their original timetable puts them; only hours the
+  original game has them out of town become visits (cafés, clubs, parks, home). Nobody goes missing.
+- **Visible actions** (`mods/npc-life/code/act.inc`): with the game's own "walk to an object and use it"
+  (only 6 people had it), the 8 people with object animations sit on chairs and use the toilet; the others
+  chat (walk up, face each other, take turns gesturing). Max 4 at once; switching off releases everyone.
+- **Player-body prototype** (`mods/npc-body-proto`, off by default): Kris drawn with the player's body and
+  animations in her own colours. Jonathan decides whether to roll it out (limits: skirt, no cap, 2 palette
+  rows per person).
 
-**Gate:** in an area with food, a person walks to it, plays the eat animation and their hunger rises
-(screenshot + RAM).
+Not done / later: eating at real food objects (the places we tried have none: people sit at a table),
+the needs that objects restore don't flow back into the sim yet, the 28 people without object
+animations can't sit (the player body could fix that), people don't say different things yet.
 
 ## Phase 7: Content wiring
 

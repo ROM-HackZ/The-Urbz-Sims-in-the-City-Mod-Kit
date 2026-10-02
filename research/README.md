@@ -37,3 +37,9 @@ Second gap pass (2026-10-02): `cab/recolour_slots.py` (clothing slot pixels). Ha
 `verify/urbz_verify.py watch ROM --state cab.dst --script hair.json --hook write:0x02141146 [--poke 0x020C820A=03]`
 with hair.json = DOWN x3 then RIGHT x4. Street access: `verify/scripts/first-goal.json`; object rows: proof
 `object-row`.
+
+Phase 6 (2026-10-02): Ghidra 11.4.2 headless with JDK 21 (download from the Ghidra GitHub releases, no
+install needed): the import + auto-analysis + `ExportDecomp.java` above took about 3 minutes and decompiled
+3,260 functions, enough for the people code (state machine, paths, objects). The people/object probes of
+that phase are the test mod `tests/mods/obj-probe` and the proofs `npc-use-object`, `npc-act*`,
+`npc-body-prototype`.

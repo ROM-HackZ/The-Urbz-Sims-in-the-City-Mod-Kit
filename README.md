@@ -199,15 +199,20 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
 ## NPC Life
 
 **`mods\npc-life`** makes the city live: the 36 townspeople have needs, jobs, money and rent and
-go where their needs take them, saved with your game. Switch it in the game (Options > Mods),
-see what people are doing on its info page, and tune it with two JSON files: see
-`mods\npc-life\README.md`.
+keep to the places the original game puts them, visiting cafés, clubs and parks in their free
+hours, saved with your game. In your area they act it out: they sit down at tables, use the
+toilet, and walk up to each other to chat. Switch it in the game (Options > Mods), see what
+people are doing on its info page, and tune it with two JSON files: see `mods\npc-life\README.md`.
+
+**`mods\npc-body-proto`** (a prototype, off by default) draws Kris Thistle with the player's body
+and animations in her own colours. Switch it on in Options > Mods and find Kris on the King Tower
+plaza between 4 and 7 pm.
 
 ## Save files
 
 ```
 python urbz_save.py info "my game.sav"                         clock, money and needs per slot
-python urbz_save.py set "my game.sav" edited.sav --money 5000 --motive hunger=100
+python urbz_save.py set "my game.sav" edited.sav --money 5000 --motive hunger=100 --clock 16:30
 ```
 `info` also lists mod data in each slot and the in-game mod switches.
 `set` fixes the checksums, so the game accepts the edited save.
@@ -217,7 +222,7 @@ python urbz_save.py set "my game.sav" edited.sav --money 5000 --motive hunger=10
 `python tests\proofs.py` builds a set of test mods (tests\mods\) and checks each one in the
 emulator: vanilla is identical, every hook kind runs, the clock/needs/money/save/people/catalog
 facts in `docs\systems.md` hold, mods switch on and off, mod data survives saving, the Mods page
-works with real taps, and NPC Life moves people. About an hour (run one at a time); needs LLVM for
+works with real taps, NPC Life moves people and they sit, chat and use objects. About an hour (run one at a time); needs LLVM for
 the C tests. Also `python tests\test_code_encodings.py`, `python tests\test_mod_manager.py` and
 `python mods\npc-life\sim\run_test.py` (no emulator).
 
