@@ -16,7 +16,7 @@
       Like play, but records which assets the game loads before each screenshot.
       Saved to verify/traces/NAME.json; the catalog uses these as scene labels.
 
-  python verify/urbz_verify.py city [rom]
+  python verify/urbz_verify.py city [rom] [--from NAME]
       Boot this build and get into the city (loads verify/saves/city.sav, or plays a new
       game if that file is missing); caches the savestate per ROM (verify/states/cache/).
       Use --city on other commands to start there.
@@ -28,7 +28,10 @@
       callers from the stack; --r0 V keeps only hits where r0 == V.
 
 Start options for ram/play/trace/find/watch: --state F, --city, --sav F (a raw .sav),
---poke ADDR=HEXBYTES (write memory before the script; repeatable, for experiments).
+--from NAME (like --city, but loads verify/saves/NAME.sav; lobby = first goal done, Tower Lobby),
+--poke ADDR=HEXBYTES (write memory before the script; repeatable, for experiments),
+--goto AREA[:ENTRY] (EXPERIMENT: load any area through the game's own loader before the script;
+  the streets are locked in a real game until the tower chapter is done, see docs/areas.md).
 play --export-sav F writes the cartridge save memory at the end of the run.
 Savestates contain the game code: for code mods, start from --city, not an old state.
 
@@ -169,6 +172,17 @@ def child_main(argv):
         a, hexb = pk.split('=')
         for i, b in enumerate(bytes.fromhex(hexb)):
             emu.memory.write_byte(int(a, 0) + i, b)
+    if job.get('goto'):                        # EXPERIMENT: load an area through the game's state machine
+        area, entry = job['goto']
+        for addr, val in ((0x027C009C, 0x81), (0x027C00A0, 0), (0x027C00A4, area)):
+            for i, b in enumerate(struct.pack('<I', val)):
+                emu.memory.write_byte(addr + i, b)
+        emu.memory.write_byte(0x02141C28, entry)
+        for _ in range(GOTO_FRAMES):
+            emu.cycle(with_joystick=False)
+        cur = struct.unpack('<I', bytes(emu.memory.unsigned[0x02141FEC:0x02141FF0]))[0]
+        if cur != area:
+            raise RuntimeError('--goto %d did not load (current area %d)' % (area, cur))
     hooks = []
     if job.get('watch'):
         hooks = _install_watches(emu, job['watch'], stack=job.get('stack'), only_r0=job.get('only_r0'))
@@ -544,18 +558,25 @@ def _sha1(path):
 
 
 CITY_SAV = os.path.join(HERE, 'saves', 'city.sav')
+GOTO_FRAMES = 400
+AREAS_JSON = os.path.join(os.path.dirname(HERE), 'docs', 'data', 'areas.json')
 LOADGAME = os.path.join(HERE, 'scripts', 'loadgame.json')
 
 
-def city_state(rom, rtc=None):
+def city_state(rom, rtc=None, save=None):
     """Savestate of THIS build in the city, cached per ROM hash. Savestates hold all
     of RAM including code, so a state made with another build would silently run
     that build's code instead.
 
     Fast path: boot with verify/saves/city.sav (a game saved in the city) and load
     it (about 2,000 frames). Without that file: play a new game (about 7,000 frames)."""
-    fast = os.path.exists(CITY_SAV)
-    tag = '%s-%s%s' % (_sha1(rom)[:12], (rtc or DEFAULT_RTC).replace(':', ''), '-sav' if fast else '')
+    sav = os.path.join(HERE, 'saves', save + '.sav') if save else CITY_SAV
+    if save and not os.path.exists(sav):
+        sys.exit('error: no save named %s (files in verify/saves/: %s)' % (save, ', '.join(
+            f[:-4] for f in sorted(os.listdir(os.path.join(HERE, 'saves'))) if f.endswith('.sav'))))
+    fast = os.path.exists(sav)
+    tag = '%s-%s%s' % (_sha1(rom)[:12], (rtc or DEFAULT_RTC).replace(':', ''),
+                       ('-' + save if save else '-sav') if fast else '')
     path = os.path.join(STATE_CACHE, tag + '.dst')
     if os.path.exists(path):
         return path
@@ -564,7 +585,10 @@ def city_state(rom, rtc=None):
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'city', 'rtc': rtc, 'save': path + '.tmp'}
     if fast:
         print('booting %s and loading the saved city game (about 10 s)...' % os.path.basename(rom))
-        job.update(script=json.load(open(LOADGAME)), sav=CITY_SAV)
+        script = json.load(open(LOADGAME))
+        if save:                                   # a later save opens with a goal pop-up; close it
+            script += [['press', 'B'], ['wait', 60], ['shot', 'popup-closed']]
+        job.update(script=script, sav=sav)
     else:
         print('cold-booting %s into the city via a new game (about 2 minutes)...' % os.path.basename(rom))
         job.update(script=json.load(open(NEWGAME)))
@@ -578,8 +602,8 @@ def _start(args, rom):
     --sav F (boot with a save file), --rtc ISO."""
     rtc = _opt(args, '--rtc')
     job = {'rom': os.path.abspath(rom), 'rtc': rtc}
-    if '--city' in args:
-        job['state'] = city_state(rom, rtc)
+    if '--city' in args or _opt(args, '--from'):
+        job['state'] = city_state(rom, rtc, _opt(args, '--from'))
     elif _opt(args, '--state'):
         job['state'] = os.path.abspath(_opt(args, '--state'))
         if os.path.exists(job['state']) and not _state_matches(job['state'], rom):
@@ -589,6 +613,12 @@ def _start(args, rom):
         job['sav'] = os.path.abspath(_opt(args, '--sav'))
     if _opt(args, '--poke'):
         job['poke'] = _opt(args, '--poke', many=True)
+    if _opt(args, '--goto'):
+        a, _, e = _opt(args, '--goto').partition(':')
+        if not e:
+            pts = json.load(open(AREAS_JSON))['areas'][int(a)]['entry_points']
+            e = pts[0]['id'] if pts else 0
+        job['goto'] = (int(a), int(e))
     return job
 
 
@@ -613,7 +643,7 @@ def _code_bytes(path):
 
 def cmd_city(args):
     rom = args[0] if args and not args[0].startswith('--') else DEFAULT_ROM
-    print('city state: ' + city_state(rom, _opt(args, '--rtc')))
+    print('city state: ' + city_state(rom, _opt(args, '--rtc'), _opt(args, '--from')))
 
 
 # --------------------------------------------------------------- reverse-engineering helpers

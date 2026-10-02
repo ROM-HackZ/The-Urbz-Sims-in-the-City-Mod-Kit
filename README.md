@@ -36,7 +36,9 @@ For C code mods install LLVM (clang, ld.lld, llvm-objcopy/nm/readelf), e.g. `apt
 6. `verify.bat`: plays the first screens of your build and the original side by side
    (headless) and saves a comparison image under `verify\evidence\`.
    `python verify\urbz_verify.py city` gets your build into the city (from `verify\saves\city.sav`)
-   for gameplay checks; see `.claude\skills\verify-urbz` for the recipes.
+   for gameplay checks; see `.claude\skills\verify-urbz` for the recipes. `--from lobby` starts
+   from `verify\saves\lobby.sav` instead (first goal done, Tower Lobby), and `--goto 4` loads an
+   area by id first (4 = Glasstown street; ids in `docs\areas.md`).
 7. `catalog.bat`: builds `catalog\index.html`, a searchable gallery of every asset with
    its type (screen, sprite sheet, palette...), a preview, and the scenes where the game
    loaded it. Rerun it after new traces to get more labels.
@@ -267,7 +269,8 @@ graphics asset. Pairs come from 16-byte sprite records in the game code (see `do
 - `urbzcomp.py`: EA codec (decompress/compress) and the delta filter
 - `scan_chunks.py`: finds chunks inside an asset
 - `verify\urbz_verify.py`: headless emulator checks (`doctor`, `smoke`, `ram`, `play`, `trace`,
-  `city`, `find`, `watch`); `verify\saves\city.sav` is a game saved in the city that `city` loads
+  `city`, `find`, `watch`); `verify\saves\city.sav` is a game saved in the city that `city` loads,
+  `verify\saves\lobby.sav` one saved after the first goal (made by `verify\scripts\first-goal.json`)
 - `urbz_patch.py`: compile a code mod; `urbz_code.py`: puts code mods into the ROM (used by the build)
 - `urbz_save.py`: read and edit save files
 - `urbz_font.py`: fonts as PNG sheets; `urbz_palette.py`: palettes as swatch PNGs;

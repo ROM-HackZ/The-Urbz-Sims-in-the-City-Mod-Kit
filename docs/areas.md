@@ -43,17 +43,29 @@ I = inferred (read from the decompile, not exercised).
   `{u16 nGroups, u16 off[]}`.
   - Group: `{u16 n, u8 size[n], pad to 4, records}`. Record = `{u16 type, u16 0, s16 x, s16 y, ...}`.
 - Record type t is created by handler table **0x020C2308[t]** (types 1..37).
-  - Group 0 (base) and group 1 are spawned when the area loads. The other groups are switched on by scripts
-    (`FUN_02012690`, about 40 callers; I).
+  - Group 0 (base) and group 1 are spawned when the area loads (`FUN_020125C0(group)`). The other groups are
+    swapped in and out by `FUN_02012690(show, hide)` (42 call sites). The group numbers mostly come from data: bytes
+    in object records or entity fields (e.g. entity+0x129/+0x12A, record bytes +5..+8), so a "fixed TV" or "open
+    door" group is chosen by the object that triggers it (I: read from the code; which quest flips which group in
+    each area is not mapped, it is Phase 7 work).
 - Types that matter:
   - 7 = person `{.., u8 char, u8 facing}` (spawn_from_record).
   - **3 = door** `{.., u8 w, u8 h, u8 entry, u8 to_area, u8 style}` (behaviour 0x0204CB50). Proven: walking into
     a Coffee Shop door loaded area 4 at entry 12; no button press is needed.
   - 20 = door variant.
   - **25 = elevator** `{.., w, h, 5 x (u8 area, u8 entry), ...}`. Proven: A opens a floor menu in record order.
-  - 29 `{.., u8 area, u8 entry}` sits next to doors and entries, but walking past one did not trigger it. I: an
-    exit point for NPCs.
-  - 30 = ?
+  - **29 = NPC way point** `{.., u8 area (+8), u8 entry (+9), u8 set (+10)}` (create 0x020653E0; an invisible
+    entity, no behaviour). Not used by the player (walking past does nothing). People walking **out**
+    (`FUN_020655C0`) head for the type-29 marker whose area is where they're going (else one leading to a street,
+    area < 20, else any) and leave there; people walking **in** (`FUN_020656A4`) appear on such a marker. Proven:
+    loading city.sav with `npc-visit`, Bayou Boo (31) is spawned facing 4 at (164,246), the roof's type-29 marker
+    toward area 4. Set 1 markers are only for person 40.
+  - **30 = spawn zone** `{.., u8 set (+8), u8 half-width (+9), u8 half-height (+10), u8 key (+11)}` (create
+    0x020999DC). `FUN_020644FC(id, key)` spawns a person at a random spot inside the zone with that key. Used for
+    the "visit list" at 0x02142270 (`npc_busy_list`: `{s16 timer, u8 id, u8 area, u8 key, u8 state}`): when you
+    enter that area, everyone listed for it with state 1 is placed in zone `key` (`FUN_02066708`), and
+    `npc_present` keeps them out of their normal schedule meanwhile. `FUN_02064768` puts someone in zone 0 for
+    3,600 ticks (I: a phone invite). Read from the code, not yet seen at runtime.
 
 ## Travel in normal play
 - P, all without pokes, from `--city`:
@@ -64,14 +76,31 @@ I = inferred (read from the decompile, not exercised).
   - `tower_tour.json` (from tower_lobby.dst) rides 66→63→65→64→68→66 (`tower_tour_end.dst`).
   - Inputs: walk with the D-pad (about 1.4 px/frame); A on the sign or elevator; DOWN×k + A in the menu.
   - In dialogue: touch the reply (120,64), then A. Long text scrolls with DOWN. Leave with the red button (38,18).
-- P: **the tower's street doors are not spawned yet** (no door entities in the lobby). The goal "Slave to the Grind"
-  still needs Kris relationship 30 and giving her the Squeegee and Bucket, so the street wasn't reached legitimately.
+- P: **the first goal "Slave to the Grind" is scripted with real inputs**: `verify/scripts/first-goal.json` (12,900
+  frames from `--city`). After Kris's dialogue: three chats (25 → 28 → 28 → 30; one chat gave nothing), "Friendly
+  Stuff" → "Give a Gift" → tap the Squeegee 'n Bucket twice, then report with "What's Up?" (goal complete, next goal
+  "Get Cleaned Up" active), leave, close two pop-ups with B, ride the elevator to the lobby, then Options → Save Game
+  → slot A → overwrite. The result is **`verify/saves/lobby.sav`** (Tower Lobby, day 0 17:01, Kris 30, variant 1,
+  first goal complete). Use it with `--from lobby` (proof `lobby-goto`).
+  - Relationships rise through chats (`add_relationship` 0x0207B074, called from the conversation code at
+    0x0208FFF4); the Talk menu changes its topics after each one.
+  - Save menu: the list button (128,170) → Save Game (200,58) → green check (225,118) → overwrite: RIGHT, A, then
+    tap the check (168,98) twice.
+- P: **the street doors still don't appear after the first goal** (no door entities in the lobby after reporting). The lobby's street doors (section 1, group 1:
+  seven type-3 doors to area 4) are a script-switched group, and the chapter goes on: Get Cleaned Up (shower, nap,
+  vending machine), Help Kris (move a bed, repair a TV and two fountains), Get the Key (a mechanical skill point,
+  pick a lock), Find the Key, Get out of Jail (Detective Dan 30, his questions), then Find a Place to Live. Scripting
+  all of that is a long job, so tests reach the streets with `--goto` (below), starting from the legitimate
+  `lobby.sav`.
 - P: **the globe is not locked**. Its hit box is centred on (19,163) ±13 (button table 0x020F566C), so (18,180)
   misses it.
   - Touching (19,163) opens the city map (screen 18, page 5) even in the tutorial.
   - Touching places only shows their names (King Tower, Rep Group Clubhouse). Map travel was not seen.
 - EXPERIMENT (pokes): write 0x027C009C=0x81, 0x027C00A0=0, 0x027C00A4=area, 0x02141C28=entry. The game loads the
-  area through its own path. This worked for all 80 areas (`heap_sweep.py`).
+  area through its own path. This worked for all 80 areas (`heap_sweep.py`). The harness does this with
+  **`--goto AREA[:ENTRY]`** (e.g. `ram ROM --from lobby --goto 4` = Glasstown street); it waits 400 frames and fails
+  if the area didn't load. The screen must be in state 1 (the city): with a pop-up open (state 2) the poke is
+  ignored, which is why `--from` closes the load-time pop-up first.
   - Poking screen 1 (0x027C0128...) loads an area on the bottom screen as well. Two areas at once left 961 KB free.
 
 ## Heap (EXPH, bytes)
@@ -103,11 +132,9 @@ I = inferred (read from the decompile, not exercised).
 - `npc_schedule_table` actually has **49 entries (ids 31..79)**, ending with a 0 at id 80.
   - The lookup is `table[hour*7 + weekday]`.
   - ids 73/70 and 74/64 share a table.
-- Quest overrides in `npc_present` come first.
-  - Seen at runtime: Daddy Bigbucks (36) spawned in Executive Office 63, which is not in his schedule
-    (override 36→63 while quest (0,0) is active).
-  - Other overrides: 42→27, 53→12, 43→19/43, 50→39, 31→1/45, 69→2, 63→14, 62→19, 60→35/37, 65→27, 61→60, 32→61.
-    These explain most of the "record but no schedule" areas.
+- Quest overrides in `npc_present` come first (full list below). Seen at runtime: Daddy Bigbucks (36) spawned in
+  Executive Office 63, which is not in his schedule.
+
 - Runtime spawns matched the records exactly:
   - 63: Bigbucks at (236,191)
   - 65: Lily at (450,270)
@@ -127,6 +154,51 @@ I = inferred (read from the decompile, not exercised).
   68→77, 69→36, 72→1, 74→4/19, 77→2, 78→26.
 - Per-person lists: `areas.json["xref"]`. Person ids under 31 (animals and shop staff) have no schedule, so they
   always appear when their group is loaded.
+
+## Quest overrides (read from the decompile of `npc_present` and `npc_relocate_tick`; goal flags proven in RAM)
+Goal flags live in `goal_table` 0x02141940: 7 missions x 6 goals x 12 bytes. Goal (m,g) is at
+`0x02141940 + m*0x48 + g*0xC`: +0 active, +1 complete (set when you report back to the quest giver), +2+2s sub-goal
+s shown, +3+2s sub-goal s done. Proven: at the start m0g0 = `01 00 01 00 ..`; after the first goal's three steps it
+is `01 00 01 01 01 01 01 01`; "complete" is set only when you report back (Kris's new "What's Up?" topic), which also
+activates m0g1 (`01 00 01 00 01 00 01 00`: three sub-goals shown).
+
+`npc_present(id, area)` answers these before the visit list, the date partner and the schedule. "Only X" means the
+person appears in area X and nowhere else while the condition holds.
+
+| Person | While | Then |
+|---|---|---|
+| 36 Daddy Bigbucks | m0g0 active and m0g5 not complete | only 63 Executive Office |
+| 36 Daddy Bigbucks | m0g5 active and m4g5 not complete | nowhere |
+| 42 | m2g0 active and not complete | only 27 |
+| 53 Olde Salty | m2g5 sub-goal 3 done and m2g5 not complete | only 12 |
+| 43 | m0g5 complete and m1g5 not complete | only 19 Urbania Park |
+| 43 | m3g2 complete and m3g3 not complete | only 43 |
+| 50 | m2g5 active and not complete | only 39 |
+| 31 Bayou Boo | m3g1 sub-goal 1 done and m3g2 sub-goal 1 not done | only 1 |
+| 31 Bayou Boo | m3g2 sub-goal 1 done and m4g2 not complete | only 45 |
+| 69 | m3g2 complete (for good) | only 2 |
+| 41 | m4g5 active and not complete | not in 40 |
+| 63 | m6g1 not complete (most of the game) | only 14 |
+| 62 | m6g2 sub-goal 2 not done | only 19 |
+| 60 | m6g2 sub-goal 1 not done | only 35 |
+| 60 | m6g4 active and `FUN_02034fa4(0x2d)` = 0 | only 37 |
+| 65 | m6g2 sub-goal 0 not done | only 27 |
+| 61 | m6g4 complete, m4g5 complete, m6g5 sub-goal 0 not done | only 60 |
+| 32 | m6g4 complete, m4g5 complete, m6g5 not complete | only 61 |
+| anyone | m6g5 active and not complete | nobody in area 2 |
+
+`npc_relocate_tick` skips the same people under the same conditions (so quest people are never walked in or out),
+and also always skips 26, 74, 77 and 79, people with no schedule, and people `FUN_0206546c` reports as busy; 31 and
+35 are skipped in two story modes (`game_state+0x81C` = 3 / 1 with flag bit 0 of 0x021420E8).
+
+**For NPC Life (Phase 5):**
+- Hooking `schedule_lookup_call` (0x0206665C) changes who walks in and out; the overrides above still win, because
+  the relocation skips quest people before it asks the schedule. So quests stay safe.
+- `npc_present` reads the schedule table **directly** (not through `schedule_lookup`) when an area loads. The table
+  address is in 5 literal words (`schedule_table_ptr_1..5` in `code/game.sym`). I: pointing all 5 at a new table in
+  our code region moves people both at area load and during relocation (not yet tried).
+- The visit list (0x02142270, 10 entries, see record type 30) is how the game sends someone to a place for a while
+  outside their schedule; a mod can use it for visits too.
 
 ## Research scripts (research/areas/)
 - `area_parse.py` / `build_table.py` → `areas.json`. It holds per area: name, phone line, assets, entry points,

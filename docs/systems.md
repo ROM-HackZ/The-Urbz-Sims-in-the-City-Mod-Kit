@@ -229,7 +229,7 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
   Slots at 0x0020 and 0x1000, 0xFE0 bytes each; the u16 at slot+0xFDE makes the slot's u16 sum 0.
 - A slot is a bit/nibble/byte stream (`save_write_*`, context 0x021470FC). Early in the game it
   uses **2,569 of 4,064 bytes (63%)**, so about 1.4 KB per slot is free.
-- Known slot fields: +0x05 clock, +0x0B money (24-bit), +0x8F needs (u16[8], whole numbers).
+- Known slot fields: +0x05 clock, +0x0B money (24-bit), +0x8E needs (u16[8], 8.8 fixed point: value × 256; proof `save-edit`).
 - `urbz_save.py info/set/fix`. Proven: a save edited to §4,321 and 10% hunger loads with both.
 - Load from power-on: `verify/scripts/loadgame.json` with `--sav file.sav`.
 
@@ -255,7 +255,7 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
 - `npc_present(id, area, time)` (0x02065AD0) decides if a person appears:
   1. if the byte at 0x02142234 is 0, always yes;
   2. hard-coded quest overrides (by quest flags);
-  3. no, if the id is in the 10-entry busy list at 0x02142270;
+  3. no, if the id is in the 10-entry visit list at 0x02142270 (they're placed in a spawn zone instead);
   4. the date partner (game_state+0xAEE) follows separate rules;
   5. otherwise the schedule table (no table = always yes).
 - **Spawning:** an area's placement records (`{u16 7, u16, s16 x, s16 y, u8 id, u8 facing}`) are
@@ -309,15 +309,29 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
 ## Game state
 
 - One big struct of globals at **0x02141120** (324 code references): +0 0x55AA55AA marker,
-  +4 money, +0xC clock, +0xE4 needs, +0xB05 game phase, +0xB10 per-sim flags.
+  +4 money, +0xC clock, +0x14 social table (relationships at +0x34), +0xE4 needs, +0x820 goal table
+  (`goal_table` 0x02141940; layout and quest overrides in docs/areas.md), +0xB05 game phase, +0xB10 per-sim flags.
 
 ## Open questions
 
-- Which pixels each clothing palette slot covers (read from screenshots, not traced).
-- Where a street object gets its palette row number (entity+0x90 is set somewhere per object).
-- Record types 29 and 30 in area data (29 sits next to doors: probably exit points for people).
-- Groups 2+ of area records are switched on by scripts (`FUN_02012690`): which quests.
-- The tower's street doors appear only after the first goal; reaching the streets in a scripted
-  run needs that goal (or the area-load poke in docs/areas.md, for experiments).
-- Hardware: DeSmuME doesn't check the secure-area CRC (header 0x6C) or emulate caches; code mods
-  change the module params inside the secure area, so a flashcart test is still to do.
+Closed in the last gap pass (details in docs/player-look.md and docs/areas.md): clothing slot pixels, the
+hair-style limit, street object palette rows, record types 29/30, quest overrides, and a legitimate save past the
+first goal (`verify/saves/lobby.sav`). Still open:
+- Which quest switches which record group (`swap_record_groups`) in each area: Phase 7 work.
+- The streets need the whole tower chapter (about 12 more goals) in a real game; tests use `--goto` from
+  `lobby.sav`.
+- Type-30 spawn zones and the visit list are read from the code, not yet seen at runtime.
+- Hardware (see "Secure area" below): not tested on a flashcart or real DS.
+
+## Secure area and hardware
+
+- The ROM's first 16 KB of ARM9 code (ROM 0x4000-0x7FFF, RAM 0x02000000-0x02003FFF) is the secure area. Retail
+  cards store it encrypted, and header 0x6C holds a CRC of the encrypted bytes. Our ROM (like most dumps) holds
+  it decrypted.
+- Code mods must change the SDK module params at 0x02000ADC (the autoload table that copies our code to
+  0x0214DE20), which sit inside the secure area. There's no way around this with an autoload block: any added
+  code that loads at boot needs those params. We don't (and can't, without the console's key tables) recompute
+  0x6C; the builder recomputes the header CRC at 0x15E.
+- Risk: low. Flashcart loaders and emulators boot decrypted ROMs and don't check 0x6C; DeSmuME runs every proof.
+  ROMs without code mods keep the secure area byte-identical. To do before a release: boot a code-mod build on a
+  flashcart (or melonDS) once.

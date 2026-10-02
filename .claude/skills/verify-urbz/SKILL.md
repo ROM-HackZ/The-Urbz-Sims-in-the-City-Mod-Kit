@@ -35,6 +35,9 @@ All driving goes through `verify/urbz_verify.py` (run `help` for the full text):
 - `city [rom]` boots the build and loads `verify/saves/city.sav` (Load-an-Urb), caching a savestate
   per ROM hash. **Savestates contain the game code**, so code mods must start from `--city`
   (or `--sav`), never from an old state. `--city` works on ram/play/trace/find/watch.
+  `--from lobby` does the same with `verify/saves/lobby.sav` (first goal done, Tower Lobby, Kris 30).
+- `--goto AREA[:ENTRY]` loads an area through the game's own loader before the script (the streets
+  are still locked in a real game at that point; say so when a check relies on it).
 - `find <rom> --city --script s.json --test SHOT=COND ...` searches RAM values across shots;
   `watch <rom> --city --frames N --hook exec:ADDR|read:ADDR|write:ADDR [--stack] [--r0 V]` logs who
   touches an address. `--poke ADDR=HEX` sets memory before a run (experiments only, not proof).

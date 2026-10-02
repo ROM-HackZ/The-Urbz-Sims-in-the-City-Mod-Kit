@@ -66,7 +66,17 @@ Every row with asset ids: `parts_tables.txt` (`dump_parts.py --anims`). Hair ani
 female 03720/04163/04605/05047. Runtime check: the city player entity has slot0 0x0211FBBC row 0,
 slot1 0x0211F59C row 1, slot2 0x0211FECC row 0 (t14.py).
 
-Adding a hair style needs a 5th pointer in both hair tables + UI limit (not located); adding an
+**Option counts (UI limits)** [PROVEN for hair]: Create-a-Bod rows wrap at a count from the byte table
+**0x020C8204** = `{u8 mode0, u8 mode1}` per row: gender 2/2, skin 6/8, hair style **4/4 (0x020C820A/0x020C820B)**,
+hair colour 10/16 (`FUN_02048a74`, values kept at 0x02141FB8 + row*4, copied to the look on change). Proof: with
+0x020C820A poked to 3 the hair style cycles 1, 2, 0, 1 (watch on 0x02141146, writer pc 0x02048C04); normally it
+cycles 1, 2, 3, 0. Mode 1 (8 skin tones, 16 hair colours) matches the save's bit widths; when the game uses mode 1
+is not known (I: an unlock).
+
+**Adding a 5th hair style needs four things:** the count byte above set to 5; a 5th pointer for both hair tables
+(Create-a-Bod `0x0211CDAC[g]` and city `0x020F75D0[g]`; each gender's u32[4] sits right before the other's, so
+copy the tables into the code region and re-point them); art for the new style; and **a save change**: the save
+keeps the hair style in 2 bits (slot+0x1E, b0 bits 5-6), so a 5th style would load back as style 0. Adding an
 "outfit" means adding colours/style cases (section 3), not art.
 
 **Proof mod `tests/mods/cab-hair`** (`code/hooks.txt`): `u32 0x0211CDB4 0x020C7E40` and
@@ -88,7 +98,13 @@ rowA (skin/hair) = A[0], skin(5), hair(5), shoes(4), A[15].
 rowB (clothes) = B[0], X(3), Y(4), Z(4), pants4(4), with X = shirt3, defaults Y = Z = overshirt4, then
 by gender/style: male 0: Z=sleeve; 1: Y=shirt4, Z=sleeve; 2: Z=skin; 3: Y=shirt4, Z=skin; 4: -; 5: Y=Z=shirt4.
 female 0: Z=skin; 1: -; 2: Y=Z=shirt4; 3: Y=shirt4, Z=skin; 4: X=skin3; 5: X=skin3, Z=skin.
-(Which pixels X/Y/Z cover, e.g. Z = sleeves, is read from the screenshots, not proven per pixel.)
+**Which pixels each slot covers** [PROVEN for two looks]: OBJ row 1 in hardware rewritten with 16-bit writes
+(colours 1-3 red, 4-7 green, 8-11 blue, 12-15 yellow), one frame, screenshot:
+- male, shirt style 0 (city.sav look): X (1-3) = shirt front, Y (4-7) = jacket body, Z (8-11) = sleeves,
+  12-15 = trousers.
+- female, shirt style 4 (look_edit.sav): X (1-3, skin for this style) = bare shoulder/upper arm, Y = top,
+  Z = waistband **and boots**, 12-15 = skirt.
+Other styles follow the same slots; what Y/Z cover depends on the art for that style.
 (shirt4 = shirt3 pointer + 7 colours, + 8 if shirt >= 15: game quirk, colour 15 is off by one.)
 `swatch.py` reimplements this; for look `00 01 00 00 00 03 00 0a 0e 00` it equals live OBJ rows 0/1.
 player_colours.png shows the tables. Player uses OBJ rows 0 and 1 (also composed for look copy
@@ -119,8 +135,12 @@ Sources by sprite kind:
 4. City objects: rows 2-8 loaded at area start by `FUN_0204b4fc` (only when area < 0x50
    [inferred: streets]) from table **0x020C82C4 = ids 1,2,3,5,6,7,8 = files 00000, 00001, 00002, 00004,
    00005, 00006, 00007** (32-byte raw palettes). Each object picks its row via entity+0x90 (e.g. puddles
-   gfx 10748 -> row 3 = file 00001; gfx 10117 -> rows 2/7). Where the per-object row number comes from is not
-   traced [open]. Proof mod `tests/mods/city-pal` (00001 R/B swapped): puddles turn orange
+   gfx 10748 -> row 3 = file 00001; gfx 10117 -> rows 2/7). Each kind of object picks its row in its own create function, through
+   `set_palette_row(e, row)` (0x0206D84C): either a constant (e.g. 3 or 4 in the minigame objects at 0x020103B8) or
+   a per-kind table indexed by the object's variant (entity+0xA). **Proven for area record type 16** (pick-ups,
+   hidden once collected): rows come from `0x020C2828[variant]` = 7, 5, 3, 7, 2; in Glasstown the five type-16
+   objects use rows 7, 7, 7, 5, 3, and with the table set to 8 all five use row 8 (proof `object-row`). Record
+   type 31 uses `0x020C2B08[variant]` = 7, 7, 7, 7, 6, 5 (I). Proof mod `tests/mods/city-pal` (00001 R/B swapped): puddles turn orange
    (proofs/proof_city_pal.png).
 5. Bottom-screen HUD sprites (sub engine): rows 0-7 asset 10361 (128 colours), 14/15 assets 10357/10354,
    others 256-colour blocks from loaded UI assets (FUN_020179b8).

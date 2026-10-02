@@ -32,3 +32,8 @@ Top level: `ex.py` (run steps from a savestate, save a new one, contact sheet of
 (Create-a-Bod and palette probes, `swatch.py` = the player palette builder), `objects/` (object →
 action → effect row analysis), `composite/` (OAM/VRAM capture and checks for the sprite format),
 `ghidra/` (export scripts).
+
+Second gap pass (2026-10-02): `cab/recolour_slots.py` (clothing slot pixels). Hair limit:
+`verify/urbz_verify.py watch ROM --state cab.dst --script hair.json --hook write:0x02141146 [--poke 0x020C820A=03]`
+with hair.json = DOWN x3 then RIGHT x4. Street access: `verify/scripts/first-goal.json`; object rows: proof
+`object-row`.

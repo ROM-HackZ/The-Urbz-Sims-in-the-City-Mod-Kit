@@ -48,9 +48,9 @@ def run(cmd, timeout=900):
     return p.stdout
 
 
-def ram(rom, frames, *reads, pokes=(), script=None):
+def ram(rom, frames, *reads, pokes=(), script=None, start=('--city',)):
     """{ADDR:LEN -> bytes} after `frames` frames from the build's city state."""
-    cmd = VERIFY + ['ram', rom, '--city', '--frames', str(frames)]
+    cmd = VERIFY + ['ram', rom] + list(start) + ['--frames', str(frames)]
     for p in pokes:
         cmd += ['--poke', p]
     if script:
@@ -185,18 +185,44 @@ def p_npc_schedule_hook():
 
 
 def p_save_edit():
+    """Money and a need edited in a save made later in the game (needs are 8.8 fixed point)."""
     import urbz_save
-    src = os.path.join(KIT, 'verify', 'saves', 'city.sav')
+    src = os.path.join(KIT, 'verify', 'saves', 'lobby.sav')
     dst = os.path.join(OUT, 'edited.sav')
     os.makedirs(OUT, exist_ok=True)
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', src, dst, '--money', '4321'])
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', src, dst, '--money', '4321',
+         '--motive', 'hunger=12.5'])
     rom, _, _ = build('vanilla', [])
-    cmd = VERIFY + ['ram', rom, '--sav', dst, '--script', os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'),
-                    '--read', '0x02141124:4']
-    out = run(cmd)
-    v = [l for l in out.splitlines() if l.startswith('0x02141124')][0].split(' = ')[1]
-    money = struct.unpack('<i', bytes.fromhex(v))[0]
-    return money == 4321, 'money after loading the edited save: %d (expect 4321)' % money
+
+    def load(sav):
+        cmd = VERIFY + ['ram', rom, '--sav', sav, '--script',
+                        os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'),
+                        '--read', '0x02141124:4', '--read', '0x02141204:8']
+        out = {l.split(' = ')[0]: bytes.fromhex(l.split(' = ')[1]) for l in run(cmd).splitlines() if ' = ' in l}
+        return (struct.unpack('<i', out['0x02141124:4'])[0], s824(out['0x02141204:8'], 0),
+                s824(out['0x02141204:8'], 1))
+    # Needs keep decaying while the loaded game runs, so compare with the unedited save loaded the same way.
+    m0, h0, y0 = load(src)
+    money, hunger, hygiene = load(dst)
+    saved = struct.unpack_from('<H', open(src, 'rb').read(), 0x20 + urbz_save.F_MOTIVES)[0] / 256
+    want = h0 + 12.5 - saved
+    ok = money == 4321 and abs(hunger - want) < 0.1 and abs(hygiene - y0) < 0.01
+    return ok, 'edited save: money %d (expect 4321); hunger %.2f (expect %.2f = 12.5 minus the same decay); ' \
+        'hygiene %.2f (untouched: %.2f)' % (money, hunger, want, hygiene, y0)
+
+
+def p_lobby_goto():
+    """verify/saves/lobby.sav (first goal done, played without pokes) loads in the Tower Lobby
+    with Kris at 30; --goto then loads a street through the game's own area loader."""
+    rom, _, _ = build('vanilla', [])
+    a = ram(rom, 30, '0x02141FEC:4', '0x0214118C:1', '0x02122794:1', '0x02141940:2', start=['--from', 'lobby'])
+    b = ram(rom, 30, '0x02141FEC:4', start=['--from', 'lobby', '--goto', '4'])
+    area, kris, var = struct.unpack('<I', a['0x02141FEC:4'])[0], a['0x0214118C:1'][0], a['0x02122794:1'][0]
+    street = struct.unpack('<I', b['0x02141FEC:4'])[0]
+    goal = a['0x02141940:2']
+    return (area, kris, var, street) == (66, 30, 1, 4) and goal == b'\x01\x01', \
+        'lobby save: area %d (expect 66), Kris %d (expect 30), variant %d (expect 1), first goal active/complete ' \
+        '%s (expect 0101); --goto 4: area %d' % (area, kris, var, goal.hex(), street)
 
 
 def p_text_accents():
@@ -267,12 +293,27 @@ def p_png_sheets_roundtrip():
     return ok, 'unchanged sheets identical: %s; edits: %s' % (same, log.strip().split('\n')[-1][-120:])
 
 
+def p_object_row():
+    """Street objects take their OBJ palette row from a per-kind table (record type 16: 0x020C2828[variant])."""
+    rom, _, _ = build('vanilla', [])
+
+    def rows(*pokes):
+        b = ram(rom, 30, '0x0215E000:0xC000', pokes=pokes, start=['--from', 'lobby', '--goto', '4'])['0x0215E000:0xC000']
+        return sorted((struct.unpack_from('<H', b, i + 0xA)[0], (struct.unpack_from('<I', b, i + 0x90)[0] >> 12) & 15)
+                      for i in range(0, len(b) - 0x148, 4) if struct.unpack_from('<I', b, i + 0x4C)[0] == 0x0201DC50)
+    a = rows()
+    b = rows('0x020C2828=' + '08000000' * 5)
+    want = [(v, (7, 5, 3, 7, 2)[v]) for v, _ in a]
+    ok = bool(a) and a == want and all(r == 8 for _, r in b) and len(a) == len(b)
+    return ok, 'Glasstown type-16 objects (variant, row): %s; with the table set to 8: %s' % (a, b)
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
-          ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('text-accents', p_text_accents),
+          ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip)]
+          ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row)]
 
 
 def main(argv):

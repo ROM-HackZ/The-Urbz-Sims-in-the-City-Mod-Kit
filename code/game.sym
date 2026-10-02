@@ -88,6 +88,24 @@ job_pay_call       = 0x020516AC   # BL add_stat(2, earned) when a shift ends
 schedule_lookup    = 0x02065890   # u8 schedule_lookup(int char_id, game_time_t *t): area this person should be in (82 = out of town)
 npc_relocate_tick  = 0x02066110   # every 150 ticks: people whose schedule says this area walk in, others walk out
 schedule_lookup_call = 0x0206665C # the BL schedule_lookup inside npc_relocate_tick (hook point for NPC Life)
+npc_present        = 0x02065AD0   # bool npc_present(id, area, time): quest overrides, busy list, date partner, then the schedule table
+schedules_on       = 0x02142234   # u8: 0 = everyone always present (very start of a new game), 1 = schedules apply
+npc_busy_list      = 0x02142270   # 10 x 6 bytes {s16 timer, u8 id, u8 area, u8 zone key, u8 state}: visits placed in a spawn zone; npc_present keeps them off their schedule
+# literal pool words that hold &npc_schedule_table (npc_present reads the table directly, not via schedule_lookup)
+schedule_table_ptr_1 = 0x02065888
+schedule_table_ptr_2 = 0x02065924
+schedule_table_ptr_3 = 0x02065AA0
+schedule_table_ptr_4 = 0x0206610C
+schedule_table_ptr_5 = 0x02066700
+
+# --- goals (quests): 7 missions x 6 goals x 12 bytes; m = mission 0-6 (Goals menu 1-5, S, R), g = goal 0-5
+goal_table         = 0x02141940   # +0 u8 active, +1 u8 complete (set when you report back), +2+2s u8 sub-goal s shown, +3+2s u8 sub-goal s done
+goal_active        = 0x02054334   # u8 goal_active(m, g)
+goal_complete      = 0x020542F4   # u8 goal_complete(m, g)
+subgoal_done       = 0x02054314   # u8 subgoal_done(m, g, s)
+subgoal_shown      = 0x02054354   # u8 subgoal_shown(m, g, s)
+relationship_base  = 0x02141134   # social table: relationships = base + 0x20
+add_relationship   = 0x0207B074   # int add_relationship(base, char_id, delta): clamps -100..100, sets friend flags at 50
 
 # --- areas (docs/areas.md). Area ids 0-79; name string = 975 + id; 82 = out of town
 area_table         = 0x020C87E0   # 80 x 0x14: {ptr, u32 name string, u32 data asset game id, u8[4], u32}
@@ -96,7 +114,12 @@ area_entry_point   = 0x02141C28   # u8 entry point used when an area loads
 area_variant       = 0x02122794   # u8 story variant: picks the area data section (0 tutorial, 1 after the first job)
 area_enter         = 0x0204C158   # loads the area in current state param, spawns record groups 0 and 1
 set_state          = 0x0204DF7C   # set_state(state, mode, param): doors call set_state(1, 0, area)
-record_handlers    = 0x020C2308   # area record type -> create function (7 person, 3 door, 25 elevator)
+record_handlers    = 0x020C2308   # area record type -> create function (7 person, 3 door, 25 elevator, 29 NPC way point, 30 spawn zone)
+spawn_record_group = 0x020125C0   # spawn one record group of the current area (0 and 1 at area load)
+swap_record_groups = 0x02012690   # swap_record_groups(show, hide): scripts and objects switch groups 2+
+npc_walk_out       = 0x020655C0   # person heads for the type-29 way point toward their next area
+npc_walk_in        = 0x020656A4   # person appears on a type-29 way point (facing 4)
+spawn_in_zone      = 0x020644FC   # spawn_in_zone(id, key): random spot in the type-30 zone with that key
 
 # --- player look (docs/player-look.md)
 player_look        = 0x02141144   # u8[10]: gender, skin, hair style, hair colour, shirt style, shirt, overshirt, sleeve, pants, shoes colour
@@ -107,5 +130,10 @@ build_player_palette = 0x02083538 # builds the player's 2 OBJ rows from assets 1
 # --- palettes and fonts
 npc_palette_table  = 0x020D0054   # u32 palette game id per character id (Kris 45 -> file 09160)
 street_palette_table = 0x020C82C4 # u32 game ids loaded into OBJ rows 2-8 on streets
+set_palette_row    = 0x0206D84C   # void set_palette_row(entity, row): entity+0x90 bits 12-15 (row 0xFF = leave it)
+load_palette_row   = 0x0206D73C   # people: take a free/shared row from the pool and load a 16-colour palette into it
+obj16_rows         = 0x020C2828   # u32[5]: OBJ palette row per variant for area record type 16 (pick-ups)
+obj16_sprites      = 0x020C2838   # 5 x {gfx, layout, palette, param} sprite records for record type 16
+obj31_rows         = 0x020C2B08   # u32[6]: OBJ palette row per variant for area record type 31
 font_table         = 0x020C5CEC   # 8 x {u32 font game id, u32 colour base}
 font_descriptors   = 0x02140D60   # 8 x 0x28 resident font descriptors

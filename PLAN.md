@@ -61,7 +61,8 @@ that hook).
 
 **Harness** (`verify/urbz_verify.py`): doctor, smoke, ram, play, trace, city (boot + load
 `verify/saves/city.sav`, cached per ROM), find (value search), watch (exec/read/write hooks with stack),
-`--poke`, `--sav`/`--export-sav`, `--heap`. Scripts: `newgame.json`, `loadgame.json`, `intro.json`.
+`--from NAME` (another save: `lobby` = first goal done), `--goto AREA` (load any area), `--poke`,
+`--sav`/`--export-sav`, `--heap`. Scripts: `newgame.json`, `loadgame.json`, `intro.json`, `first-goal.json`.
 
 **Engine map** (details and evidence in `docs/`): clock and tick, needs (s32 8.24) and decay, action
 effect rows, money and job pay, save layout, game state struct, people (ids, schedules, relocation, spawning,
@@ -88,14 +89,26 @@ emulator check is possible.
 | Areas / travel unknown | 80 areas mapped (names, data, doors, elevators, people); scripted roof → tower lobby with real inputs | `docs/areas.md` |
 | `npc-visit` used a raw spawn | Rewritten to answer `schedule_lookup`; the game walks Bayou Boo in by itself | proof `npc-schedule` |
 
-**Still open (low risk or for later phases)**
-- Native Windows build of the code-mod path not run on the PC (the cloud build is identical code).
-- Real hardware / flashcart: code mods change module params inside the secure area; DeSmuME doesn't check
-  the secure-area CRC. Test on a flashcart or melonDS before release.
-- Which pixels each clothing palette slot covers; how street objects pick their palette row; record
-  types 29/30; script-switched record groups (quests); the 5th-hair-style UI limit.
-- The tower's street doors appear only after the first goal (befriend Kris); scripted runs reach the streets
-  only with the area-load poke (experiments) until that goal is scripted.
+## Second gap pass (2026-10-02)
+
+| Gap | Result | Evidence |
+|---|---|---|
+| No legitimate way past the tutorial for tests | First goal scripted with real inputs (`first-goal.json`: chats with Kris to 30, give the Squeegee, report, save); `verify/saves/lobby.sav` + `--from lobby` | proof `lobby-goto` |
+| Streets unreachable in tests | Still locked in a real game (the whole tower chapter, ~12 more goals); `--goto AREA` loads any area through the game's loader from `lobby.sav` | proof `lobby-goto` (Glasstown) |
+| Quest overrides for NPC Life | Full list of the 19 hard-coded overrides with their goal-flag conditions; goal table layout (7 x 6 x 12 bytes at 0x02141940) | `docs/areas.md`; flags checked in RAM before/after the first goal |
+| Save tool read needs wrongly | Needs are 8.8 fixed point at slot+0x8E (the tool read +0x8F as whole numbers, which only worked on round values); fixed | proof `save-edit` (now on `lobby.sav`) |
+| Clothing slot → pixels | Recoloured each slot in-game: male style 0 = shirt front / jacket / sleeves / trousers; female style 4 = shoulder / top / waistband + boots / skirt | `docs/player-look.md` |
+| Hair-style UI limit | Count byte 0x020C820A (=4); poking 3 makes it wrap at 3. A 5th style also needs table copies, art, and a save change (2 bits) | `docs/player-look.md` |
+| Street object palette row | Set per object kind (`set_palette_row`); record type 16 uses `0x020C2828[variant]`, changed in-game | proof `object-row` |
+| Record types 29/30 | 29 = NPC way points (walk in/out; Bayou Boo spawned on one); 30 = spawn zones for the visit list (code only) | `docs/areas.md` |
+| Record groups 2+ | `swap_record_groups(show, hide)`; group numbers come from object data. Per-quest mapping left for Phase 7 | `docs/areas.md` |
+| Secure area | Documented: unavoidable with an autoload block, low risk, flashcart test before release | `docs/systems.md` |
+
+**Still open**
+- Native Windows build of a code mod (`build.bat` with `clock-speed`) on Jonathan's PC: the cloud build uses the
+  same code, so this only checks the install.
+- A flashcart / melonDS boot of a code-mod build (before a public release).
+- Which quest flips which record group (Phase 7), type-30 zones seen at runtime.
 
 ## Phase 5: NPC Life v1 (the living city)
 
@@ -107,7 +120,10 @@ timetables; the state survives save/load; a debug view shows it.
   150 ticks; our function answers from the brain. (`npc-visit` already does this for one person.)
 - `world_tick` 0x02084104 (wrap): advance the simulation (cheap: once per game minute is enough).
 - `npc_present` 0x02065AD0 (call sites 0x02064EF4, 0x0204B7F4): area-load spawns; keep it consistent with
-  the brain (a person the brain puts here must pass).
+  the brain (a person the brain puts here must pass). It reads the schedule table directly (5 literal words,
+  `schedule_table_ptr_1..5`), not through `schedule_lookup`.
+- Way points (record type 29) are where people walk in and out; spawn zones (type 30) + the visit list
+  (0x02142270) can place a visitor anywhere in an area (docs/areas.md).
 - Save: append a versioned NPC block to the save stream after `save_serialize_all` (0x020354BC) and read it
   back on load; about 1.4 KB free per slot (2,569 of 4,064 bytes used). Unknown/old saves → defaults.
 
@@ -139,8 +155,11 @@ timetables; the state survives save/load; a debug view shows it.
 3. In a reachable area, a person walks in because the brain sent them (screenshot + RAM).
 4. `tests/proofs.py` gets proofs for each.
 
-**Risks:** the date partner and quest overrides in `npc_present` must keep working (don't move quest
-characters during their quests); schedules use area 82 (out of town) for absent people.
+**Testing:** start from `--from lobby` (a legitimate save past the first goal); reach streets with `--goto`.
+
+**Risks:** the date partner and the 19 quest overrides in `npc_present` must keep working (the relocation
+loop already skips quest people before asking the schedule; the full list is in docs/areas.md); schedules use
+area 82 (out of town) for absent people.
 
 ## Phase 6: NPC Life v2 (visible actions)
 

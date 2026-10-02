@@ -11,14 +11,14 @@ Layout (see docs/systems.md):
           each slot is a bit/nibble/byte stream (about 2.5 KB used early in the game); the
           u16 at slot+0xFDE makes the u16 sum of the slot 0. A slot that doesn't sum to 0 is empty.
 Known slot fields (offsets inside a slot): +0x05 clock (u16 day, u8 hour, minute, second,
-tick), +0x0B money (24-bit, little-endian), +0x8F u16[8] needs (0-100).
+tick), +0x0B money (24-bit, little-endian), +0x8E u16[8] needs (8.8 fixed point, 0-100).
 """
 import struct, sys
 
 HEADER, SLOT_SIZE = 0x20, 0xFE0
 SLOTS = (0x20, 0x1000)
 MOTIVES = ['hunger', 'hygiene', 'energy', 'social', 'comfort', 'bladder', 'fun', 'room']
-F_CLOCK, F_MONEY, F_MOTIVES = 0x05, 0x0B, 0x8F
+F_CLOCK, F_MONEY, F_MOTIVES = 0x05, 0x0B, 0x8E   # needs: u16, value * 256
 
 
 def u16sum(b):
@@ -52,11 +52,11 @@ def info(path):
             continue
         day, h, m, sec = struct.unpack_from('<HBBB', buf, s + F_CLOCK)
         money = int.from_bytes(buf[s + F_MONEY:s + F_MONEY + 3], 'little')
-        mot = struct.unpack_from('<8H', buf, s + F_MOTIVES)
+        mot = [v / 256 for v in struct.unpack_from('<8H', buf, s + F_MOTIVES)]
         used = len(bytes(buf[s:s + SLOT_SIZE - 2]).rstrip(b'\0'))
         print('slot %d: day %d %02d:%02d:%02d  money %d  (about %d of %d bytes used)'
               % (n + 1, day, h, m, sec, money, used, SLOT_SIZE))
-        print('        needs: ' + ', '.join('%s %d' % (k, v) for k, v in zip(MOTIVES, mot)))
+        print('        needs: ' + ', '.join('%s %.1f' % (k, v) for k, v in zip(MOTIVES, mot)))
 
 
 def main(argv):
@@ -99,10 +99,10 @@ def main(argv):
                 name, val = v.split('=')
                 if name not in MOTIVES:
                     sys.exit('error: motive is one of ' + ', '.join(MOTIVES))
-                val = int(val)
+                val = float(val)
                 if not 0 <= val <= 100:
                     sys.exit('error: motive values are 0-100')
-                struct.pack_into('<H', buf, s + F_MOTIVES + 2 * MOTIVES.index(name), val)
+                struct.pack_into('<H', buf, s + F_MOTIVES + 2 * MOTIVES.index(name), round(val * 256))
             elif k != '--slot':
                 sys.exit('error: unknown option ' + k)
             i += 2
