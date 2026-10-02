@@ -25,8 +25,7 @@ QT_KEYS = {'A': 0x58, 'B': 0x5A, 'Select': 0x01000003, 'Start': 0x01000004, 'Rig
            'Left': 0x01000012, 'Up': 0x01000013, 'Down': 0x01000015, 'R': 0x53, 'L': 0x41, 'X': 0x44, 'Y': 0x43}
 XKEYS = {'A': 'x', 'B': 'z', 'START': 'Return', 'SELECT': 'BackSpace', 'UP': 'Up', 'DOWN': 'Down',
          'LEFT': 'Left', 'RIGHT': 'Right', 'R': 's', 'L': 'a', 'X': 'd', 'Y': 'c'}
-MENU_BAR = 20                # melonDS's menu bar above the screens
-BOTTOM_Y = MENU_BAR + 192    # the bottom screen starts below the top one
+MENU_BAR = 20                # melonDS's menu bar above the screens (measured at run time)
 
 
 def available():
@@ -58,11 +57,21 @@ def _run_raw(rom, script, out=None, quick=False):
     time.sleep(1)
     log = open(os.path.join(out, 'melon.log'), 'w') if out else subprocess.DEVNULL
     p = subprocess.Popen([MELON] + ([rom] if rom else []), env=env, stdout=log, stderr=subprocess.STDOUT)
-    time.sleep(3)
     x = lambda *a: subprocess.run(['xdotool'] + [str(v) for v in a], capture_output=True, text=True)
-    wid = x('search', '--name', 'melonDS').stdout.split()
-    wid = wid[-1] if wid else None
+    wid = None
+    for _ in range(30):                       # wait for the window (a slow start gave blank shots)
+        time.sleep(0.5)
+        w = x('search', '--name', 'melonDS').stdout.split()
+        if w:
+            wid = w[-1]
+            break
+    time.sleep(1.5)
+    menu_bar = MENU_BAR
     if wid:
+        # the menu bar's height varies with fonts: the screens are the window's bottom 384 rows
+        g = re.search(r'Geometry: (\d+)x(\d+)', x('getwindowgeometry', wid).stdout)
+        if g and 384 < int(g.group(2)) < 384 + 60:
+            menu_bar = int(g.group(2)) - 384
         x('windowmove', wid, 0, 0)
         x('windowactivate', '--sync', wid)
         time.sleep(0.5)
@@ -79,14 +88,14 @@ def _run_raw(rom, script, out=None, quick=False):
             frames(10)
         elif s[0] == 'touch':
             # relative to melonDS's window, so the window manager's frame doesn't matter
-            x('mousemove', '--window', wid, s[1], s[2] + BOTTOM_Y)
+            x('mousemove', '--window', wid, s[1], s[2] + menu_bar + 192)
             x('mousedown', 1)
             frames(s[3] if len(s) > 3 else 6)
             x('mouseup', 1)
             frames(10)
         elif s[0] == 'shot':
             f = os.path.join(out, 'melon_%s.png' % s[1])
-            subprocess.run(['import', '-window', wid or 'root', '-crop', '256x384+0+%d' % MENU_BAR, '+repage', f])
+            subprocess.run(['import', '-window', wid or 'root', '-crop', '256x384+0+%d' % menu_bar, '+repage', f])
             shots.append((s[1], f))
         else:
             raise ValueError('unknown step %r' % (s,))
