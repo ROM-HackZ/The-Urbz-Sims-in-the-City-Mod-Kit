@@ -46,7 +46,7 @@ All driving goes through `verify/urbz_verify.py` (run `help` for the full text):
 
 Ready-made scripts: `verify/scripts/intro.json` (power-on to Create-a-Bod), `verify/scripts/newgame.json` (power-on through Kris Thistle's tutorial chat to a running city, about 7,000 frames) and `verify/scripts/loadgame.json` (with `--sav`: Load-an-Urb slot 1, about 2,000 frames). `trace` also captures sprite palettes into `verify/palettes/`.
 
-Input scripts are JSON step lists: `["wait",n]`, `["press","A",hold?]`, `["touch",x,y,hold?]`, `["shot","name"]`.
+Input scripts are JSON step lists: `["wait",n]`, `["press","A",hold?]`, `["touch",x,y,hold?]`, `["shot","name"]`, `["poke","ADDR=HEX"]` (write RAM mid-run).
 
 The DS clock is pinned (default `2026-01-05T12:00`), so runs are repeatable. Identical ROMs give 0.0% difference. Use `--rtc` to test time-of-day behaviour (NPC schedules).
 

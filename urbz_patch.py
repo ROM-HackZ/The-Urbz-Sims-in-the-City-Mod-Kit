@@ -180,8 +180,8 @@ def build(mod):
     open(os.path.join(out, 'patch.bin'), 'wb').write(b0)
     info = {'relocs': relocs, 'symbols': funcs, 'bss': bss,
             'sources': {f: hashlib.sha1(open(os.path.join(cdir, f), 'rb').read()).hexdigest()
-                        for f in srcs + (['hooks.txt'] if os.path.exists(
-                            os.path.join(cdir, 'hooks.txt')) else [])}}
+                        for f in srcs + sorted(x for x in os.listdir(cdir) if x.endswith(('.inc', '.h'))) +
+                        (['hooks.txt'] if os.path.exists(os.path.join(cdir, 'hooks.txt')) else [])}}
     json.dump(info, open(os.path.join(out, 'patch.json'), 'w'), indent=1)
     print('built %s/build/patch.bin: %d bytes code+data, %d bytes zeroed, %d pointer(s) '
           'to relocate, %d hook function(s)' % (os.path.relpath(cdir, KIT), len(b0), bss, len(relocs), len(roots)))

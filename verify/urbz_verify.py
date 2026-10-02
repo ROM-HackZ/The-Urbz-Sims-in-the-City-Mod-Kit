@@ -42,7 +42,7 @@ Default rom: build/Urbz Mod.nds. Evidence (screenshots + report.txt) goes to
 verify/evidence/<time>-<command>/ and is never deleted automatically.
 
 Input scripts are JSON lists of steps:
-  ["wait", frames]  ["press", "A", holdFrames?]  ["touch", x, y, holdFrames?]  ["shot", "name"]
+  ["wait", frames]  ["press", "A", holdFrames?]  ["touch", x, y, holdFrames?]  ["shot", "name"]  ["poke", "ADDR=HEX"]
 Keys: A B X Y L R START SELECT UP DOWN LEFT RIGHT
 """
 import json, os, struct, subprocess, sys, time
@@ -146,6 +146,10 @@ def _run_script(emu, script, outdir, tag, loads=None, on_shot=None):
             step(int(s[3]) if len(s) > 3 else 6)
             emu.input.touch_release()
             step(10)
+        elif op == 'poke':                     # ["poke", "ADDR=HEXBYTES"]: write RAM mid-script
+            a, hexb = s[1].split('=')
+            for i, b in enumerate(bytes.fromhex(hexb)):
+                emu.memory.write_byte(int(a, 0) + i, b)
         elif op == 'shot':
             p = os.path.join(outdir, '%s_%s.png' % (tag, s[1]))
             emu.screenshot().save(p)

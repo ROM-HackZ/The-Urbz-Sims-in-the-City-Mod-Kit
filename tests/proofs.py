@@ -411,14 +411,16 @@ def orig_timetables():
     return out
 
 
-def snapshots(rom, start_save, steps, every, ranges, pokes=(), goto=None):
+def snapshots(rom, start_save, steps, every, ranges, pokes=(), goto=None, pokes_at=None):
     """One emulator run from a save's city state: RAM ranges every `every` frames.
-    goto = an area to load first (through the game's own loader, after the pokes)."""
+    goto = an area to load first (through the game's own loader, after the pokes);
+    pokes_at = {k: [pokes]}: written just before the wait that leads to snapshot k."""
     sys.path.insert(0, os.path.join(KIT, 'verify'))
     import urbz_verify as V
     out = tempfile.mkdtemp(prefix='urbz-snaps-')
     script = []
     for k in range(steps):
+        script += [['poke', p] for p in (pokes_at or {}).get(k, [])]
         script += [['wait', every], ['shot', 's%02d' % k]]
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
            'state': V.city_state(os.path.abspath(rom), None, start_save), 'script': script,
@@ -565,6 +567,68 @@ def p_npc_use_object():
     fmt = lambda k: ('tick %d state %x action %x anim %x' % steps[k]) if k in steps else 'never'
     return ok, ('sent to a chair: %d; started using it: %s; sitting animation 0x6B: %s; after the abort: '
                 '%s; build/proofs/npc-use-object.png') % (struct.unpack_from('<i', mem, 28)[0], fmt(2), sat, fmt(5))
+
+
+NACT_MAGIC = 0x5443414E
+USE_SET = {33, 39, 41, 45, 52, 53, 54, 58}       # the people with the game's object animations (sit 0x6B)
+
+
+def people_states(mem, base=0x0214DE20):
+    """{character id: (state, action, anim)} of the people (entity type 7) in a RAM dump."""
+    out = {}
+    for k in range(0, len(mem) - 0x148, 4):
+        t, i = struct.unpack_from('<HH', mem, k + 8)
+        if t == 7 and 31 <= i < 80 and struct.unpack_from('<H', mem, k + 0x146)[0] == i:
+            out[i] = (mem[k + 0x104], mem[k + 0x105], mem[k + 0xC7])
+    return out
+
+
+def act_run(name, pokes_at=None, steps=12):
+    """NPC Life in the Coffee Shop (51) at 17:05 (Phoebe, Gramma Hattie and 33 there): people's states and the
+    behaviour layer's counters every 150 frames."""
+    rom = npc_life_rom(name)
+    _, nact = find_magic(rom, 1, NACT_MAGIC, 4)
+    snaps, out = snapshots(rom, 'lobby', steps, 150, [HEAP_SCAN, '0x%08X:0x40' % nact],
+                           pokes=['0x0214112E=1105'], goto=51, pokes_at=pokes_at)
+    res = []
+    for mem, c in snaps:
+        res.append({'people': people_states(mem), 'sent': struct.unpack_from('<I', c, 4)[0],
+                    'aborted': struct.unpack_from('<I', c, 12)[0], 'chats': struct.unpack_from('<I', c, 52)[0]})
+    return rom, res, out
+
+
+def p_npc_act():
+    """Visible actions (NPC Life, Phase 6): in the Coffee Shop, people act out what they're doing with the
+    game's own objects and animations: someone with the object animations sits on a chair (state 0x11,
+    anim 0x6B), and two others chat: they face each other and take turns gesturing (our action 0x30 with
+    gestures 0x87/0x78/0xDB). Nobody without the sit animation is sent to a chair."""
+    rom, res, out = act_run('npc-act')
+    sits = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st == 0x11 and an == 0x6B})
+    wrong = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st in (0x11, 0x26)} - USE_SET)
+    talk = [r for r in res if sum(1 for st, ac, an in r['people'].values() if st == 0x23 and ac == 0x30) >= 2]
+    gest = sorted({an for r in res for st, ac, an in r['people'].values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
+    shots = sorted(glob.glob(os.path.join(out, '*.png')))
+    if len(shots) > 4:
+        shutil.copy(shots[4], os.path.join(OUT, 'npc-act.png'))
+    ok = bool(sits) and not wrong and bool(talk) and bool(gest) and res[-1]['chats'] >= 1
+    return ok, ('sitting (anim 0x6B): %s; sent to objects without the animations: %s; snapshots with two people '
+                'chatting: %d, gestures seen: %s; actions started: %d; build/proofs/npc-act.png') % (
+        sits, wrong or 'none', len(talk), ['%02x' % g for g in gest], res[-1]['sent'])
+
+
+def p_npc_act_release():
+    """Switching NPC Life off in the game releases everyone acting: nobody stays seated or chatting, and
+    they go back to the game's own wandering (state 0x23, actions 7/0x19)."""
+    rom = npc_life_rom('npc-act-release')
+    off = core_request(rom, 0, 0)
+    rom, res, out = act_run('npc-act-release', pokes_at={3: [off]}, steps=6)
+    before = res[2]['people']
+    acting_before = sorted(i for i, (st, ac, an) in before.items() if st in (0x11, 0x26) or ac == 0x30)
+    after = res[-1]['people']
+    still = sorted(i for i, (st, ac, an) in after.items() if st in (0x11, 0x26) or ac == 0x30)
+    ok = bool(acting_before) and not still and all(st == 0x23 for st, ac, an in after.values())
+    return ok, 'acting before the switch: %s; acting 450 frames after it: %s; states after: %s' % (
+        acting_before, still or 'nobody', {i: '%x/%x' % (st, ac) for i, (st, ac, an) in after.items()})
 
 
 def p_npc_life_off():
@@ -779,7 +843,8 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
-          ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-life-off', p_npc_life_off),
+          ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
+          ('npc-act-release', p_npc_act_release), ('npc-life-off', p_npc_life_off),
           ('npc-life-save', p_npc_life_save), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
 
 

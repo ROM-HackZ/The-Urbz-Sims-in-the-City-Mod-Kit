@@ -199,3 +199,9 @@ path_cancel        = 0x0207DB10   # (e): frees e's path slot
 object_class_table = 0x020EAF84   # 0x24 bytes per object number: +4 list activities, +8 can start, +0xC start, +0x1C usable by
 object_list_head   = 0x0214490C   # first node of this area's objects: {next, ?, u16 object number @+8, ..., entity @+0x24}
 activity_need_table = 0x020EA9B0  # u32 per activity: which need it serves (u16)
+entity_lists       = 0x02121AF0   # {u32 head, u32 first} per context (8 bytes); context 0 = the world (people, objects); entity +0 = next
+path_count         = 0x02146F18   # u8 path slots in use (of 3); npc_goto_object does not check, so check first
+npc_end_activity   = 0x02000D70   # (e, activity record): drops it from e+0x100 (no clean-up; prefer the stop byte)
+entity_face        = 0x02000F08   # (e, dir 1-8): clockwise, 8 = up (screen), 3 = down-right, 7 = up-left
+npc_has_anim       = 0x020644A8   # int (id, anim): in the person's animation list (0x0211CDF4, 12-byte rows, ends 0xC4)
+npc_anim_lists     = 0x0211CDF4   # u8 *[id]: {u8 anim, ...} x 12 bytes; 0x6B sit / 0x7B toilet only for 33 39 41 45 52 53 54 58

@@ -336,7 +336,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   requests a path and sets state 0x26 (`npc_goto_object_state`); on arrival the object starts the activity
   (state 0x11, the activity at entity+0x100; it ends when its tick says so, then the person goes back to
   state +0x10A). Animations are the person's own: sit 0x6B, stand up 0x72, toilet 0x7B. Proven: Phoebe
-  (54) and Ian (43) walk to a café chair and sit; Phoebe uses the toilet.
+  (54) and Gramma Hattie (43) walk to a café chair and sit; Phoebe uses the toilet.
 - **Needs:** activities update entity+0x114, a block of 8 needs (s32, 0-100 in the top byte, +0x20 also
   written). Townspeople have **none** (null); `motive_apply_effect` skips null, but other code writes +0x20,
   and address 0 mirrors ITCM code, so give a person a block (64 bytes) before sending them. Without one a
@@ -345,6 +345,19 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   (only hygiene, energy, comfort, bladder, fun; never hunger) and only for people whose record has +0x36 set
   (`npc_record` table 0x020E5E5C, 0x38 bytes each: ids 33 39 41 52 54 58). Calling `npc_goto_object`
   directly works for anyone.
+- **Who can use objects visibly:** `npc_has_anim(id, anim)` (0x020644A8) reads the person's animation list
+  (`npc_anim_lists` 0x0211CDF4, 12-byte rows ending 0xC4). Everyone has 0x04 stand and 0x0A walk; the object
+  set (0x20 0x21 0x69 0x6B-0x6D 0x7B: sit, stand up, toilet ...) only 33 39 41 45 52 53 54 58; gestures 0x87
+  (20 people), 0x78 (19), 0xDB (16). Gramma Hattie (43, no 0x6B) sent to a chair stands on the chair in the standing pose.
+  Seats refuse townspeople in their can-start check (activity 0x38 and type != player: chair 137's +8
+  function 0x0202E934), though the sit animations exist; NPC Life skips that check for seats only.
+- **Facing and chatting:** `entity_face(e, dir)` (0x02000F08), dir 1-8 clockwise with 8 = up on screen
+  (7 = up-left, 3 = down-right: proven from Kris's walks). The wander state ignores actions it doesn't
+  know (e.g. 0x30), so code can hold a person still, face them and play gestures, then hand them back
+  with action 2 (proof `npc-act`).
+- **The world's entities:** a linked list per context at `entity_lists` (0x02121AF0, 8 bytes each: head,
+  first); context 0 = the world (people, objects); entity +0 = next. (Proven: the Coffee Shop's list holds
+  Phoebe, Gramma Hattie and 33.)
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.

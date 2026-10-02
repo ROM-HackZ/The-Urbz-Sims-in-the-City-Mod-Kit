@@ -1,4 +1,4 @@
-# NPC Life (v1)
+# NPC Life (v2)
 
 The city's 36 named people get needs (hunger, hygiene, energy, social, comfort, bladder, fun),
 jobs, money and rent. Every game hour each person picks what to do next, Sims-style: a hungry
@@ -43,7 +43,20 @@ then build the ROM as usual.
   story still wins.
 - Save data: 584 bytes per save slot.
 
-## Not in v1
+## Visible actions (v2, Phase 6)
 
-People don't yet visibly use objects (eat at a table, sit down) and don't say different things
-when they're hungry or broke: that's Phase 6/7 (see PLAN.md).
+In the area you're in, people act out what they're doing, with the game's own objects and
+animations (`code/act.inc`):
+- the 8 people who have the game's object animations (Cannonball Coleman, Dusty Hogg, Ewan
+  Watahmee, Kris Thistle, Misty Waters, Olde Salty, Phoebe Twiddle, Sue Pirnova) walk to a chair and sit down when they're eating (no food object
+  there), resting or just taking a break; they use the toilet when they need it;
+- the others chat: one walks up to another, they face each other and take turns gesturing;
+- at most 4 actions at once; a person rests 20-50 s between actions; nobody is taken from a
+  story scene, from talking to you, or from leaving for their next place;
+- switched off on the Mods page, everyone stops and goes back to the game's own wandering.
+- The info page shows "sitting here" / "chatting here" for people acting it out.
+
+## Not yet
+
+People don't say different things when they're hungry or broke, and the 28 people without
+object animations can't sit (they would stand on the chair). See PLAN.md.

@@ -13,6 +13,7 @@
 #define N_TABLE 49                        /* timetables for ids 31..79 (0 after the last) */
 
 static sim_t sim;
+#include "act.inc"                        /* visible actions (Phase 6) */
 u8 *live_table[N_TABLE + 1];             /* what the game reads instead of npc_schedule_table */
 
 /* Tests read this (magic 'NPCL'), followed by the sim state itself. */
@@ -88,6 +89,24 @@ void mod_on_minute(int n)
     npc_life.hours = sim.hours;
 }
 
+void mod_on_tick(void)
+{
+    if (npc_life.ready)
+        act_tick();                           /* people here act out what they're doing */
+}
+
+void mod_on_area_enter(int area)
+{
+    (void)area;
+    for (int k = 0; k < MAX_ACTORS; k++)
+        actors[k].e = 0;                      /* the old area's people are gone */
+}
+
+void mod_on_disable(void)
+{
+    act_release_all();                        /* everyone goes back to the game's own wandering */
+}
+
 void mod_on_enable(void)
 {
     if (!npc_life.ready)
@@ -143,9 +162,15 @@ void mod_on_page(mod_page_t *p)
         const sim_person_t *s = &sim.s.p[best];
         q = str_cat(line, person_name(best, nm));
         q = str_cat(q, " ");
-        q = str_cat(q, act[s->act]);
-        q = str_cat(q, " in ");
-        q = str_int(q, s->place);
+        const char *doing = act_doing(31 + best);
+        if (doing) {                          /* acting it out right here */
+            q = str_cat(q, doing);
+            q = str_cat(q, " here");
+        } else {
+            q = str_cat(q, act[s->act]);
+            q = str_cat(q, " in ");
+            q = str_int(q, s->place);
+        }
         q = str_cat(q, " $");
         q = str_int(q, s->money);
         q = str_cat(q, " f");
