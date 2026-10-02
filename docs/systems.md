@@ -330,7 +330,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   number @+8, ..., entity @+0x24}`. `object_class_table` (0x020EAF84), 0x24 bytes per object number:
   +4 list activities (node, u8 out[7]), +8 can start (node, person, activity), +0xC start, +0x10 tick,
   +0x1C usable by (node, person). `activity_need_table` (0x020EA9B0, 4 bytes per activity) = the need an
-  activity serves. Example, Coffee Shop (51): 3 chairs (object 137, activity 56, comfort), 2 tables (158,
+  activity serves. Example, Slice O' Life Pizza (51): 3 chairs (object 137, activity 56, comfort), 2 tables (158,
   none), sink (203, 68, hygiene), toilet (208, 66, bladder), 170 (18, fun; refuses townspeople), no food.
 - **Using an object:** `npc_goto_object(person, object entity, activity)` (0x0200D720) finds the use spot,
   requests a path and sets state 0x26 (`npc_goto_object_state`); on arrival the object starts the activity
@@ -356,7 +356,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   know (e.g. 0x30), so code can hold a person still, face them and play gestures, then hand them back
   with action 2 (proof `npc-act`).
 - **The world's entities:** a linked list per context at `entity_lists` (0x02121AF0, 8 bytes each: head,
-  first); context 0 = the world (people, objects); entity +0 = next. (Proven: the Coffee Shop's list holds
+  first); context 0 = the world (people, objects); entity +0 = next. (Proven: the pizza place's list holds
   Phoebe, Gramma Hattie and 33.)
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
@@ -375,7 +375,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   `load_look_palette(look, a, b)` (0x020833E0) builds the look's two rows into OBJ rows a and b.
 - Look colours: clothing colour c = palette 11542 row c % 16, shades 1-3 (c < 16) or 4-6 (c >= 16);
   skin tone and hair colour = rows of 11543 (skin in shades 1-5, hair in 6-10).
-- People get OBJ palette rows from a pool starting at 9 (Coffee Shop with 3 people: 9, 10, 11;
+- People get OBJ palette rows from a pool starting at 9 (the pizza place with 3 people: 9, 10, 11;
   12-15 empty). The player body needs 2 rows per person, so at most ~3 people could have it at once.
 - Proven (proof `npc-body-prototype`, RAM; pictures in melonDS and DeSmuME): switched on, Kris is drawn
   with the female player body in a look of ours (brown skin, dark hair, white and denim), idles and walks

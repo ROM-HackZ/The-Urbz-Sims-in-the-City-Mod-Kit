@@ -63,7 +63,7 @@ state 0x23 (handler 0x0200A1F0; corrected in step 2); player body drawn by FUN_0
   and stands up when we end it). Details: docs/systems.md "People: movement and object use".
   Changes to the plan for step 3: use objects through `npc_goto_object` (not our own walking); give each
   acting person a 64-byte needs block first; end uses with the stop byte (3). Eating: where a place has
-  no food object (the Coffee Shop has none), "eat" = sit at a table.
+  no food object (Slice O' Life Pizza has none), "eat" = sit at a table.
 - **Step 3 done (2026-10-02).** `mods/npc-life/code/act.inc`: people in your area act out the sim's
   activity: the 8 people with object animations sit on chairs (eat/rest/break) and use the toilet; the
   others chat (walk up, face each other, take turns gesturing). Max 4 at once, hands off scripted people,
@@ -73,6 +73,6 @@ state 0x23 (handler 0x0200A1F0; corrected in step 2); player body drawn by FUN_0
   (activity -> need) already says which object serves what. The harness gained a `poke` script step.
 - **Step 4 done (2026-10-02).** Mod `npc-body-proto` (off by default; Options > Mods): Kris drawn with the
   player's female body and animations in her own colours. Works in melonDS (switched on with real taps
-  from a save at 16:30 on the plaza) and DeSmuME (proof `npc-body-prototype`). For Jonathan to judge:
+  from a save at 16:30 on the King Tower roof) and DeSmuME (proof `npc-body-prototype`). For Jonathan to judge:
   her cap and jeans become a ponytail and a skirt, and each such person uses 2 of the ~7 people's
   palette rows. Save tool: `urbz_save.py set --clock HH:MM`.

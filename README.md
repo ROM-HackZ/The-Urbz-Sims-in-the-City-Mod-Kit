@@ -206,7 +206,7 @@ people are doing on its info page, and tune it with two JSON files: see `mods\np
 
 **`mods\npc-body-proto`** (a prototype, off by default) draws Kris Thistle with the player's body
 and animations in her own colours. Switch it on in Options > Mods and find Kris on the King Tower
-plaza between 4 and 7 pm.
+roof between 4 and 7 pm.
 
 ## Save files
 

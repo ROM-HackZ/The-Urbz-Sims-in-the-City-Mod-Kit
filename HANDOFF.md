@@ -53,7 +53,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   mirrors game code). `npc_goto_object` ignores a failed path request: check `path_count` < 3 first.
 - Only 8 people have object animations (33 39 41 45 52 53 54 58); seats refuse townspeople in their own
   check. Person 43 is Gramma Hattie (names: string 512 + id - 31).
-- To see Kris in melonDS: `urbz_save.py set verify/saves/city.sav x.sav --clock 16:30` (plaza, 16-19h).
+- To see Kris in melonDS: `urbz_save.py set verify/saves/city.sav x.sav --clock 16:30` (King Tower roof, 16-19h).
 
 ## Rules (from CLAUDE.md)
 - Never commit ROMs, `project/`, `build/`, `*.dst`, or anything extracted from the game.
@@ -64,6 +64,6 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 ## Working with Jonathan
 - Plain language, short sentences, say what's proven vs not. He uses "plan mode" by asking in a message.
 - Don't spawn heavy subagents casually.
-- Open items for him: try NPC Life v2 on the Thor (the Coffee Shop around 5 pm on a weekday: people sit and chat);
-  switch on npc-body-proto and find Kris on the King Tower plaza between 4 and 7 pm; say whether to roll
+- Open items for him: try NPC Life v2 on the Thor (Slice O' Life Pizza around 5 pm on a weekday: people sit and chat);
+  switch on npc-body-proto and find Kris on the King Tower roof between 4 and 7 pm; say whether to roll
   the player body out; `manager.bat` on Windows.

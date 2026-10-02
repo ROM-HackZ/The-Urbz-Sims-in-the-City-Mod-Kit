@@ -543,7 +543,7 @@ OBJP_MAGIC = 0x504A424F
 
 
 def p_npc_use_object():
-    """People can use the area's objects with the game's own code (Phase 6 groundwork): in the Coffee Shop
+    """People can use the area's objects with the game's own code (Phase 6 groundwork): in Slice O' Life Pizza
     (51) at 17:05, Phoebe (54) is sent to a chair (activity 56) by `npc_goto_object`: she walks there,
     sits down (state 0x11, sitting animation 0x6B) and stays seated, and when we abort the use (stop byte 3) she stands up
     and goes back to wandering (state 0x23)."""
@@ -584,7 +584,7 @@ def people_states(mem, base=0x0214DE20):
 
 
 def act_run(name, pokes_at=None, steps=12):
-    """NPC Life in the Coffee Shop (51) at 17:05 (Phoebe, Gramma Hattie and 33 there): people's states and the
+    """NPC Life in the Slice O' Life Pizza (51) at 17:05 (Phoebe, Gramma Hattie and 33 there): people's states and the
     behaviour layer's counters every 150 frames."""
     rom = npc_life_rom(name)
     _, nact = find_magic(rom, 1, NACT_MAGIC, 4)
@@ -598,7 +598,7 @@ def act_run(name, pokes_at=None, steps=12):
 
 
 def p_npc_act():
-    """Visible actions (NPC Life, Phase 6): in the Coffee Shop, people act out what they're doing with the
+    """Visible actions (NPC Life, Phase 6): in Slice O' Life Pizza, people act out what they're doing with the
     game's own objects and animations: someone with the object animations sits on a chair (state 0x11,
     anim 0x6B), and two others chat: they face each other and take turns gesturing (our action 0x30 with
     gestures 0x87/0x78/0xDB). Nobody without the sit animation is sent to a chair."""
