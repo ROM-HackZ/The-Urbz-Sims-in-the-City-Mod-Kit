@@ -28,3 +28,7 @@ Decided with Jonathan (2026-10-02):
   `npc-life-visit` (Dusty Hogg visits Urbania Park in an out-of-town hour), `npc-life-reload` (replaces
   `npc-life-save`: no data saved, plans identical after reload), `npc-life-off`, `npc-life-page`, `npc-act`,
   `npc-act-release`.
+- **Step 2 done.** Animations per activity (docs/systems.md): sit 0x6B/0x6C/0x6D (+0x72 stand up), eat 0x41,
+  toilet 0x7B, shower 0x69 (+0xCC/0xCD towel), sleep 0x21 lie down / 0x20 get up. Art priority by how often
+  you'd see it: sit (seats and benches in 10+ public areas), eat (vending, grills), toilet (5 areas), shower
+  (5), sleep (6, mostly invisible beds). A full set is ~6 animations x 2 views x 10-20 frames per person.

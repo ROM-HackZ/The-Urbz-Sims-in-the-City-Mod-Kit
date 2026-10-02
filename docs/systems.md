@@ -358,6 +358,13 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
 - **The world's entities:** a linked list per context at `entity_lists` (0x02121AF0, 8 bytes each: head,
   first); context 0 = the world (people, objects); entity +0 = next. (Proven: the pizza place's list holds
   Phoebe, Gramma Hattie and 33.)
+- **Animations the object activities play** (from each object class's start/tick code, constants only, plus
+  Kris's sheets; tables can add more): seats 0x6B sit down / 0x6C / 0x6D seated loop, 0x72 stand up; beds
+  0x21 lie down, 0x20 get up; shower (200) 0x69, towel 0xCC/0xCD; toilet 0x7B; fridge, microwave, stove,
+  grill, vending 0x41 (eat a snack standing). Of the townspeople only Kris has 0x41; the 8 with the object
+  set have 0x20/0x21/0x69/0x6B-0x6D/0x7B. Where they could be used (docs/objects.md "Objects placed by
+  area records"): seats and invisible park benches in 10+ public areas, toilets in 5, vending machines in 3,
+  grills in 3, showers in 5, beds (mostly invisible ones) in 6.
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
