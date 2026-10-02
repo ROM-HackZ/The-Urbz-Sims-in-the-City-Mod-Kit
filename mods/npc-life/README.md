@@ -47,8 +47,8 @@ then build the ROM as usual.
 In the area you're in, people act out their routine with the game's own objects and animations
 (`code/act.inc`):
 - someone eating walks to a vending machine, grill or fridge and eats; with no food object there,
-  they sit down at a table; relaxing at home, they sit on a bench or sofa; at night, a bed if
-  there is one; now and then, the toilet; washing time, a shower;
+  they sit down at a table; relaxing at home, they sit on a bench or sofa; now and then, the
+  toilet; at night a bed, at washing time a shower (written, but not seen in a test yet);
 - a person only does what they have the animation for (only Kris can eat; 8 people can sit,
   shower, sleep and use the toilet; anyone you give new art with `urbz_anims.py` joins in);
 - everyone else, or when there's nothing to use, chats: one walks up to another, they face each
