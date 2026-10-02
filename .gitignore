@@ -24,4 +24,6 @@ __pycache__/
 mods/*
 !mods/clock-speed/
 !mods/npc-visit/
+!mods/npc-life/
+mods/npc-life/sim/orig_tables.h
 tests/mods/*/code/build/
