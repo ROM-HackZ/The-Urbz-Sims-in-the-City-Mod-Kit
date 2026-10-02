@@ -182,6 +182,7 @@ u32 core_boot(u32 a, u32 b, u32 c, u32 d)
         if (t->rows[i].on)
             apply_patches(&t->rows[i], 1);
     core.booted = 1;
+    core_page_init();
     fire(EV_BOOT, 0);
     return ret;
 }

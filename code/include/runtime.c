@@ -22,6 +22,31 @@ int memcmp(const void *a, const void *b, unsigned n)
     return 0;
 }
 
+/* Small text helpers (info pages): append to dst, return the new end. */
+char *str_cat(char *dst, const char *s)
+{
+    while ((*dst = *s++))
+        dst++;
+    return dst;
+}
+
+char *str_int(char *dst, int v)
+{
+    char tmp[12];
+    int n = 0;
+    unsigned u = v < 0 ? -(unsigned)v : (unsigned)v;
+    if (v < 0)
+        *dst++ = '-';
+    do {
+        tmp[n++] = '0' + u % 10;
+        u /= 10;
+    } while (u);
+    while (n)
+        *dst++ = tmp[--n];
+    *dst = 0;
+    return dst;
+}
+
 /* ARMv5 has no divide instruction; the compiler calls these. */
 unsigned __aeabi_uidiv(unsigned n, unsigned d)
 {

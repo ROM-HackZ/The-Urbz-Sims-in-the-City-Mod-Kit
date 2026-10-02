@@ -40,6 +40,8 @@ typedef struct {
 void *memcpy(void *d, const void *s, unsigned n);
 void *memset(void *d, int c, unsigned n);
 int memcmp(const void *a, const void *b, unsigned n);
+char *str_cat(char *dst, const char *s);   /* append; returns the new end */
+char *str_int(char *dst, int v);           /* append a number; returns the new end */
 
 /* ---- people ------------------------------------------------------------- */
 #define current_area GAME_VAR(ADDR_current_area, u32)

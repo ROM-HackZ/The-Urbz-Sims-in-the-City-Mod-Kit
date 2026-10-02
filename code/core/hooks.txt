@@ -6,3 +6,6 @@ call area_enter_last_call  core_area_entered  # on_area_enter
 call game_start_call       core_game_start    # first city entry: new game -> on_load(0, 0)
 call save_serialize_call   core_save          # append the mod block to the save slot
 call save_deserialize_call core_load          # read it back
+call menu_label_call       core_label         # the Mods page's own button labels (ids from 0xF000)
+call menu_hit_call         core_menu_hit      # taps on the Mods page switch mods
+call menu_redraw+0x130     core_menu_text     # (BL menu_draw_text) titles, info lines, icon colours

@@ -162,3 +162,24 @@ obj16_sprites      = 0x020C2838   # 5 x {gfx, layout, palette, param} sprite rec
 obj31_rows         = 0x020C2B08   # u32[6]: OBJ palette row per variant for area record type 31
 font_table         = 0x020C5CEC   # 8 x {u32 font game id, u32 colour base}
 font_descriptors   = 0x02140D60   # 8 x 0x28 resident font descriptors
+
+# --- bottom-screen menus (Urb Info / Options / globe ...; docs/systems.md "Menus")
+menu_table_ptrs    = 0x020F5654   # menu *[5]: 0 globe?, 1 catalog pages, 2 Options (0x020F56EC), 3 ?, 4 Urb Info... (index = menu_ui+8)
+options_menu       = 0x020F56EC   # header {u32 gfx, u32 layout, 0, 0, u32 pal16, u32 pal256, u16 count, u16} + count x 20-byte buttons
+menu_ptr_lit_1     = 0x0206FD54   # literal pool words holding &menu_table_ptrs (the only references)
+menu_ptr_lit_2     = 0x020701B4
+menu_ptr_lit_3     = 0x020703B0
+menu_ptr_lit_4     = 0x020706BC
+menu_ui            = 0x02144CEC   # -> {+4 open, +8 menu index, +0xC action, +0x10 selected button}
+menu_hit_test      = 0x0206FBF4   # int (): touched button -> its action (0 = open sub-menu index in word 3, then -1); -1 = none
+menu_hit_call      = 0x0206FDAC   # the only BL menu_hit_test
+menu_redraw        = 0x0207026C   # rebuild the open menu's icons and text
+menu_draw_text     = 0x02070038   # title + one label per button
+menu_label_call    = 0x0207016C   # BL text_get(button label id) in menu_draw_text
+menu_dispatch      = 0x02070494   # run the chosen action (6 settings, 7 save, 0x28 quit, ...)
+text_get           = 0x020A6D28   # const char *text_get(int string_id)
+text_draw          = 0x020340F8   # (int tiles, int x, int y, const char *s, int align: 1 centre x, 2 right, 4 centre y)
+text_font          = 0x02034754   # (int font, int colour, -1): font slot for the following text_draw calls
+ui_sound           = 0x02097B58   # (int id): 1 select, 3 refused, 4 open sub-menu
+touch_state        = 0x02141D70   # +0x0E u16 x, +0x10 u16 y, +0x52 u16 touched this frame
+

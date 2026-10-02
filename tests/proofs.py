@@ -10,7 +10,7 @@ proofs that compile C. Test mods live in tests/mods/; data files that would come
 game (asset bytes) are generated here at run time, so nothing from the ROM is committed.
 Built ROMs go to build/proofs/. Exit code 1 if any proof fails.
 """
-import json, os, random, shutil, struct, subprocess, sys, tempfile
+import glob, json, os, random, shutil, struct, subprocess, sys, tempfile
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(TESTS)
@@ -338,6 +338,30 @@ def p_switch_persist():
         'clock table %s (original 0300)' % (rec, b[0], b[TABLE_ROW], r['0x02113B60:2'].hex())
 
 
+def p_mods_page():
+    """The Mods button on Options and the Mods page, driven with real touches: switching
+    clock-speed off there restores the clock, and the switch holds after power-off."""
+    import shutil, tempfile
+    rom, _, _ = build('mods-page', [os.path.join(KIT, 'mods', 'npc-visit'),
+                                    os.path.join(KIT, 'mods', 'clock-speed')])
+    script = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'mods.json')
+    json.dump([['wait', 30], ['touch', 128, 180, 8], ['wait', 60], ['shot', 'options'],
+               ['touch', 61, 120, 8], ['wait', 60], ['shot', 'mods-page'],
+               ['touch', 192, 28, 8], ['wait', 60], ['shot', 'clock-speed-off']], open(script, 'w'))
+    sav = play_export(rom, 'mods-page', ['--city'], script)
+    shots = sorted(glob.glob(os.path.join(KIT, 'verify', 'evidence', '*-play')))[-1]
+    for n in ('options', 'mods-page', 'clock-speed-off'):
+        shutil.copy(os.path.join(shots, 'play_%s.png' % n), os.path.join(OUT, 'mods-page-%s.png' % n))
+    on = '0x%08X:%d' % (CODE_BASE + 32 + 28, TABLE_ROW + 1)
+    r = ram(rom, 1, on, '0x02113B60:2', start=['--state', os.path.join(OUT, 'mods-page.dst')])
+    after = ram(rom, 1700, on, '0x02113B60:2', start=['--sav', sav])       # power-off, title screen
+    ok = (r[on][0] == 1 and r[on][TABLE_ROW] == 0 and r['0x02113B60:2'] == b'\x03\x00'
+          and after[on][TABLE_ROW] == 0 and after['0x02113B60:2'] == b'\x03\x00')
+    return ok, 'after tapping Options > Mods > clock-speed: npc-visit on=%d, clock-speed on=%d, clock table %s; ' \
+        'after power-off: clock-speed on=%d, table %s; screenshots build/proofs/mods-page-*.png' % (
+            r[on][0], r[on][TABLE_ROW], r['0x02113B60:2'].hex(), after[on][TABLE_ROW], after['0x02113B60:2'].hex())
+
+
 def p_save_edit():
     """Money and a need edited in a save made later in the game (needs are 8.8 fixed point)."""
     import urbz_save
@@ -469,7 +493,8 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
           ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
-          ('save-block', p_save_block), ('switch-persist', p_switch_persist)]
+          ('save-block', p_save_block), ('switch-persist', p_switch_persist),
+          ('mods-page', p_mods_page)]
 
 
 def main(argv):

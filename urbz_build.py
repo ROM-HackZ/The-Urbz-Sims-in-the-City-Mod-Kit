@@ -413,14 +413,15 @@ def main(argv):
     ap.add_argument('--project', default=os.path.join(kit, 'project'))
     ap.add_argument('--config', help='mods list (default: mods.json next to this script)')
     ap.add_argument('--mod', action='append', default=[],
-                    help='build with only these mods (repeatable), ignoring mods.json')
+                    help='build with only these mods (repeatable; a name in mods/ or a folder path), ignoring mods.json')
     ap.add_argument('--vanilla', action='store_true', help='ignore all mods')
     a = ap.parse_args(argv)
     try:
         if a.vanilla:
             mods = []
         elif a.mod:
-            mods = [os.path.join(kit, 'mods', m) for m in a.mod]
+            mods = [os.path.abspath(m) if os.sep in m and os.path.isdir(m) else os.path.join(kit, 'mods', m)
+                    for m in a.mod]
             for m in mods:
                 if not os.path.isdir(m):
                     raise BuildError('no such mod folder: %s' % m)

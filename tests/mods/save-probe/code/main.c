@@ -33,3 +33,15 @@ void mod_on_load(const u8 *buf, int len)
         probe.fresh++;
     }
 }
+
+/* Info page (Mods page -> "save-probe: info"). */
+void mod_on_page(mod_page_t *p)
+{
+    char line[40];
+    str_int(str_cat(line, "minutes counted: "), probe.minutes);
+    p->print(p, line);
+    str_int(str_cat(line, "saves: "), probe.saves);
+    p->print(p, line);
+    str_int(str_cat(line, "loads: "), probe.loads);
+    p->print(p, line);
+}

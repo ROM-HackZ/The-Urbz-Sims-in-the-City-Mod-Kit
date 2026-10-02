@@ -12,7 +12,9 @@ typedef struct {
     u32 loaded;                /* set by core_load inside core_game_start */
     u32 carry_len;             /* bytes in the carry buffer */
     u32 saved_bytes, loaded_bytes;   /* size of the mod block in the last save / load */
+    u32 page_ready, page_taps;       /* Mods page set up; taps handled on it */
 } core_state_t;
 
 extern core_state_t core;
 void core_set(int index, int on);
+void core_page_init(void);
