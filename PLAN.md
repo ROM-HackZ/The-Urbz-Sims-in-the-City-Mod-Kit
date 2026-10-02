@@ -112,6 +112,10 @@ emulator check is possible.
 
 ## Phase 5: NPC Life v1 (the living city)
 
+**Approved detailed plan (2026-10-02): `docs/plan-phase5.md`** — 5A mod platform (in-game on/off switches,
+per-mod save data, events, Mods page, PC mod manager), then 5B NPC Life v1. Status: not started (no code yet).
+The notes below are the earlier outline; the detailed plan wins where they differ.
+
 **Outcome:** people's whereabouts come from a simulation of needs, jobs and money instead of fixed
 timetables; the state survives save/load; a debug view shows it.
 
