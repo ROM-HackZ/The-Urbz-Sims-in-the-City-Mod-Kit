@@ -1,4 +1,4 @@
-# Handoff (2026-10-02)
+# Handoff (2026-10-02, end of Phase 5)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase5.md`.
 
@@ -6,58 +6,58 @@ For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN
 Jonathan's "dream version" of *The Urbz: Sims in the City* (DS, USA, ROM SHA1
 3c01cc5cf3491b5d0ab626ccfb5bcad370662f2f): a living city where townspeople have needs, jobs, money and rent,
 saved with the game, plus new content. Approach (decided): **keep modding the real DS game** and replace systems
-one at a time with our own C code via hooks (no full rewrite). New systems are written as portable C with a thin
-connector so a PC port stays possible. Players must be able to **choose mods (PC manager) and switch them on/off
-in-game**.
+one at a time with our own C code via hooks (no full rewrite). New systems are portable C with a thin connector.
+Players choose mods on the PC (manager) and switch them on/off in the game (Options > Mods).
 
 ## Where things stand
-- Phases 1–4 done + two gap passes. **The game itself is still unchanged**; we have a kit and an engine map.
-- Kit: extract/build (vanilla rebuild is byte-identical), mods overlay, text (Huffman, accents), PNG
-  (screens/sprites/composite), fonts, palettes, save tool, C code mods (call/jump/wrap/data hooks), headless
-  emulator harness, 17 emulator proofs (`tests/proofs.py`, all PASS on 2026-10-02).
-- Example mods: `clock-speed` (data), `npc-visit` (C, schedule hook).
-- **Phase 5 approved, not started** (no code written): `docs/plan-phase5.md`.
-  - 5A mod platform: mod.json fields → toggle-aware hook stubs + `modcore` + mod table → per-mod save block +
-    events API (needs RE of the save *load* path) → in-game Mods page (needs RE of the Options page) → PC mod
-    manager (tkinter).
-  - 5B NPC Life v1: portable C sim + PC test harness → connector that points the 5 schedule-table literals at a
-    live table (game's own relocation/spawns/phone lines then follow the sim).
-  - Start at step 1: read `urbz_code.py` `apply_code` (hooks are applied there; call hooks rewrite BLs, wrap uses
-    48-byte trampolines `_wrap_trampoline`, data hooks write bytes; `Arm9.write` refuses overlaps).
+- Phases 1-5 done. The kit: extract/build (vanilla byte-identical), mods overlay, text, PNG, fonts, palettes,
+  save tool, C code mods, headless emulator harness, 27 emulator proofs (`tests/proofs.py`).
+- **Phase 5 (this session)**, all proven in the emulator:
+  - Mod platform: `code/core/` (built in whenever a mod is switchable or uses events) + `code/include/mod.h`.
+    Mod table at 0x0214DE20; switchable call/wrap/jump stubs; data hooks applied/restored by the core;
+    per-mod save data after the game's data; switch record in save memory 0x1FE0; events.
+  - Mods page: a real 4th Options button. The bottom menus are data (`menu_table_ptrs`); the core moves the
+    pointer array and adds menu 5 (Mods) and 6 (a mod's info page). See docs/systems.md "Bottom-screen menus".
+  - `mod_manager.py` + `manager.bat` (tkinter window; zip install with safety checks).
+  - NPC Life v1 (`mods/npc-life/`): portable sim (`sim/npc_sim.c`, PC test `sim/run_test.py`), connector
+    (`code/main.c`, points the 5 schedule literals at live timetables via `u32 ADDR @live_table`).
+- Order of commits on the branch: design → core/switches/save/record → Mods page → manager → sim → connector →
+  docs.
+
+## Next (Phase 6, see PLAN.md)
+NPC Life v2, visible actions: people in your area walk to an object and use it (eat at a table, sit), with the
+effect rows applied to their sim needs. Start from `entity_set_state/action/play_anim` (docs/systems.md
+"Entities and actions") and docs/objects.md. Open bits from Phase 5 worth doing first:
+- test the area-load spawn with NPC Life on its own (walk-in is proven, load spawn is inferred);
+- fun/social balance in the sim is simple (tune `mods/npc-life/*.json`, rerun `run_test.py`).
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
-2. `pip install -r requirements.txt` (`--break-system-packages` if needed); `apt install clang lld llvm`;
-   py-desmume for the harness (headless, `SDL_VIDEODRIVER=dummy` is set by the harness).
-3. `python3 urbz_extract.py <rom> project` then `python3 urbz_build.py --vanilla` → must print
-   `[IDENTICAL to original]`.
-4. `python3 tests/proofs.py` (~20 min; one emulator at a time on 2 CPUs) and `python3 tests/test_code_encodings.py`.
-5. Ghidra decompile is NOT in the repo (research/README.md has the commands); `code/functions.json` and
-   `code/game.sym` are.
+2. `pip install -r requirements.txt` (`--break-system-packages` if needed); `apt install clang lld llvm`.
+3. `python3 urbz_extract.py <rom> project` then `python3 urbz_build.py --vanilla` → `[IDENTICAL to original]`.
+4. `python3 tests/proofs.py` (about an hour; **never two proof runs at once**, they share `build/proofs/`),
+   `python3 tests/test_code_encodings.py`, `python3 tests/test_mod_manager.py`,
+   `python3 mods/npc-life/sim/run_test.py`.
+5. The manager window needs tkinter (Windows Python has it; on Linux use a Python with tkinter + `xvfb-run`).
 
 ## Key facts to not relearn
-- Engine names/addresses: `code/game.sym`; details + evidence: `docs/systems.md`, `docs/areas.md`,
-  `docs/player-look.md`, `docs/objects.md`.
-- Savestates contain game code → test code mods from `--city` / `--from lobby` (cached per ROM hash), never old
-  `.dst` files.
-- `verify/saves/city.sav` (city start) and `lobby.sav` (first goal done, Tower Lobby, Kris 30;
-  made by `verify/scripts/first-goal.json`). Streets are locked until the whole tower chapter;
-  tests use `--goto AREA` (pokes the game's own area loader; needs the screen in state 1, no pop-up).
-- Needs: s32 8.24 in RAM (0x02141204); in saves u16 8.8 at slot+0x8E. Save slot ~1.4 KB free early in the game.
-- npc_present reads the schedule table directly (5 literals `schedule_table_ptr_1..5`); quest overrides win first.
-- Code region: autoload block at 0x0214DE20, heap start literal 0x020B7D88 bumped; ≤160 KB.
-- Secure area: code mods must change module params (0x02000ADC) inside it; low risk; flashcart test before release.
+- Engine names/addresses: `code/game.sym`; details + evidence: `docs/systems.md`, `docs/areas.md`.
+- Savestates contain game code → test code mods from `--city` / `--from lobby` (cached per ROM hash).
+- `verify/scripts/savegame.json` saves from the city; `loadgame.json` + `--sav` loads after a power-off.
+- The entity pool is on the heap and moves with the code region size: scan for people (`people_in`).
+- Menu labels have 40 text tiles (about 160 px) and a menu holds 6 labels safely; text outside x 16-248,
+  y 8-152 isn't cleared by the game.
+- `tests/mods/fast-clock` = a game minute per tick; relocation is then only every 150 game minutes.
+- Switch a mod in a test: poke `CORE+4 = 0x80000000 | on << 8 | index` (find 'CORE' with `find_magic`).
 
 ## Rules (from CLAUDE.md)
-- Never commit ROMs, `project/`, `build/`, `*.dst`, or anything extracted from the game; test data from the game
-  is generated by `tests/proofs.py` at run time.
+- Never commit ROMs, `project/`, `build/`, `*.dst`, or anything extracted from the game.
 - Never edit `project/`; every change is a mod.
 - Prove claims in the emulator and add a proof; mark docs facts proven only with evidence.
-- Commits end with the Co-Authored-By / Claude-Session lines; Jonathan pushes.
+- Commits end with the Co-Authored-By / Claude-Session lines.
 
 ## Working with Jonathan
 - Plain language, short sentences, say what's proven vs not. He uses "plan mode" by asking in a message.
-- Don't spawn/resume heavy subagents casually (he rejected one before).
-- Open items for him: push commits; run `build.bat` with only `clock-speed` on Windows (clock should run at half
-  speed) to confirm the native code-mod build; later a flashcart/melonDS boot of a code-mod build.
-- Two untracked files in his PC repo (`verify/traces/intro.json`, `world-tour.json`) can be ignored.
+- Don't spawn heavy subagents casually.
+- Open items for him: try `manager.bat` on Windows (tick clock-speed, Build & Play; the clock should run at
+  half speed and Options > Mods should list it); a flashcart/melonDS boot of a code-mod build.

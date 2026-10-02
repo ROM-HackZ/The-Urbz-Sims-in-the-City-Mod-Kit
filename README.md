@@ -76,7 +76,7 @@ references their ID (content wiring comes in a later phase).
 
 - `[out.nds]`: output path (default `build\Urbz Mod.nds`)
 - `--vanilla`: ignore mods (proves the baseline is identical)
-- `--mod NAME`: build with only this mod (repeatable), ignoring `mods.json`
+- `--mod NAME`: build with only this mod (repeatable; a name in `mods\` or a folder path), ignoring `mods.json`
 
 ## Editing text
 
@@ -170,19 +170,56 @@ patching the same spot, C that wasn't compiled...).
 What every address means, and how we know: `docs\systems.md`. Motive effect table:
 `docs\effect_rows.md`.
 
+## Mods in the game: switches, saved data, the Mods page
+
+Code mods can be **switched on and off inside the game**: Options has a 4th button, **Mods**,
+that lists every mod built into the ROM with ON/OFF. Tap one to switch it; the choice is kept in
+the cartridge's save memory (for every save) straight away. Set it up in the mod's `mod.json`:
+```
+{ "name": "my-mod", "version": "1.0", "author": "me", "description": "...",
+  "toggle": true,        can be switched in the game (default for code mods)
+  "default": true,       starts on
+  "conflicts": ["x"],    can't be built together with mod x
+  "save_bytes": 64 }     most save space it uses per slot
+```
+A C mod can also use **events** (no hooks.txt line needed, just define the function; see
+`code\include\mod.h`): `mod_on_tick`, `mod_on_minute(n)`, `mod_on_area_enter(area)`,
+`mod_on_save(buf, max)` / `mod_on_load(buf, len)` (its own data in each save slot, kept even while
+the mod is switched off), `mod_on_enable` / `mod_on_disable`, and `mod_on_page` (an info page,
+opened from the Mods page). `u32 ADDR @name` in hooks.txt writes the address of something in the
+mod (e.g. to point a game table at your own).
+
+## Mod manager (window)
+
+`manager.bat` (or `python mod_manager.py`) shows every mod with a tick box, its version and
+description. Tick the ones you want, change their order, then **Build**, **Play** (opens the
+ROM in the emulator named in `emulator.txt`) or **Build & Play**. **Add mod...** installs a
+mod from a zip file (it refuses zips with ROMs, saves or programs in them).
+
+## NPC Life
+
+**`mods\npc-life`** makes the city live: the 36 townspeople have needs, jobs, money and rent and
+go where their needs take them, saved with your game. Switch it in the game (Options > Mods),
+see what people are doing on its info page, and tune it with two JSON files: see
+`mods\npc-life\README.md`.
+
 ## Save files
 
 ```
 python urbz_save.py info "my game.sav"                         clock, money and needs per slot
 python urbz_save.py set "my game.sav" edited.sav --money 5000 --motive hunger=100
 ```
+`info` also lists mod data in each slot and the in-game mod switches.
 `set` fixes the checksums, so the game accepts the edited save.
 
 ## Checking it all still works
 
 `python tests\proofs.py` builds a set of test mods (tests\mods\) and checks each one in the
 emulator: vanilla is identical, every hook kind runs, the clock/needs/money/save/people/catalog
-facts in `docs\systems.md` hold. About 15 minutes; needs LLVM for the C tests.
+facts in `docs\systems.md` hold, mods switch on and off, mod data survives saving, the Mods page
+works with real taps, and NPC Life moves people. About an hour (run one at a time); needs LLVM for
+the C tests. Also `python tests\test_code_encodings.py`, `python tests\test_mod_manager.py` and
+`python mods\npc-life\sim\run_test.py` (no emulator).
 
 ## Editing art that grows
 
@@ -262,7 +299,9 @@ graphics asset. Pairs come from 16-byte sprite records in the game code (see `do
 
 ## Files
 
-- `setup.bat`, `extract.bat`, `build.bat`, `verify.bat`: Windows shortcuts
+- `setup.bat`, `extract.bat`, `build.bat`, `verify.bat`, `manager.bat`: Windows shortcuts
+- `mod_manager.py`: the mod manager window
+- `code\core\`: the mod core (switches, mod save data, events, the Mods page); `code\include\mod.h`: its API
 - `urbz_extract.py`: unpack a ROM into a project folder
 - `urbz_build.py`: build a ROM from `project\` plus mods
 - `urbz_mod.py`: create, edit, inspect and rescue mods

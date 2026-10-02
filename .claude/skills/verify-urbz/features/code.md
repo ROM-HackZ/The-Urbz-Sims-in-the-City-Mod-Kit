@@ -11,7 +11,12 @@ block at 0x0214DE20, moves the heap start up, and applies the mod's `code/hooks.
 - `code-blob`: a C blob is placed, relocated, the heap moves past it, and the code runs.
 - `code-hooks`: `call` (rewrite a BL), `wrap` (run before one ARM instruction), `jump` (replace a function).
 - `code-relayout`: a big blob pushes arm7/FNT/FAT/banner to the end of the cartridge.
-- `code-refuse`: bad hooks fail the build (not a BL, PC-relative wrap, inside BSS, two mods on one address, uncompiled C).
+- `code-refuse`: bad hooks fail the build (not a BL, PC-relative wrap, inside BSS, two mods on one address
+  (except `call` hooks of switchable mods, which chain), uncompiled C, a Thumb `jump` in a switchable mod).
+- Since Phase 5 every code mod is switchable by default, so its hooks go through stubs and the mod core
+  is built in (see platform.md); `"toggle": false` in mod.json gives the old direct hooks.
+- `u32 ADDR @name` writes the address of something in the mod (NPC Life points the schedule words at
+  its own table this way).
 
 ## How to get to it (user POV)
 

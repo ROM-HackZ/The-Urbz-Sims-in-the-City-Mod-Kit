@@ -21,8 +21,9 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
 - Prove claims in the emulator (screenshots, RAM) and add a proof to `tests/proofs.py`; mark facts in
   `docs/systems.md` as proven only with evidence. Name new addresses in `code/game.sym` (and
   `code/include/game.h` for C).
-- After changing the builder, the code placer or the harness: `python3 tests/proofs.py` and
-  `python3 tests/test_code_encodings.py` must pass.
+- After changing the builder, the code placer, the mod core or the harness: `python3 tests/proofs.py` and
+  `python3 tests/test_code_encodings.py` must pass (never run two proof runs at once). After changing the
+  core's C (`code/core/`), rebuild it: `python3 urbz_patch.py build --dir code/core` and commit its `build/`.
 - The verification recipes are in `.claude/skills/verify-urbz/` (SKILL.md + features/).
 
 ## Handy commands
@@ -30,6 +31,8 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
 - `python3 urbz_text.py find "words"`, `python3 urbz_palette.py who <name>`, `python3 urbz_patch.py syms`
 - Research helpers and probes: `research/` (see its README for the paths they assume).
 - Function map: `code/functions.json`; full decompile needs Ghidra (research/README.md).
+- Mod platform API: `code/include/mod.h`; mod manager: `python3 mod_manager.py list|check`;
+  NPC Life sim test: `python3 mods/npc-life/sim/run_test.py`.
 
 ## Writing style for Jonathan
 Plain language, short sentences, no jargon in summaries; say what was proven and what wasn't.

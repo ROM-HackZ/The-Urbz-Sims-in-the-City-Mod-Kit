@@ -195,8 +195,17 @@ and also always skips 26, 74, 77 and 79, people with no schedule, and people `FU
 - Hooking `schedule_lookup_call` (0x0206665C) changes who walks in and out; the overrides above still win, because
   the relocation skips quest people before it asks the schedule. So quests stay safe.
 - `npc_present` reads the schedule table **directly** (not through `schedule_lookup`) when an area loads. The table
-  address is in 5 literal words (`schedule_table_ptr_1..5` in `code/game.sym`). I: pointing all 5 at a new table in
-  our code region moves people both at area load and during relocation (not yet tried).
+  address is in 5 literal words (`schedule_table_ptr_1..5` in `code/game.sym`; all hold 0x020E4FD8, and every
+  user indexes it as `table[id - 31]`).
+  - P (Phase 5, NPC Life): pointing all 5 at a new table moves people during relocation. With Kris's sim energy
+    set to 0 at 17:01, the sim sends her home to sleep at 18:00 (lobby, 66; her timetable says the roof, 70).
+    `schedule_lookup` returns 66 at the next pass and the game walks her into the lobby (`npc_walk_in`,
+    `spawn_npc(45, 4, 0x119 << 16, 0x172 << 16)`). Proof `npc-life-walkin`; switched off, she stays away
+    (`npc-life-off`).
+  - I: the area-load spawn (`npc_present`) reads the same table through literal 4, so it should follow too
+    (not tested on its own).
+  - With a fast clock (a game minute per tick) relocation runs only every 150 game minutes, so people
+    lag behind a plan that changes every hour; at normal speed it's every 7.5 game minutes.
 - The visit list (0x02142270, 10 entries, see record type 30) is how the game sends someone to a place for a while
   outside their schedule; a mod can use it for visits too.
 

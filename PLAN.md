@@ -1,6 +1,6 @@
 # The Urbz DS: the plan
 
-*Living document. Last updated 2026-10-02 (end of Phase 4 plus the gap-closing pass).*
+*Living document. Last updated 2026-10-02 (end of Phase 5: mod platform + NPC Life v1).*
 
 ## Goal
 
@@ -37,8 +37,8 @@ that hook).
 | 3 | Normal formats: text (TSV), screens and sprites (PNG) | Done |
 | 4 | Code patching (C + hooks) and the game-systems map | Done |
 | - | Gap-closing pass (all known gaps from phases 1-4) | Done, see below |
-| 5 | NPC Life v1: the living city | **Next** |
-| 6 | NPC Life v2: visible actions | Planned |
+| 5 | Mod platform (in-game switches, mod save data, Mods page, manager) + NPC Life v1 | Done (Windows check of the manager open) |
+| 6 | NPC Life v2: visible actions | **Next** |
 | 7 | Content wiring: new items, clothes, characters | Planned |
 
 ## What exists (phases 1-4)
@@ -110,60 +110,25 @@ emulator check is possible.
 - A flashcart / melonDS boot of a code-mod build (before a public release).
 - Which quest flips which record group (Phase 7), type-30 zones seen at runtime.
 
-## Phase 5: NPC Life v1 (the living city)
+## Phase 5: mod platform + NPC Life v1 (done 2026-10-02)
 
-**Approved detailed plan (2026-10-02): `docs/plan-phase5.md`** — 5A mod platform (in-game on/off switches,
-per-mod save data, events, Mods page, PC mod manager), then 5B NPC Life v1. Status: not started (no code yet).
-The notes below are the earlier outline; the detailed plan wins where they differ.
+Design and per-step results: **`docs/plan-phase5.md`**. In short:
+- **Mod platform** (`code/core/`, `code/include/mod.h`): code mods can be switched on/off in the game
+  (Options > Mods, a real 4th button); the choice is kept in the cartridge's save memory. Mods get
+  events (tick, game minute, area entered, save/load, on/off, info page) and their own data in each
+  save slot, kept even while switched off. `mod.json` has version, author, toggle, default,
+  conflicts, save_bytes. A window (`manager.bat`) picks mods, builds and plays.
+- **NPC Life v1** (`mods/npc-life/`): 36 people with needs, jobs, money and rent; hourly Sims-style
+  choices written into the game's own timetable format, so the game walks them in and out; saved;
+  switchable; info page. Portable C simulation with a PC test (4 city weeks).
+- Proven in the emulator (tests/proofs.py, 27 proofs): switches, persistence, save data, Mods page with
+  real taps, 3 simulated days, a person walking in because the sim sent her, off = back to timetables,
+  exact save round trip.
 
-**Outcome:** people's whereabouts come from a simulation of needs, jobs and money instead of fixed
-timetables; the state survives save/load; a debug view shows it.
-
-**Hook points (all found and proven in Phase 4)**
-- `schedule_lookup_call` 0x0206665C: the relocation loop asks where each person (31..80) should be, every
-  150 ticks; our function answers from the brain. (`npc-visit` already does this for one person.)
-- `world_tick` 0x02084104 (wrap): advance the simulation (cheap: once per game minute is enough).
-- `npc_present` 0x02065AD0 (call sites 0x02064EF4, 0x0204B7F4): area-load spawns; keep it consistent with
-  the brain (a person the brain puts here must pass). It reads the schedule table directly (5 literal words,
-  `schedule_table_ptr_1..5`), not through `schedule_lookup`.
-- Way points (record type 29) are where people walk in and out; spawn zones (type 30) + the visit list
-  (0x02142270) can place a visitor anywhere in an area (docs/areas.md).
-- Save: append a versioned NPC block to the save stream after `save_serialize_all` (0x020354BC) and read it
-  back on load; about 1.4 KB free per slot (2,569 of 4,064 bytes used). Unknown/old saves → defaults.
-
-**Data (editable in a mod)**
-- `mods/npc-life/npcs.json`: per person: home area, job (area, shift hours by weekday, pay), need decay
-  multipliers, starting money, favourite places.
-- `mods/npc-life/places.json`: area → what it offers (food: hunger +X for $Y; rest; fun; hygiene; work),
-  using real effect rows from `docs/objects.md` and area ids from `docs/areas.md`.
-- A small converter compiles both into a binary table the C code includes (new asset or `.rodata` in the
-  blob).
-
-**Brain (C)**
-- Per person (36 named + extras, about 32-48 bytes each, so 1.5-2 KB): 8 needs (u8), money (s16/s32),
-  current activity, destination area, activity end time.
-- Each game minute: decay needs; when the activity ends, score candidates Sims-style (need urgency × place
-  effect − travel time, money check, job shift rules), pick one, set destination + end time. Work adds money,
-  food costs money, rent is due weekly.
-- Off-screen people are abstract; the relocation hook only reports the destination area.
-- State flavour: very low needs or money pick different dialogue lines (text mods + a hook on the line
-  choice; to find).
-
-**Debug overlay:** button combo draws nearby people's needs and money (font draw `FUN_02033bc8` /
-`FUN_020340f8`, or a text box).
-
-**Gate**
-1. Fast-forward 3 game days from a loaded save (harness): the RAM probe shows needs oscillating, money rising
-   on work days and falling at meals, people found at food places when hungry.
-2. Save → reload: the NPC block round-trips (`urbz_save.py` learns to show it).
-3. In a reachable area, a person walks in because the brain sent them (screenshot + RAM).
-4. `tests/proofs.py` gets proofs for each.
-
-**Testing:** start from `--from lobby` (a legitimate save past the first goal); reach streets with `--goto`.
-
-**Risks:** the date partner and the 19 quest overrides in `npc_present` must keep working (the relocation
-loop already skips quest people before asking the schedule; the full list is in docs/areas.md); schedules use
-area 82 (out of town) for absent people.
+Still open from Phase 5:
+- Jonathan: the manager and a code-mod build on Windows; a flashcart/melonDS boot of a code-mod build.
+- The area-load spawn with NPC Life wasn't tested on its own (walk-in was); fun/social balance is
+  simple (people mostly meet those needs at home and their usual places).
 
 ## Phase 6: NPC Life v2 (visible actions)
 
@@ -197,7 +162,7 @@ area 82 (out of town) for absent people.
 2. `pip install -r requirements.txt`; `apt install clang lld llvm` for code mods.
 3. `python3 urbz_extract.py ~/roms/urbz.nds project` (about 40 s).
 4. `python3 urbz_build.py --vanilla` → `[IDENTICAL to original]`.
-5. `python3 tests/proofs.py` (about 15 minutes) → all PASS.
+5. `python3 tests/proofs.py` (about an hour; one emulator at a time) → all PASS.
 6. Read `CLAUDE.md`, then the `verify-urbz` skill in `.claude/skills/`.
 
 ## Decisions log
@@ -213,3 +178,8 @@ area 82 (out of town) for absent people.
   the game then handles walking in/out, entry points and despawning.
 - 2026-10-02: no game data in the repo; test mods whose data comes from the game are generated by
   `tests/proofs.py` at run time.
+- 2026-10-02 (Phase 5, Jonathan): in-game switches are stored once for the whole cartridge (save
+  memory 0x1FE0), not per save; platform before NPC Life; the Mods page must be a real Options button.
+- 2026-10-02: the Mods page reuses the game's own menu system (menus are data) instead of a new screen
+  state; NPC Life decides hourly and writes the game's timetable format, so the game does the walking;
+  homes/jobs/allowed areas are read from the original timetables at runtime (nothing extracted in git).

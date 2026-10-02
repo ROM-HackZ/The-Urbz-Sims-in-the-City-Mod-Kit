@@ -181,6 +181,9 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
 - **Savestates contain the game code.** Test code mods from a cold boot (`urbz_verify.py city`).
 
 ## Heap
+- The entity pool (people, objects) is on the heap, so it **moves up by the size of the code region** when
+  code mods are built in (0x0215E344 in the original game). Tests find people by scanning
+  (`tests/proofs.py` `people_in`), never at a fixed address.
 
 - One NNS "expanded heap" ('EXPH') from the arena: handle pointer at 0x02142004, start 0x0214DE20,
   end 0x023C0000. Free list head at handle+0x24, used list at handle+0x2C; blocks have a 16-byte
@@ -231,7 +234,29 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
   uses **2,569 of 4,064 bytes (63%)**, so about 1.4 KB per slot is free.
 - Known slot fields: +0x05 clock, +0x0B money (24-bit), +0x8E needs (u16[8], 8.8 fixed point: value × 256; proof `save-edit`).
 - `urbz_save.py info/set/fix`. Proven: a save edited to §4,321 and 10% hunger loads with both.
-- Load from power-on: `verify/scripts/loadgame.json` with `--sav file.sav`.
+- Load from power-on: `verify/scripts/loadgame.json` with `--sav file.sav`. Save from the city:
+  `verify/scripts/savegame.json` (Options > Save Game > slot A > overwrite).
+- **Save path (proven, Phase 5):** `save_game(slot)` 0x0207EBAC → `save_finish_slot` 0x0207EB28: clears the
+  slot buffer (memset 0xFE0 at 0x0207EE68), resets the cursor, calls `save_serialize_all` (BL at
+  **0x0207EB44**), then stores bytes used (cursor - buffer) at save_ctx+0x8C and the checksum. Bytes appended
+  after `save_serialize_all` are therefore counted and checksummed (the mod core does this). Seen in the
+  emulator: the cursor goes 0 → 2,569 on `city.sav`; then EEPROM write (0x20, 0xFE0).
+- **Load path (proven):** `game_start` 0x0204BA98 (the first city entry after the title, from area_enter's
+  BL at 0x0204C268) → `save_load_slot` 0x0207EE00 → `save_deserialize_all` 0x020356D8 (BL at **0x0207EE1C**).
+  A new game runs `new_game_init` 0x02035C48 there instead. Readers mirror the writers (`save_read_bits/
+  nibbles/bytes` 0x0207EC48/0x0207ECBC/0x0207ED78).
+- **Boot:** `save_boot_init` 0x0207EE88 checks the header and reads both slots (BL at **0x0207EF00**) at
+  frame 10-15, before the title screen.
+- **Save memory:** 8 KB EEPROM (DeSmuME: 64 Kbit). Read/write `eeprom_read`/`eeprom_write`
+  0x02015860/0x020157D4 `(offset, len, buf)`; the write locks the card itself and returns 1 on success.
+  The game only touches 0x0000-0x001F and the two slots; **0x1FE0-0x1FFF is never written** (no ARM or
+  Thumb caller; 0xFF in a real save). The mod core keeps its switch record there (proven: written, kept
+  after power-off).
+- **How big the game's data gets (static):** `save_serialize_all` writes fixed-size fields except one
+  part: `0x0203D3FC` writes 24 lists with a count byte each and 3 bytes per item (placed/owned objects).
+  Everything else has constant sizes. Measured: 2,569 bytes in both `city.sav` and `lobby.sav`, so 1,495 bytes
+  are free early; each item in those lists costs 3 bytes. A save that runs out keeps the game's data and
+  drops mod data (the Mods page says "save full").
 
 ## People (NPCs)
 
@@ -311,6 +336,56 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
 - One big struct of globals at **0x02141120** (324 code references): +0 0x55AA55AA marker,
   +4 money, +0xC clock, +0x14 social table (relationships at +0x34), +0xE4 needs, +0x820 goal table
   (`goal_table` 0x02141940; layout and quest overrides in docs/areas.md), +0xB05 game phase, +0xB10 per-sim flags.
+
+## Game states (screens)
+
+- Each screen (0 = top, 1 = bottom) runs a state; `set_state(state, mode, param)` 0x0204DF7C (through
+  0x0204E028). State table **0x020CD8B4**: 43 rows of `{enter, update, exit}` (states 0-42), e.g. 1 city
+  (0x0204C158 / 0x0204C014 / 0x0204BE4C), 5 title, 6 settings, 7 save game, 34 (0x22) the city's bottom
+  menus. The update loop calls `table[state].update` (0x0204DCE0).
+
+## Bottom-screen menus (Urb Info, Options, ...) (proven, Phase 5)
+
+- Menus are data. `menu_table_ptrs` 0x020F5654 = 5 menu pointers (2 = Options 0x020F56EC, 4 = Urb Info
+  0x020F5744, 1 = a 6-button sub-menu); the open menu's index is `menu_ui+8` (`menu_ui` = *0x02144CEC:
+  +4 open, +8 menu, +0xC action, +0x10 selected). Only 4 literal words point at the array
+  (`menu_ptr_lit_1..4`), so it can be moved and lengthened.
+- A menu: `{u32 gfx, u32 layout, 0, 0, u32 pal16, u32 pal256, u16 count, u16}` then `count` buttons of
+  20 bytes `{u32 x | y << 8 | icon frame << 16, u32 action, u32 sub-menu, u32 param, u32 label string}`.
+  Options: Settings (61,57) action 6, Save Game (198,57) action 7 (param 1), Quit (128,120) action 0x28;
+  Urb Info uses the 2 x 2 grid (61,57) (198,57) (61,120) (198,120). Action 0 = open the sub-menu.
+- `menu_hit_test` 0x0206FBF4 (one caller, BL at 0x0206FDAC): 32 x 32 box around each icon; returns the
+  action (and plays sound 1), or opens a sub-menu and returns -1. `menu_dispatch` 0x02070494 runs actions
+  (unknown ids just close the menu). Menus are touch-only (the D-pad doesn't move between buttons).
+- `menu_redraw` 0x0207026C builds one icon sprite per button (8 slots at 0x02144D10), then
+  `menu_draw_text` 0x02070038: it clears the text layer rectangle tiles (2,1)-(30,18) (= x 16-248,
+  y 8-152), draws the title (font 3, `text_draw(1, 128, 8, ...)`) and each label centred under its icon
+  (font 1, `text_draw(0x29 + 0x28 * i, x, y + 18, ...)`). Each label has 40 text tiles (about 160 px);
+  longer text corrupts the screen, and 8 labels run out of tiles (6 work, as in the game's own 6-button
+  menu). Text drawn outside the cleared rectangle stays on screen.
+- Icon colours: palette row = icon frame, except Options, which uses row (button + 1) for buttons after
+  the first (the core sets row = frame for its menus).
+- Proven: the core's Options has a 4th button "Mods" that opens a Mods page (menu 5) and info pages
+  (menu 6); real touches switch mods (proof `mods-page`, `npc-life-page`).
+
+## CPU caches
+
+- NitroSDK routines (r0 = address, r1 = size): `DC_FlushRange` 0x020B7C70 (clean + invalidate data cache
+  lines), `DC_WaitWriteBufferEmpty` 0x020B7C8C, `IC_InvalidateRange` 0x020B7C98. The mod core calls them
+  after changing game bytes at runtime. (DeSmuME doesn't model the caches, so this is from the code.)
+
+## The mod platform (Phase 5)
+
+The mod core (`code/core/`, built in whenever a mod can be switched in-game or uses events) owns these
+game hooks and calls only the mods that are switched on: boot (0x0207EF00), world tick (0x0204C06C),
+area entered (0x0204C58C), game start (0x0204C268), save (0x0207EB44), load (0x0207EE1C), menu labels
+(0x0207016C), menu taps (0x0206FDAC) and menu text (0x0207039C). The mod table is at 0x0214DE20
+(`code/include/mod.h`). Everything below is proven by `tests/proofs.py`:
+- switches: call, wrap, jump stubs test a switch byte; data hooks are written/restored by the core
+  (`toggle-call`, `toggle-data`); the switch record survives power-off (`switch-persist`);
+- per-mod save data after the game's data, back after power-off; defaults on a vanilla save; a build
+  without mods loads the save; a switched-off mod's data is carried through saves (`save-block`);
+- the Mods page (`mods-page`) and NPC Life (`npc-life-*`).
 
 ## Open questions
 

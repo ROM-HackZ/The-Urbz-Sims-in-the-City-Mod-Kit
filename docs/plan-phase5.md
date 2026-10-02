@@ -1,6 +1,23 @@
 # Plan: Phase 5 — Mod platform + NPC Life v1 (design)
 
-*Approved 2026-10-02. Replaces the earlier draft. Status of each step: see PLAN.md and HANDOFF.md.*
+*Approved 2026-10-02. Replaces the earlier draft.*
+
+## Status: done (2026-10-02)
+
+Every step was built and checked; all proofs pass (`python3 tests/proofs.py`, 27 proofs). What changed
+from the design while building it:
+
+| Step | Result | Proof |
+|---|---|---|
+| 1. Static findings | All confirmed in the emulator (boot frame 10-15, load and save cursor 0 → 2,569, EEPROM tail 0xFF and never written, cache routine arguments). Added: `game_start` 0x0204BA98 (first city entry: load or new game), used for "new game → fresh mod data". | toggle-call, toggle-data |
+| 1. A1 + A2 | As designed. The core is 6.2 KB + 4 KB zeroed. Switchable call hooks chain; Thumb `jump` hooks can't be switched (build error asks for `"toggle": false`). Extra: `u32 ADDR @name`. | toggle-call, toggle-data, test_code_encodings |
+| 2. A3 save block | As designed; a mod switched off when you save keeps its data (carried); blocks for mods not in the build are kept too. Worst-case game data: one variable part (24 lists, 3 bytes per item), see docs/systems.md. | save-block |
+| 3. Switch record | As designed (12 switches max). | switch-persist |
+| 4. Mods page | A real 4th button: the menus are data, so the core moves the menu pointer array and adds menu 5 (Mods) and 6 (info). Menus are touch-only in this game, so there is no D-pad on the page either. Info pages show up to 5 lines (label tile limits, docs/systems.md). | mods-page, npc-life-page |
+| 5. Manager | `mod_manager.py` + `manager.bat`; tested here under a virtual display (tick, Build). **Not yet tried on Windows.** | test_mod_manager |
+| 6. Sim | Hourly decisions (the game's timetables are hourly). Home/job/allowed areas come from the original timetables at runtime, so no extracted data is committed. Rent is capped to what the job pays; people without a job get help from family. | run_test.py (4 weeks) |
+| 7. Connector | As designed. Not done: the area-load spawn wasn't tested on its own (walk-in was). | npc-life-days/walkin/off/save/page |
+
 
 
 ## Context
