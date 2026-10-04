@@ -424,6 +424,18 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   colours: `pet_palettes` 0x020F5F04 (kinds 0-7: 3 palette ids each), 0x020F5920 (others, one each).
 - Objects 225 (Chicken), 236 (Dancing Nutria), 237 (Pet, "This is your pet, @2") have no class functions but
   the "removed" one (0x02065224). Catalog pet things: Dawg House (58), Robot Pet (127, its own code).
+- **Critters: the chicken you carry home** (a different system from the Splicer pets). Entity type 9,
+  7 kinds (`critter_table` 0x020C3400, 0x14 bytes: setup function, ?, ?, speed, flags): 1 white chicken,
+  2 dark rooster, 4 carnivorous plant (Living Artemisia), 5 Dancing Nutria (+ dirt mound), 6 white bird;
+  0 and 3 have no sprites (inferred: the fly swarm). Sprites: `critter_anims` 0x020C348C (0x28 per kind =
+  5 x {records, frame script}); palettes `critter_palettes` 0x020C2FD4 (palette game id per kind);
+  behaviour 0x0202A61C; `spawn_critter` 0x0202AB18 (kind, facing, ?, x, y).
+  The Chicken **item** (object 225) is what you carry: placing it (allowed for object 225 alone among
+  numbers >= 224, at most 6 per lot: 0x0203F698) creates the object, whose "removed" function
+  (0x02065224) turns it into critter kind 1; picking the critter up (0x0202A0DC, state 0x0E) puts object
+  225 back in the inventory (critter kind 5 -> object 236 likewise). Placed chickens are saved as placed
+  objects. A catalog pet (a dog) = a new critter kind with its own sprites + a new object, and those 4
+  places taught about it.
 - Adding a species means: new rows in the per-kind tables (sprites, palettes, speed, names), new art (2
   views per animation), and teaching the splicer/pet show about it; to find next.
 

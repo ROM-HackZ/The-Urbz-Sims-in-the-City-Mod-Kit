@@ -225,3 +225,10 @@ spawn_pet          = 0x0207272C   # entity *(kind, x<<16, y<<16, slot): entity t
 pet_anim_lists     = 0x0211D680   # u32 *[kind] -> u32[anim] -> 5 facing records {gfx, layout, palette, param}
 pet_palettes       = 0x020F5F04   # u32[kind 0-7][3 colours]: palette game ids
 pet_speed          = 0x020C1AFC   # s32 per kind (16.16)
+critter_table      = 0x020C3400   # 0x14 x 7 kinds: {setup fn, ?, ?, speed, flags}; entity type 9 (chicken = kind 1)
+critter_anims      = 0x020C348C   # 0x28 x 7: 5 animations x {5-facing records, frame script}
+critter_palettes   = 0x020C2FD4   # u32 palette game id per critter kind
+spawn_critter      = 0x0202AB18   # entity *(kind, facing, ?, x, y)
+critter_update     = 0x0202A0DC   # critter states; 0x0E picked up -> inventory object (kind 1 -> 225, 5 -> 236)
+place_object_check = 0x0203F698   # can this object go here: numbers >= 224 only 225 (chicken, max 6 per lot)
+pet_object_removed = 0x02065224   # class +0x14 for objects 225/236/237: object 225 -> spawn_critter(1, ...)
