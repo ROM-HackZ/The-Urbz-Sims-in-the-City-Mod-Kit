@@ -969,10 +969,10 @@ def p_objects_new():
 
 
 def p_pet_new_kind():
-    """A new pet (mods/pets-proto): the Puppy (object 386, copies the Chicken) placed at home becomes a
+    """A new pet (mods/pets): the Puppy (object 386, copies the Chicken) placed at home becomes a
     critter of the new kind 7 (the critter tables moved into the mod; rooster art for now). Put in the
     game's pick-up state (state 0x12, action 0x0E), it goes back to Pockets as object 386."""
-    rom = build('pets-proto', [os.path.join(KIT, 'mods', 'pets-proto')])[0]
+    rom = build('pets', [os.path.join(KIT, 'mods', 'pets')])[0]
     start = ['--city', '--goto', '68']
     r = ram(rom, 10, HEAP_SCAN, pokes=pocket_pokes(386), script=place_script(), start=start)[HEAP_SCAN]
     kinds = critters(r)
@@ -991,6 +991,39 @@ def p_pet_new_kind():
                 '(spawned %d, picked %d)') % ([k for _, k in kinds], r2['0x02141338:4'][0], slot, after, spawned, picked)
 
 
+def p_mods_split():
+    """Pets and new furniture are separate mods (mods/pets: 386 and 389-429; mods/more-furniture: 430-511):
+    each builds alone and both build together. With more-furniture alone, its armchair (430, a copy of
+    the Country Class Chair) put in Pockets is placed at home and drawn; the Furniture catalog page at
+    its end: build/proofs/mods-split.png."""
+    pets, furn = os.path.join(KIT, 'mods', 'pets'), os.path.join(KIT, 'mods', 'more-furniture')
+    reports = {}
+    for name, mods in (('split-pets', [pets]), ('split-furniture', [furn]), ('split-both', [pets, furn])):
+        log = build(name, mods)[1]
+        reports[name] = [l for l in log.splitlines() if l.startswith('objects:')]
+    want = {'split-pets': '(386)', 'split-furniture': '(430, 431, 432)', 'split-both': '(386, 430, 431, 432)'}
+    builds_ok = all(r and want[n] in r[0] for n, r in reports.items())
+    rom = os.path.join(OUT, 'split-furniture.nds')
+    cat = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'cat.json')
+    json.dump([["wait", 60], ["touch", 56, 128, 8], ["wait", 120], ["touch", 56, 128, 8], ["wait", 120]] +
+              [["touch", 196, 51, 8], ["wait", 30]] * 9 + [["touch", 98, 51, 8], ["wait", 60], ["shot", "furniture"]], open(cat, 'w'))
+    out = run(VERIFY + ['ram', rom, '--city', '--frames', '1', '--script', cat, '--read', '0x02141124:4'])
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    shot = glob.glob(os.path.join(ev, '*furniture.png'))
+    if shot:
+        shutil.copy(shot[0], os.path.join(OUT, 'mods-split.png'))
+    r = ram(rom, 10, '0x02141338:4', HEAP_SCAN, pokes=pocket_pokes(430), script=place_script(),
+            start=['--city', '--goto', '68'])
+    placed, heap = r['0x02141338:4'][0], r[HEAP_SCAN]
+    chairs = [struct.unpack_from('<I', heap, k + 0x8C)[0] for k in range(0, len(heap) - 0x148, 4)
+              if struct.unpack_from('<HH', heap, k + 8) == (5, 430) and struct.unpack_from('<H', heap, k + 0x146)[0] == 430]
+    ok = builds_ok and placed == 1 and len(chairs) == 1 and chairs[0] != 0
+    return ok, ('builds: %s; more-furniture alone: armchair 430 placed (Pockets %d, was 2), entities %d, sprite %s; '
+                'build/proofs/mods-split.png') % (
+        '; '.join('%s %s' % (n, r[0][9:40] if r else 'FAILED') for n, r in reports.items()), placed, len(chairs),
+        ['%08x' % c for c in chairs])
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
@@ -1003,7 +1036,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pet-new-kind', p_pet_new_kind),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pet-new-kind', p_pet_new_kind), ('mods-split', p_mods_split),
           ('melonds', p_melonds)]
 
 

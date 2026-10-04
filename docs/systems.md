@@ -436,7 +436,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   225 back in the inventory (critter kind 5 -> object 236 likewise). Placed chickens are saved as placed
   objects. A catalog pet (a dog) = a new critter kind with its own sprites + a new object, and those 4
   places taught about it.
-- **A new pet kind (proof `pet-new-kind`, mod `mods/pets-proto`):** the Puppy (object 386, copies the
+- **A new pet kind (proof `pet-new-kind`, mod `mods/pets`):** the Puppy (object 386, copies the
   Chicken, sold by shop list 9) placed at home becomes a critter of the new kind 7. The three critter
   tables move into the mod (20 references), kind 7 copies the dark rooster (placeholder art), the Puppy's
   class row gets the mod's "removed" function (spawns kind 7), and a stub in the pick-up code

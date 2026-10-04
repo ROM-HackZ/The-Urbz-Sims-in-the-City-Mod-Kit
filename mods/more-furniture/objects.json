@@ -1,0 +1,11 @@
+{"objects": [
+  {"id": 430, "like": 136, "name": "Farmhouse Armchair", "price": 120, "page": 3,
+   "description": "A sturdy armchair for long evenings in. (Test copy of the Country Class Chair; new art to come.)",
+   "sell": {"4": "common"}},
+  {"id": 431, "like": 131, "name": "Bunkhouse Bed", "price": 220, "page": 3,
+   "description": "Plain, cheap and surprisingly comfy. (Test copy of the Spartan Special Bed; new art to come.)",
+   "sell": {"4": "common"}},
+  {"id": 432, "like": 139, "name": "Lazy Sunday Recliner", "price": 260, "page": 3,
+   "description": "Lean back and let the week go by. (Test copy of the Comfy Recliner; new art to come.)",
+   "sell": {"4": "uncommon"}}
+]}

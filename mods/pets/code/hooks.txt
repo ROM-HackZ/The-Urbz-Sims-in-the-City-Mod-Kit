@@ -1,4 +1,4 @@
-# Pets prototype. A new critter kind (7) needs room in the critter tables: they move into
+# Pets. A new critter kind (7) needs room in the critter tables: they move into
 # this mod (the 20 references to them point here). Generated from the game's code.
 u32 0x0202A3F0 @crit_table+0x0
 u32 0x0202A81C @crit_table+0x4

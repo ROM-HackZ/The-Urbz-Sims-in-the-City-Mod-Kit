@@ -38,7 +38,8 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   land in Pockets, double-tap + walk + A places at home (proof `pet-place`: a Chicken becomes a walking critter);
   new objects through `objects.json` (proof `objects-new`; the builder moves seven object tables, adds new text,
   `code/objects` answers the place check as the copied object); a new pet kind (proof `pet-new-kind`,
-  `mods/pets-proto`). A copied chair (390) places and draws. Open: the pet's own art; saving placed new objects; picking up with real inputs; shops not yet seen in the emulator.
+  `mods/pets`). A copied chair (390) places and draws. Pets and furniture are separate mods
+  (`mods/pets`: 386, 389-429; `mods/more-furniture`: 430-511; proof `mods-split`). Open: the pet's own art; saving placed new objects; picking up with real inputs; shops not yet seen in the emulator.
 
 ## Next
 - Phase 8: finish the open points above, then write the real plan with Jonathan (pets + furniture).

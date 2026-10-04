@@ -159,7 +159,7 @@ added assets actually load (the game's asset tables are moved to fit them).
 bought and placed at home like the Chicken) and **functional furniture**. Exploring before planning.
 Learned so far (docs/systems.md "Buyable objects", "Pets"): the Catalog only shows, shops sell (daily stock
 from per-object masks), buys go to Pockets, placing works only at home. Built and proven: new object rows
-(`objects.json`, `urbz_objects.py`: seven tables moved, new text), and a prototype new pet (`mods/pets-proto`,
+(`objects.json`, `urbz_objects.py`: seven tables moved, new text), and a prototype new pet (`mods/pets`; furniture copies in `mods/more-furniture`, a separate mod;
 critter kind 7). Also a copied chair places and draws. Open: a pet's own art (critter sprites); saving
 placed new objects; picking up with real inputs. The real Phase 8 plan is written once these are known.
 

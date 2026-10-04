@@ -1,4 +1,4 @@
-/* Pets prototype: a Puppy (object 386, copies the Chicken) you place at home; it runs around as a
+/* Pets: a Puppy (object 386, copies the Chicken) you place at home; it runs around as a
    new critter kind (7) and can be picked up again. Art: the dark rooster's for now.
 
    How the Chicken works (docs/systems.md "Pets"): placing object 225 makes the object, whose

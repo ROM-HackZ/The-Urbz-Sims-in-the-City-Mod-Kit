@@ -244,8 +244,13 @@ A mod adds or changes objects with an `objects.json`:
 the new rows by itself. `python urbz_objects.py show 225` prints an object's row.
 New numbers: 386 and 389-511. New art for a new object is not done yet: it uses the copied object's.
 
-**`mods\pets-proto`** (prototype) adds a Puppy: place it at home and it runs around like a chicken
-(dark-rooster art until the real drawings exist); pick it up and it goes back to Pockets.
+Two mods use this, each picked on its own in the mod manager (no in-game switch):
+- **`mods\pets`** adds a Puppy: buy it where chickens are sold, place it at home and it runs around
+  like a chicken (dark-rooster art until the real drawings exist); pick it up and it goes back to Pockets.
+  Numbers 386 and 389-429.
+- **`mods\more-furniture`** adds three pieces of furniture to the Catalog and the furniture shop
+  (copies of a chair, a bed and a recliner with new names and prices, until new art exists).
+  Numbers 430-511.
 
 ## Save files
 
