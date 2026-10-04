@@ -446,6 +446,34 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   u32 catalog page, u32 ?}` and `object_info_table` 0x020E8B70 `{u32 price, u32 flags, ...}`.
 - Catalog pages: 0 Appliances ... 5 Utilities, 7 = not sold (model 632).
 - Proven: object 200 "The Savvy Shower" repriced from $230 to $99 shows in the Catalog.
+- **The Catalog only shows; it can't buy.** Seen in the emulator (2026-10-04): tapping an item shows its name,
+  price and text; tapping again or A does nothing. Its pages list every object whose page field (+0xC) is that
+  page, in object order, 4 per row with up/down arrows. Seen: setting the Chicken's page (object 225, page 7)
+  to 4 puts "Chicken - $20" with its icon at the end of the Recreation page. Page 6 (objects 181-198) has no
+  button. Counts per page (model != 632): 13, 88, 14, 33, 9, 11, 18.
+- **Shops sell; stock is picked daily.** The game state has 24 item lists, headers at **0x02141280** + 8*i
+  `{u8 count, u8 capacity, u16 pad, ptr}`, slots of 6 bytes `{u16 object, u8, u8 variant}`, 0x184 = empty.
+  Lists 0-20 are shop stocks, 21 holds up to 50 (unknown use, empty in city.sav), 22 = game_state+0x15C
+  (8; gifts/rewards: `0x40`, `0x41`... added on day change), **23 = Pockets** (game_state+0x154, 8 slots).
+  - `shop_defs` 0x020C76E8: 24 x `{u8 capacity, u8 n, u8 keep, pad, u16 *items}`; an item 0x183 means
+    "pick one at random". `restock_all` 0x0203D370 runs `restock_shop` 0x0203CA30 for lists 0-20 on a
+    new game and on each new day (`FUN_02083DB0`, flag 8).
+  - Random picks (`shop_pick` 0x0203C53C): 60% common, 30% uncommon, 10% rare; candidates are objects whose
+    `object_info_table` word +4 (common), +8 (uncommon) or +0xC (rare) has **bit = list number**, not
+    already in stock. So a new object is sold in a shop by setting one bit.
+  - From the masks: the Chicken (225) is common stock of **list 9** (with easels 173 and items 370-375;
+    probably the Farmer's Market, not checked). List 3 = appliances (0, 2, 5, 9, 13...), 4 = seats,
+    10 and 20 = general furniture.
+  - The shop screen (`shop_ui` state at 0x02148F30, +4 = list number) shows 4 items of that list; buying
+    (`shop_buy` 0x0209CDA8) checks money, adds the item to **Pockets** (`list_add` 0x0203D0CC) and takes
+    the price. Not yet seen in the emulator (the shop that sets +4 is not found yet).
+- **Placing from Pockets.** Seen: writing a Chicken into Pockets (count 0x02141338 = 2, slot at
+  0x02141892 = `E1 00 00 00`) shows it in Pockets ("Chicken / A plump little chicken from Uncle Hayseed's
+  Farm."); double-tapping it on the city roof says "You cannot place this item here!".
+  `place_object_check` 0x0203F698: only at home (`is_home_area` 0x02046AF4: the 3 bytes per row of
+  0x020C812C, or an unlocked one of 11 extra lots at 0x020C8110: areas 17, 24, 32, 52, 78, 25, 53, 55, 57,
+  56, 46), fewer than 63 objects on the lot, objects 104-113 and 185-196 have extra rules, numbers >= 224
+  are refused except 225, and at most 6 chickens (count of placed 225s > 5 refuses). Not yet tried at home.
 - Clothes are not separate art: Create-a-Bod's "Threads" page is palette choices. The look is
   10 bytes at **0x02141144** (gender, skin, hair style, hair colour, shirt style, 4 clothing colours,
   shoes); only gender and hair style pick sprite art. Tables and save fields: **docs/player-look.md**.

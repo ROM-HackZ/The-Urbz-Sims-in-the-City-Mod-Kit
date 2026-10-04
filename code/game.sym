@@ -103,7 +103,19 @@ room_motive_tick   = 0x02083CB8   # pulls Room toward the area's score (rows 39/
 
 # --- buyable objects (catalog). Index i is the same in both tables, 0x14 bytes per row.
 object_text_table  = 0x020E6D48   # {u32 model id, u32 description string, u32 name string, u32 catalog page, u32 ?}
-object_info_table  = 0x020E8B70   # {u32 price, u32 flags, ...}; e.g. i=200 "The Savvy Shower" $230
+object_info_table  = 0x020E8B70   # {u32 price, u32 flags, u32 common, u32 uncommon, u32 rare}: shop masks, bit = list number
+item_lists         = 0x02141280   # 24 x {u8 count, u8 cap, u16, slot *}; slots {u16 object, u8, u8 variant}, 0x184 empty
+pockets_list       = 0x02141338   # item list 23 (game_state+0x154), 8 slots: shop buys land here
+shop_defs          = 0x020C76E8   # 24 x {u8 cap, u8 n, u8 keep, u8, u16 *items}; item 0x183 = random pick
+shop_pick          = 0x0203C53C   # (state, list): random object by rarity mask (60/30/10%)
+restock_shop       = 0x0203CA30   # (state, list)
+restock_all        = 0x0203D370   # lists 0-20; new game and each new day
+list_add           = 0x0203D0CC   # int (list *, object, u8, u8 variant)
+shop_ui            = 0x02148F30   # shop screen state; +4 u8 = which list is shown
+shop_buy           = 0x0209CDA8   # money check, list_add(pockets), add_stat(2, -price)
+is_home_area       = 0x02046AF4   # (lots, area): can objects be placed in this area
+home_areas         = 0x020C812C   # 8-byte rows, 3 area bytes each
+extra_lots         = 0x020C8110   # u8[11] areas, each usable when unlocked (FUN_02046878)
 
 # --- stats, jobs
 add_stat           = 0x02035350   # u32 add_stat(int kind, int delta): 0/1 = u16 counters at 0x02141B88/0x02141B86, 2 = money (max 999,999; refreshes the HUD)
