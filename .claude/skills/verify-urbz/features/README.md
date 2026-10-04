@@ -34,3 +34,4 @@ The maintained source for proving the kit works from the player's and modder's p
 | code | C code and hooks in the game: blobs, call/wrap/jump/data hooks, cartridge relayout | [code.md](code.md) |
 | systems | Clock, needs, money, save file, NPCs, action effects, catalog: the facts mods use | [systems.md](systems.md) |
 | platform | Mod platform: in-game switches, mod save data, Mods page, mod manager; NPC Life | [platform.md](platform.md) |
+| objects | New objects (objects.json) and pets: catalog, placing, critters | [objects.md](objects.md) |

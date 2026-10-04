@@ -21,7 +21,7 @@ u32 0x0202A824 @crit_palettes+0x0
 u32 0x0202A8A4 @crit_palettes+0x0
 u32 0x0202AB14 @crit_palettes+0x0
 
-# Picking a critter up (critter_update state 0x0E): the game gives back the Chicken (kind 1)
+# Picking a critter up (critter_pickup: state 0x12, action 0x0E): the game gives back the Chicken (kind 1)
 # or the Nutria (kind 5); our stub also gives back the Puppy (kind 7).
 u32 critter_pick_kind     0xE51FF004    # ldr pc, [pc, #-4]
 u32 critter_pick_kind+4   @pets_pick_stub

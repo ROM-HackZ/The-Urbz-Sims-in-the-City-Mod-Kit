@@ -2,7 +2,7 @@
 """Regression proofs: build test mods and check, in the emulator, that each one does
 what the docs claim. Every claim in docs/systems.md marked "Proven" has a proof here.
 
-  python tests/proofs.py              run all (about 10-15 minutes)
+  python tests/proofs.py              run all (about an hour; never two runs at once)
   python tests/proofs.py NAME ...     run some (names: python tests/proofs.py --list)
 
 Needs project/ (extracted from your ROM), py-desmume, and LLVM (clang, ld.lld) for the

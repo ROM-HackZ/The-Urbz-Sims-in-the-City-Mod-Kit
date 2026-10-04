@@ -155,24 +155,22 @@ added assets actually load (the game's asset tables are moved to fit them).
 
 ## Phase 8: Pets, furniture and the art tool (plan: docs/plan-phase8.md)
 
-**Changed with Jonathan (2026-10-04):** clothes can wait; first **pets** (everyday pets: dogs, cats...,
-bought and placed at home like the Chicken) and **functional furniture**. Exploring before planning.
-Learned so far (docs/systems.md "Buyable objects", "Pets"): the Catalog only shows, shops sell (daily stock
-from per-object masks), buys go to Pockets, placing works only at home. Built and proven: new object rows
-(`objects.json`, `urbz_objects.py`: seven tables moved, new text), and a prototype new pet (`mods/pets`; furniture copies in `mods/more-furniture`, a separate mod;
-critter kind 7). Also a copied chair places and draws. Open: a pet's own art (critter sprites); saving
-placed new objects; picking up with real inputs. The real Phase 8 plan is written once these are known.
+**Changed with Jonathan (2026-10-04):** clothes wait; first **pets** (everyday pets: dogs, cats..., bought
+and placed at home like the Chicken) and **functional furniture**, as separate mods picked in the manager.
+Explored first, then planned (`docs/plan-phase8.md`). Done and proven so far: the Catalog only shows, shops
+sell (daily stock from per-object masks), buys go to Pockets, placing works only at home (`pet-place`); new
+objects through `objects.json` (`urbz_objects.py`: seven tables moved, new text, `code/objects`;
+`objects-new`); a new pet kind (`mods/pets`, critter kind 7; `pet-new-kind`); furniture copies
+(`mods/more-furniture`; `mods-split`). Next: the art tool (plan steps 1-5).
 
+Later (not Phase 8):
 - **Outfits:** clothes are palette choices (`docs/player-look.md`): new colours = palette rows in 11542 +
   UI limits; a new shirt style = a new case in the colour-composition code (`FUN_02083538`).
 - **Hair styles:** a 5th style = a 5th pointer in both hair tables (`0x0211CDAC`, `0x020F75D0`) + new
-  sprite sheets (appended assets, composite PNG import) + the UI limit (to find).
-- **Catalog objects:** append rows to the object tables (`0x020E6D48`, `0x020E8B70`, descriptors
-  `0x020EAF84`) — the tables are in arm9, so appending means moving them into a code-mod region and
-  re-pointing their users. New art can now be added as new assets (Phase 7 fixed asset loading).
+  sprite sheets + the UI limit (to find).
 - **Characters:** new character ids need entries in the schedule, palette (`0x020D0054`) and name tables.
 
-**Gate:** buy and use/wear the new thing in the harness.
+**Gate:** buy, place and use the new thing with real taps, in DeSmuME and melonDS.
 
 ## Working in the cloud
 

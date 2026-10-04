@@ -42,10 +42,14 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   (`mods/pets`: 386, 389-429; `mods/more-furniture`: 430-511; proof `mods-split`). Open: the pet's own art; saving placed new objects; picking up with real inputs; shops not yet seen in the emulator.
 
 ## Next
-- Phase 8: finish the open points above, then write the real plan with Jonathan (pets + furniture).
-- Jonathan tests NPC Life v3 on the Thor (Slice O' Life Pizza around 5 pm on a weekday: people sit and chat;
-  the Tower Lobby around 8 am: Kris eats at the vending machine) and starts drawing (README "New animations").
-- Phase 8 (content) per PLAN.md.
+- **Phase 8 plan: `docs/plan-phase8.md`** (the art tool `urbz_art.py`: furniture, pets and animations drawn
+  by Jonathan; shared art numbering in the builder). Step 1 (research) is next.
+- Still open from the exploration: picking a pet up with real inputs; using copied furniture (sit, sleep);
+  buying in a shop with real taps; whether loose critters survive a save (once seen: no, in the game too).
+- Jonathan: test on the Thor whether a chicken let loose at home survives a save; test NPC Life v3 (Slice
+  O' Life Pizza around 5 pm on a weekday; the Tower Lobby around 8 am); start drawing (README).
+- Known flaky: the `melonds` proof failed twice inside the full run (no boot screenshot) and passed twice
+  run alone (`python3 tests/proofs.py melonds`). Harness timing, not the game; to look into.
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
@@ -67,6 +71,11 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - Switch a mod in a test: poke `CORE+4 = 0x80000000 | on << 8 | index` (find 'CORE' with `find_magic`).
 - Townspeople have no needs block (entity+0x114 = 0): give them one before any object use (address 0
   mirrors game code). `npc_goto_object` ignores a failed path request: check `path_count` < 3 first.
+- Objects: change or add them only through a mod's `objects.json` (`urbz_objects.py`); once any mod adds
+  objects, the object tables move and the builder refuses hooks into the old tables. Tables indexed by
+  object number: 7 (docs/systems.md); `object_anims` starts at 0x020F34E0 (a 4-byte mistake there made
+  new objects invisible or garbled). New numbers: 386 and 389-511 (387/388 are markers).
+- Critters (chickens, the Puppy) are entities type 9; their update is 0x0202A61C, pick-up = state 0x12.
 - Only 8 people have object animations (33 39 41 45 52 53 54 58); seats refuse townspeople in their own
   check. Person 43 is Gramma Hattie (names: string 512 + id - 31).
 - To see Kris in melonDS: `urbz_save.py set verify/saves/city.sav x.sav --clock 16:30` (King Tower roof, 16-19h).

@@ -432,7 +432,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   behaviour 0x0202A61C; `spawn_critter` 0x0202AB18 (kind, facing, ?, x, y).
   The Chicken **item** (object 225) is what you carry: placing it (allowed for object 225 alone among
   numbers >= 224, at most 6 per lot: 0x0203F698) creates the object, whose "removed" function
-  (0x02065224) turns it into critter kind 1; picking the critter up (0x0202A0DC, state 0x0E) puts object
+  (0x02065224) turns it into critter kind 1; picking the critter up (`critter_pickup` 0x0202A0DC, run by the critter's behaviour 0x0202A61C in state 0x12; action 0x0E counts down +0x108) puts object
   225 back in the inventory (critter kind 5 -> object 236 likewise). Placed chickens are saved as placed
   objects. A catalog pet (a dog) = a new critter kind with its own sprites + a new object, and those 4
   places taught about it.
@@ -440,7 +440,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   Chicken, sold by shop list 9) placed at home becomes a critter of the new kind 7. The three critter
   tables move into the mod (20 references), kind 7 copies the dark rooster (placeholder art), the Puppy's
   class row gets the mod's "removed" function (spawns kind 7), and a stub in the pick-up code
-  (critter_update, state 0x12 / action 0x0E; the "kind" test at 0x0202A2D8) gives back object 386.
+  (critter_pickup, state 0x12 / action 0x0E; the "kind" test at 0x0202A2D8) gives back object 386.
   Proven: placed, kind 7 exists; put in the pick-up state, it goes back to Pockets as object 386 and the
   critter is gone. Not yet: picking it up with real inputs, the Puppy's own art and sounds.
 - **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,

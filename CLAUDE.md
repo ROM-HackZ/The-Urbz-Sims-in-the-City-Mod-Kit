@@ -33,6 +33,10 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
 - Function map: `code/functions.json`; full decompile needs Ghidra (research/README.md).
 - Mod platform API: `code/include/mod.h`; mod manager: `python3 mod_manager.py list|check`;
   NPC Life sim test: `python3 mods/npc-life/sim/run_test.py`.
+- Objects: `python3 urbz_objects.py show <n>`; new or changed objects only via a mod's `objects.json`
+  (the builder then moves the object tables and adds `code/objects`; rebuild it after changing
+  `code/objects/*.c`: `python3 urbz_patch.py build --dir code/objects`, commit its `build/`).
+  Pets: `mods/pets` (numbers 386, 389-429); furniture: `mods/more-furniture` (430-511).
 
 ## Writing style for Jonathan
 Plain language, short sentences, no jargon in summaries; say what was proven and what wasn't.

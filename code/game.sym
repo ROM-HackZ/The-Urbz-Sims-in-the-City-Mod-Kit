@@ -241,13 +241,14 @@ critter_table      = 0x020C3400   # 0x14 x 7 kinds: {setup fn, ?, ?, speed, flag
 critter_anims      = 0x020C348C   # 0x28 x 7: 5 animations x {5-facing records, frame script}
 critter_palettes   = 0x020C2FD4   # u32 palette game id per critter kind
 spawn_critter      = 0x0202AB18   # entity *(kind, facing, ?, x, y)
-critter_update     = 0x0202A0DC   # critter states; 0x0E picked up -> inventory object (kind 1 -> 225, 5 -> 236)
+critter_pickup     = 0x0202A0DC   # critter state 0x12 (being picked up), action 0x0E: -> Pockets (kind 1 -> 225, 5 -> 236)
+critter_behaviour  = 0x0202A61C   # critter entity update (+0x4C): switch on state +0x104
 place_object_check = 0x0203F698   # can this object go here: numbers >= 224 only 225 (chicken, max 6 per lot)
 pet_object_removed = 0x02065224   # class +0x14 for objects 225/236/237: object 225 -> spawn_critter(1, ...)
 
 # --- objects and critters (Phase 8)
 place_check_call   = 0x0203E054   # BL place_object_check in the carry/place code (0x0203DF08)
-critter_pick_kind  = 0x0202A2D8   # critter_update state 0x0E: "cmp r0(kind), #5" after the chicken case
+critter_pick_kind  = 0x0202A2D8   # critter_pickup: "cmp r0(kind), #5" after the chicken case
 critter_pick_done  = 0x0202A2FC   # "cmp r5, #1": r5 = list_add result (1 = in Pockets, the critter goes)
 critter_pick_nutria = 0x0202A2E0  # the Dancing Nutria case (object 236)
 obj_text_lit       = 0x02014130   # a literal holding object_text_table (moved by urbz_objects.py)

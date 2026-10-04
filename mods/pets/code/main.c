@@ -39,7 +39,7 @@ void pets_removed(u8 *obj)
     entity_set_state(e, 1);
 }
 
-/* critter_update, picking up: r0 = kind, r5 = 0 (result), r6 = the critter. */
+/* critter_pickup (state 0x12, action 0x0E): r0 = kind, r5 = 0 (result), r6 = the critter. */
 __attribute__((naked)) void pets_pick_stub(void)
 {
     __asm__ volatile(
