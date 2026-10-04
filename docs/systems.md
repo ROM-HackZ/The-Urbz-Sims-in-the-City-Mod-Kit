@@ -511,6 +511,15 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   sprite). Found on the way: `object_anims` starts at 0x020F34E0 (not +4); copied one field off, new
   objects drew nothing (386) or garbled sprites (389+). Open: saving and loading a placed new object, and
   what a save holding new objects does without the mod; using a copied chair (sitting).
+- **Object art (2026-10-04, read from the data, rendered with urbz_composite):** `object_models[obj]` points
+  at 5 records `{gfx gid, layout gid, 0, 0}` (one per facing; facings 1/7 use the front view, 3/5 the back
+  view, mirrored for the others). Chair 136: front 0x706/0x707 (one ~56x48 frame), back 0x708/0x709; bed
+  131: 2 frames per view (made / slept in). The art has no palette of its own: it is drawn in a 16-shade
+  ramp and `object_variants` (5 small numbers per object) pick the palette rows that colour it (the 5
+  catalog colours). **Icons** (Pockets, Catalog, shops): `ui_sprite_table` 0x020CB134, 16-byte records
+  indexed by the object's model number (`object_text_table` +0): chair (model 151) = 0x703/0x704 with its
+  own palette 0x705 (~24x32). Pets: `critter_anims` rows are the same records (chicken: stand 6 frames,
+  walk 9, 16x24, own palette). Plan for drawing new art: docs/plan-phase8.md.
 - A mod that writes into the old tables (e.g. a price with a `u32` hook) can't be combined with a mod that
   adds objects: the builder stops and asks for an `objects.json` change instead.
 - Clothes are not separate art: Create-a-Bod's "Threads" page is palette choices. The look is
