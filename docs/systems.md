@@ -404,6 +404,29 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   sprite numbers, the parts are drawn scattered. Limits: the female body always has a skirt and no cap;
   person animations the player lacks (ids >= 196 or empty) show as standing.
 
+## Pets (Phase 8 exploration, from the code + game text; not yet played through)
+
+- The game's pets are **Splicer Island's spliced animals**: you extract DNA from amber and splice genes at the
+  Splicer Lab (minigames, strings 155/156/162), then show pets in the **Pet Show** card game (154/160).
+  8 species (`pet kind` 0-7), each in 3 colours: Jackalope, Dodo, New World Dragon, Konga Gorilla, Simosaurus,
+  Triceratops, Unicorn, Veloci-Rooster (the "chicken"); their "golden gift" catalog items 50-51 and 8203-8210.
+  Kinds 8-12 are another animal (one shared sheet; probably the Dancing Nutria, object 236).
+- **You own up to 3 pets:** 3 slots of 0x18 bytes at `pet_slots` 0x02141BA2 (game_state+0xA82): +0 kind
+  (0x11 = empty), +1/+2 copied to the pet (+0x13F, +0x140 = colour variant), +3 s8 (picked as "best pet" by
+  the highest value: likely affection).
+- **In the world:** area record type 6 (`spawn_pet_record` 0x020729A4): param 0x0D-0x0F = your pet in slot 0-2,
+  0x10 = your best pet, other values = a fixed kind. Records in Carnival (2), Planet of Apes (10), Splicer
+  Island (14: 5), Splicer Island Zoo (16: 7), Tar Pit (17: 2), Splicer Lab Basement (61: 2).
+- `spawn_pet` 0x0207272C (kind, x, y, slot): entity type 6, id = kind, state 0x1D (wander/play
+  `FUN_0200E9C4`), 0x39 petting (`FUN_0200DAD0`: the person plays anim 0x4E/0x4F/0x50, row 26), 0x1E, 0x30,
+  0x31; behaviour 0x02071EBC; walking speed per kind `pet_speed` 0x020C1AFC (16.16).
+- **Art:** `pet_anim_lists` 0x0211D680: per kind a u32[anim] list of 5-facing records (same format as people);
+  colours: `pet_palettes` 0x020F5F04 (kinds 0-7: 3 palette ids each), 0x020F5920 (others, one each).
+- Objects 225 (Chicken), 236 (Dancing Nutria), 237 (Pet, "This is your pet, @2") have no class functions but
+  the "removed" one (0x02065224). Catalog pet things: Dawg House (58), Robot Pet (127, its own code).
+- Adding a species means: new rows in the per-kind tables (sprites, palettes, speed, names), new art (2
+  views per animation), and teaching the splicer/pet show about it; to find next.
+
 ## Buyable objects (catalog)
 
 - Two parallel tables indexed by object number, 0x14 bytes per row:

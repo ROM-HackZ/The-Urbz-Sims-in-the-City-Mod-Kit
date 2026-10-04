@@ -219,3 +219,9 @@ asset_load         = 0x02032B08   # int (game id, unpack): loads into asset_ptrs
 asset_offsets      = 0x0212352C   # u32[13386]: rom.bin's index (read at boot); moved by urbz_build when mods add assets
 asset_ptrs         = 0x02130654   # u32[13386]: where each loaded asset is (0 = not loaded)
 asset_refs         = 0x0213D77C   # u8[13386]: use counts
+pet_slots          = 0x02141BA2   # 3 x 0x18 bytes: the player's pets (+0 kind, 0x11 = empty; +2 colour; +3 affection?)
+spawn_pet_record   = 0x020729A4   # area record type 6: param 0x0D-0x0F = pet slot 0-2, 0x10 = best pet, else a kind
+spawn_pet          = 0x0207272C   # entity *(kind, x<<16, y<<16, slot): entity type 6
+pet_anim_lists     = 0x0211D680   # u32 *[kind] -> u32[anim] -> 5 facing records {gfx, layout, palette, param}
+pet_palettes       = 0x020F5F04   # u32[kind 0-7][3 colours]: palette game ids
+pet_speed          = 0x020C1AFC   # s32 per kind (16.16)
