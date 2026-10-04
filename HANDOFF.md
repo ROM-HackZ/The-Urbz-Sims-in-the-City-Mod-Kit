@@ -1,4 +1,4 @@
-# Handoff (2026-10-02, end of Phase 7)
+# Handoff (2026-10-04, Phase 8 exploration)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase7.md`.
 
@@ -33,7 +33,15 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   loaded added assets; `urbz_build.py` now moves its asset tables (hidden generated mod `new-assets`).
   Proofs: npc-life-days/stays/visit/reload, npc-act, npc-act-eat, npc-act-release, npc-anims.
 
+- **Phase 8 exploration (2026-10-04), pets and furniture first** (Jonathan: "we plan later once we learn how to
+  work on things"). Proven: the Catalog only shows (page field), shops restock daily from per-object masks, buys
+  land in Pockets, double-tap + walk + A places at home (proof `pet-place`: a Chicken becomes a walking critter);
+  new objects through `objects.json` (proof `objects-new`; the builder moves seven object tables, adds new text,
+  `code/objects` answers the place check as the copied object); a new pet kind (proof `pet-new-kind`,
+  `mods/pets-proto`). A copied chair (390) places and draws. Open: the pet's own art; saving placed new objects; picking up with real inputs; shops not yet seen in the emulator.
+
 ## Next
+- Phase 8: finish the open points above, then write the real plan with Jonathan (pets + furniture).
 - Jonathan tests NPC Life v3 on the Thor (Slice O' Life Pizza around 5 pm on a weekday: people sit and chat;
   the Tower Lobby around 8 am: Kris eats at the vending machine) and starts drawing (README "New animations").
 - Phase 8 (content) per PLAN.md.

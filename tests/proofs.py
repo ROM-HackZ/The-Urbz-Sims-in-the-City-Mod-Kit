@@ -893,7 +893,7 @@ def p_object_row():
 def critters(mem, base=0x0214DE20):
     """(address, kind) of the critters (entity type 9: chickens and co.) in a RAM dump that starts at base."""
     return [(base + k, struct.unpack_from('<H', mem, k + 10)[0]) for k in range(0, len(mem) - 0x148, 4)
-            if struct.unpack_from('<HH', mem, k + 8)[0] == 9 and struct.unpack_from('<H', mem, k + 10)[0] < 7]
+            if struct.unpack_from('<HH', mem, k + 8)[0] == 9 and struct.unpack_from('<H', mem, k + 10)[0] < 16]
 
 
 def p_pet_place():
@@ -916,6 +916,81 @@ def p_pet_place():
         res['with'][0], res['with'][1], res['without'][1])
 
 
+def place_script(extra=()):
+    """Pockets, double-tap the 5th item, close the menu, 3 steps down, A (the starting home, area 68)."""
+    s = [["wait", 60], ["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
+         ["touch", 164, 36, 8], ["wait", 30], ["touch", 164, 36, 8], ["wait", 90], ["touch", 236, 166, 8], ["wait", 60]]
+    s += [["press", "DOWN", 12], ["wait", 20]] * 3 + [["press", "A", 6], ["wait", 100]] + list(extra)
+    path = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'place.json')
+    json.dump(s, open(path, 'w'))
+    return path
+
+
+def pocket_pokes(obj):
+    return ['0x02141338=02', '0x02141892=%s' % struct.pack('<HH', obj, 0).hex()]
+
+
+def p_objects_new():
+    """New objects (urbz_objects.py): tests/mods/obj-new adds 386 "Test Kitten" and 389 "Test Puppy"
+    (copies of the Chicken) and 390 "Test Chair" (a copy of the Country Class Chair, 136), with new text.
+    The seven object tables move into the code region; the catalog loops and shop count follow. In the
+    Recreation catalog the new objects are listed with their names (build/proofs/objects-new.png); the
+    chair put in Pockets is placed at home (the place check asks about object 136, through code/objects)
+    and drawn: an object entity with id 390 and a sprite (+0x8C), like the original chair's."""
+    rom = build('objects-new', ['obj-new'])[0]
+    cat = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'cat.json')
+    json.dump([["wait", 60], ["touch", 56, 128, 8], ["wait", 120], ["touch", 130, 128, 8], ["wait", 120],
+               ["touch", 196, 51, 8], ["wait", 40], ["touch", 196, 51, 8], ["wait", 40], ["touch", 98, 51, 8],
+               ["wait", 60], ["shot", "catalog"]], open(cat, 'w'))
+    cmd = VERIFY + ['ram', rom, '--city', '--frames', '1', '--script', cat, '--read', '0x02014130:4',
+                    '--read', '0x0203C6AC:4']
+    out = run(cmd)
+    vals = dict(l.split(' = ') for l in out.splitlines() if ' = ' in l)
+    text = struct.unpack('<I', bytes.fromhex(vals['0x02014130:4'].strip()))[0]
+    count = struct.unpack('<I', bytes.fromhex(vals['0x0203C6AC:4'].strip()))[0]
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    shot = glob.glob(os.path.join(ev, '*catalog.png'))
+    if shot:
+        shutil.copy(shot[0], os.path.join(OUT, 'objects-new.png'))
+    rows = ram(rom, 1, '0x%08X:0x28' % (text + 0x14 * 386))['0x%08X:0x28' % (text + 0x14 * 386)]
+    r386 = struct.unpack_from('<5I', rows, 0)
+    r = ram(rom, 10, '0x02141338:4', HEAP_SCAN, pokes=pocket_pokes(390), script=place_script(),
+            start=['--city', '--goto', '68'])
+    placed, heap = r['0x02141338:4'][0], r[HEAP_SCAN]
+    chairs = [struct.unpack_from('<I', heap, k + 0x8C)[0] for k in range(0, len(heap) - 0x148, 4)
+              if struct.unpack_from('<HH', heap, k + 8) == (5, 390) and struct.unpack_from('<H', heap, k + 0x146)[0] == 390]
+    ok = (text >= CODE_BASE and count == 392 and r386[0] == 0xDD and r386[2] >= 8311 and placed == 1
+          and len(chairs) == 1 and chairs[0] != 0)
+    return ok, ('object text table at %08x (moved: %s), shop count %d; row 386: model %d, name string %d, page %d; '
+                'chair 390 placed at home: Pockets %d (was 2), object entities with id 390: %d, sprite %s; '
+                'build/proofs/objects-new.png') % (
+        text, text >= CODE_BASE, count, r386[0], r386[2], r386[3], placed, len(chairs),
+        ['%08x' % c for c in chairs])
+
+
+def p_pet_new_kind():
+    """A new pet (mods/pets-proto): the Puppy (object 386, copies the Chicken) placed at home becomes a
+    critter of the new kind 7 (the critter tables moved into the mod; rooster art for now). Put in the
+    game's pick-up state (state 0x12, action 0x0E), it goes back to Pockets as object 386."""
+    rom = build('pets-proto', [os.path.join(KIT, 'mods', 'pets-proto')])[0]
+    start = ['--city', '--goto', '68']
+    r = ram(rom, 10, HEAP_SCAN, pokes=pocket_pokes(386), script=place_script(), start=start)[HEAP_SCAN]
+    kinds = critters(r)
+    pup = [a for a, k in kinds if k == 7]
+    if not pup:
+        return False, 'no kind-7 critter after placing the Puppy (critters: %s)' % kinds
+    a = pup[0]
+    script = place_script([["poke", "0x%08X=0000" % (a + 0x108)], ["poke", "0x%08X=120E" % (a + 0x104)], ["wait", 60]])
+    r2 = ram(rom, 10, HEAP_SCAN, '0x02141338:4', '0x0214188C:12', pokes=pocket_pokes(386), script=script, start=start)
+    slot = struct.unpack_from('<H', r2['0x0214188C:12'], 6)[0]
+    i = r2[HEAP_SCAN].find(struct.pack('<I', 0x53544550))
+    spawned, picked = struct.unpack_from('<II', r2[HEAP_SCAN], i + 4)
+    after = [k for _, k in critters(r2[HEAP_SCAN])]
+    ok = r2['0x02141338:4'][0] == 2 and slot == 386 and 7 not in after and spawned == 1 and picked == 1
+    return ok, ('placed: critter kinds %s; picked up: Pockets count %d, slot 2 = object %d, kinds left %s '
+                '(spawned %d, picked %d)') % ([k for _, k in kinds], r2['0x02141338:4'][0], slot, after, spawned, picked)
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
@@ -928,7 +1003,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pet-new-kind', p_pet_new_kind),
           ('melonds', p_melonds)]
 
 

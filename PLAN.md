@@ -155,6 +155,14 @@ added assets actually load (the game's asset tables are moved to fit them).
 
 ## Phase 8: Content wiring (plan: docs/plan-phase8.md: clothes and catalog objects first)
 
+**Changed with Jonathan (2026-10-04):** clothes can wait; first **pets** (everyday pets: dogs, cats...,
+bought and placed at home like the Chicken) and **functional furniture**. Exploring before planning.
+Learned so far (docs/systems.md "Buyable objects", "Pets"): the Catalog only shows, shops sell (daily stock
+from per-object masks), buys go to Pockets, placing works only at home. Built and proven: new object rows
+(`objects.json`, `urbz_objects.py`: seven tables moved, new text), and a prototype new pet (`mods/pets-proto`,
+critter kind 7). Also a copied chair places and draws. Open: a pet's own art (critter sprites); saving
+placed new objects; picking up with real inputs. The real Phase 8 plan is written once these are known.
+
 - **Outfits:** clothes are palette choices (`docs/player-look.md`): new colours = palette rows in 11542 +
   UI limits; a new shirt style = a new case in the colour-composition code (`FUN_02083538`).
 - **Hair styles:** a 5th style = a 5th pointer in both hair tables (`0x0211CDAC`, `0x020F75D0`) + new

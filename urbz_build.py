@@ -273,6 +273,17 @@ def asset_tables_mod(proj, n_entries):
     return d
 
 
+def _first_free_string(proj, mod_dirs):
+    """The first string number after the game's and after any new ones mods add."""
+    from urbz_text import project_strings, read_tsv
+    n = len(project_strings(proj))
+    for md in mod_dirs:
+        p = os.path.join(md, 'text', 'strings.tsv')
+        if os.path.exists(p) and os.path.basename(os.path.normpath(md)) != 'new-objects':
+            n = max([n] + [k + 1 for k in read_tsv(p)])
+    return n
+
+
 def build(proj, out_path, mod_dirs=(), quiet=False):
     manifest = json.load(open(os.path.join(proj, 'manifest.json')))
     from urbz_code import check_mod_set, CodeError
@@ -281,6 +292,17 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
             print(w)
     except CodeError as e:
         raise BuildError(str(e))
+    # Objects: mods with objects.json get the object tables moved (a generated, hidden mod).
+    from urbz_objects import objects_mod, ObjectsError
+    try:
+        odir, objects_line = objects_mod(proj, mod_dirs, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'new-objects'),
+                                         lambda: _first_free_string(proj, mod_dirs))
+    except ObjectsError as e:
+        raise BuildError(str(e))
+    if odir:
+        mod_dirs = list(mod_dirs) + odir
+        if not quiet:
+            print(objects_line)
     ov = Overlay(proj, mod_dirs)
     n_existing = len(manifest['entries'])
 

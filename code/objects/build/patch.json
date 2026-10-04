@@ -1,0 +1,11 @@
+{
+ "relocs": [],
+ "symbols": {
+  "objects_place_check": 0
+ },
+ "bss": 0,
+ "sources": {
+  "objects.c": "11692d027c627fe6600ed7b3426a20ca867e439a",
+  "hooks.txt": "8fa1bbbc876dfc9ca02bbf65f8b47bd67dddf472"
+ }
+}

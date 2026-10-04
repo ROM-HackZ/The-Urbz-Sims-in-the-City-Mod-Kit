@@ -26,6 +26,7 @@ mods/*
 !mods/npc-visit/
 !mods/npc-life/
 !mods/npc-body-proto/
+!mods/pets-proto/
 mods/npc-life/sim/orig_tables.h
 tests/mods/*/code/build/
 verify/melonds/

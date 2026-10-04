@@ -226,6 +226,27 @@ python urbz_patch.py build my-anims               (needs LLVM)
 and build the ROM with `my-anims` enabled. NPC Life then sends her to chairs like the others. Groups:
 sit, eat, toilet, shower, sleep. The frames come from the game's art, so keep your mod to yourself.
 
+## New objects and pets (Phase 8, early)
+
+How buying works in this game: the **Catalog only shows** things. **Shops sell** them; each shop
+restocks every day from the objects marked for it. What you buy goes into **Pockets**; double-tap
+it there, walk to a spot (yellow tile = free), press A to put it down at home (L/R turn it).
+
+A mod adds or changes objects with an `objects.json`:
+```
+{"objects": [
+  {"id": 386, "like": 225, "name": "Puppy", "description": "A playful pup.",
+   "price": 60, "page": 4, "sell": {"9": "common"}}
+]}
+```
+`like` is the object to copy (art and behaviour); `page` is the Catalog page (0 Appliances ...
+5 Utilities, 7 = not shown); `sell` = shop lists that may stock it. The builder makes room for
+the new rows by itself. `python urbz_objects.py show 225` prints an object's row.
+New numbers: 386 and 389-511. New art for a new object is not done yet: it uses the copied object's.
+
+**`mods\pets-proto`** (prototype) adds a Puppy: place it at home and it runs around like a chicken
+(dark-rooster art until the real drawings exist); pick it up and it goes back to Pockets.
+
 ## Save files
 
 ```

@@ -1,0 +1,7 @@
+{"objects": [
+  {"id": 386, "like": 225, "name": "Test Kitten", "description": "Another test pet.", "price": 20, "page": 4},
+  {"id": 389, "like": 225, "name": "Test Puppy", "description": "A test pet made with the mod kit.",
+   "price": 20, "page": 4},
+  {"id": 390, "like": 136, "name": "Test Chair", "description": "A copy of the Country Class Chair.",
+   "price": 15, "page": 3}
+]}

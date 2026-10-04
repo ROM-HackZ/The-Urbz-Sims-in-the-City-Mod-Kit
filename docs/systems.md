@@ -436,14 +436,25 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   225 back in the inventory (critter kind 5 -> object 236 likewise). Placed chickens are saved as placed
   objects. A catalog pet (a dog) = a new critter kind with its own sprites + a new object, and those 4
   places taught about it.
-- Adding a species means: new rows in the per-kind tables (sprites, palettes, speed, names), new art (2
-  views per animation), and teaching the splicer/pet show about it; to find next.
+- **A new pet kind (proof `pet-new-kind`, mod `mods/pets-proto`):** the Puppy (object 386, copies the
+  Chicken, sold by shop list 9) placed at home becomes a critter of the new kind 7. The three critter
+  tables move into the mod (20 references), kind 7 copies the dark rooster (placeholder art), the Puppy's
+  class row gets the mod's "removed" function (spawns kind 7), and a stub in the pick-up code
+  (critter_update, state 0x12 / action 0x0E; the "kind" test at 0x0202A2D8) gives back object 386.
+  Proven: placed, kind 7 exists; put in the pick-up state, it goes back to Pockets as object 386 and the
+  critter is gone. Not yet: picking it up with real inputs, the Puppy's own art and sounds.
+- **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,
+  then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
+  so free-running critters don't seem to be saved. Caveat: home was reached with the experimental
+  `--goto 68`, not by walking there. To check on the Thor: does a chicken you let loose survive a save?
+- Adding a Splicer species would mean new rows in the per-kind tables (sprites, palettes, speed, names),
+  new art (2 views per animation), and teaching the splicer and pet show about it; not looked at.
 
 ## Buyable objects (catalog)
 
 - Two parallel tables indexed by object number, 0x14 bytes per row:
   `object_text_table` 0x020E6D48 `{u32 model, u32 description string, u32 name string,
-  u32 catalog page, u32 ?}` and `object_info_table` 0x020E8B70 `{u32 price, u32 flags, ...}`.
+  u32 catalog page, u32 ?}` and `object_info_table` 0x020E8B70 `{u32 price, u32 common, u32 uncommon, u32 rare, u32 ?}` (the 3 shop masks: bit = shop list).
 - Catalog pages: 0 Appliances ... 5 Utilities, 7 = not sold (model 632).
 - Proven: object 200 "The Savvy Shower" repriced from $230 to $99 shows in the Catalog.
 - **The Catalog only shows; it can't buy.** Seen in the emulator (2026-10-04): tapping an item shows its name,
@@ -479,6 +490,29 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   item is held, the D-pad walks, a tile in front shows red (blocked) or yellow (free); A places (input bit 1),
   L/R rotate (0x200/0x100; from the code), B cancels. Placed there, the Chicken leaves Pockets and a few
   seconds later walks around as critter kind 1.
+- **Seven tables are indexed by object number** (found 2026-10-04): text and info (386 rows, objects
+  0-385), and five that only cover the 253 placeable objects (0-252; 253+ are Pockets items: food, gifts,
+  quest things): class 0x020EAF84 (0x24), `object_shapes` 0x020E6954 (u32, footprint data),
+  `object_models` 0x020F1D28 (u32, art), `object_variants` 0x020F211C (5 x u32 per colour variant),
+  `object_anims` 0x020F34E0 (0x1C; read by `FUN_02067D04` for the look to draw). They sit packed in the game's data, so they can't grow in place.
+  The Catalog scans objects 0-279 only (`cmp #0x118` at 0x0201C6E8 and 0x0201C920); objects 280-385
+  are all on page 7. `shop_pick` looks at 386 (literal 0x0203C6AC). 387 and 388 are markers (random
+  pick, empty slot); the save keeps object numbers in 9 bits.
+- **New objects (Phase 8 kit, `urbz_objects.py`):** a mod's `objects.json` adds rows (`like`: the object to
+  copy; name/description text gets new string numbers 8311+; price, page, model, the shops that sell it).
+  The builder then makes a hidden mod (`build/new-objects/`) with copies of all seven tables (room for the
+  new rows), points the 132 references in the game's code at them, raises the Catalog loops and the shop
+  count, and adds `code/objects` (precompiled), which makes the game's number checks (so far: the place
+  check, which refuses 224+ except the Chicken) ask about the copied object. Text banks may now hold new
+  strings after the game's 8,311 (the game reads strings by number, with no count).
+  **Proven (proof `objects-new`):** objects 386 and 389 appear on the Recreation page with their new names,
+  prices and texts; the moved text table is in the code region; object 390, a copy of the Country Class
+  Chair (136), put in Pockets is placed at home and drawn like the original (an entity with id 390 and a
+  sprite). Found on the way: `object_anims` starts at 0x020F34E0 (not +4); copied one field off, new
+  objects drew nothing (386) or garbled sprites (389+). Open: saving and loading a placed new object, and
+  what a save holding new objects does without the mod; using a copied chair (sitting).
+- A mod that writes into the old tables (e.g. a price with a `u32` hook) can't be combined with a mod that
+  adds objects: the builder stops and asks for an `objects.json` change instead.
 - Clothes are not separate art: Create-a-Bod's "Threads" page is palette choices. The look is
   10 bytes at **0x02141144** (gender, skin, hair style, hair colour, shirt style, 4 clothing colours,
   shoes); only gender and hair style pick sprite art. Tables and save fields: **docs/player-look.md**.

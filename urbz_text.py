@@ -22,6 +22,7 @@ import heapq, itertools, json, os, struct, sys
 KIT = os.path.dirname(os.path.abspath(__file__))
 TEXT_ASSET = 54
 MAX_LEN = 1023
+MAX_NEW = 2000                      # new strings a mod may add after the game's (IDs 8311 and up)
 
 
 # ---------------------------------------------------------------- bank codec
@@ -216,18 +217,22 @@ def build_text_asset(proj, overlay):
     if not paths:
         return None
     strings = project_strings(proj)
+    n_game = len(strings)
     edits = {}
     for name, p in _mod_text_files(overlay):
         for sid, s in read_tsv(p).items():
-            if not 0 <= sid < len(strings):
-                raise ValueError('mod "%s": string ID %d does not exist (0-%d)'
-                                 % (name, sid, len(strings) - 1))
+            if not 0 <= sid < n_game + MAX_NEW:
+                raise ValueError('mod "%s": string ID %d is out of range (0-%d are the game\'s; new '
+                                 'strings may use %d-%d)' % (name, sid, n_game - 1, n_game,
+                                                             n_game + MAX_NEW - 1))
             if len(s) > MAX_LEN:
                 raise ValueError('mod "%s": string %d is %d bytes; the game buffer holds %d'
                                  % (name, sid, len(s), MAX_LEN))
             edits[sid] = s
-    if all(strings[i] == s for i, s in edits.items()):
+    if all(i < n_game and strings[i] == s for i, s in edits.items()):
         return None
+    if edits and max(edits) >= n_game:                # new strings go after the game's (gaps stay empty)
+        strings += [b''] * (max(edits) + 1 - n_game)
     for i, s in edits.items():
         strings[i] = s
     bank = encode_bank(strings)

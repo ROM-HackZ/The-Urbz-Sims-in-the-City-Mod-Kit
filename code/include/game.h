@@ -82,3 +82,13 @@ typedef struct {                 /* save_ctx: the slot stream being written or r
 #define DC_FlushRange           GAME_FN(ADDR_DC_FlushRange, void (*)(const void *, u32))
 #define DC_WaitWriteBufferEmpty GAME_FN(ADDR_DC_WaitWriteBufferEmpty, void (*)(void))
 #define IC_InvalidateRange      GAME_FN(ADDR_IC_InvalidateRange, void (*)(const void *, u32))
+
+/* ---- objects and critters (docs/systems.md "Buyable objects", "Pets") ----- */
+/* Can this object be put down here? 1 = yes (else the game shows why). */
+#define place_object_check GAME_FN(ADDR_place_object_check, int (*)(void *e, unsigned obj, unsigned rot))
+/* Add an object to an item list (Pockets: game_state+0x154). 1 = added. */
+#define list_add     GAME_FN(ADDR_list_add, int (*)(void *list, unsigned obj, unsigned a, unsigned variant))
+/* Create a critter (entity type 9: chicken = kind 1) facing `facing`, at map x, y (whole units). */
+#define spawn_critter GAME_FN(ADDR_spawn_critter, void *(*)(unsigned kind, unsigned facing, unsigned a, int x, int y))
+/* Entity state (+0x104) and action (+0x105). */
+#define entity_set_state  GAME_FN(ADDR_entity_set_state, void (*)(void *e, int state))

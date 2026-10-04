@@ -1,0 +1,25 @@
+{
+ "relocs": [
+  152,
+  244,
+  400,
+  404,
+  408,
+  420
+ ],
+ "symbols": {
+  "crit_anims": 616,
+  "crit_palettes": 936,
+  "crit_table": 456,
+  "memcpy": 424,
+  "mod_on_boot": 248,
+  "pets": 968,
+  "pets_pick_stub": 156,
+  "pets_removed": 0
+ },
+ "bss": 0,
+ "sources": {
+  "main.c": "e45e8dbe7317804b77381b012e450a328ec9dbb4",
+  "hooks.txt": "a49b5fec663d895ce289d078554a8dcb203da310"
+ }
+}

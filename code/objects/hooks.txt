@@ -1,0 +1,2 @@
+# Kit: new objects (urbz_objects.py) answer the game's number checks as the object they copy.
+call place_check_call objects_place_check

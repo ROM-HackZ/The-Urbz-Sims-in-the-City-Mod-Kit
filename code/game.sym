@@ -103,7 +103,7 @@ room_motive_tick   = 0x02083CB8   # pulls Room toward the area's score (rows 39/
 
 # --- buyable objects (catalog). Index i is the same in both tables, 0x14 bytes per row.
 object_text_table  = 0x020E6D48   # {u32 model id, u32 description string, u32 name string, u32 catalog page, u32 ?}
-object_info_table  = 0x020E8B70   # {u32 price, u32 flags, u32 common, u32 uncommon, u32 rare}: shop masks, bit = list number
+object_info_table  = 0x020E8B70   # {u32 price, u32 common, u32 uncommon, u32 rare, u32 ?}: shop masks, bit = list number
 item_lists         = 0x02141280   # 24 x {u8 count, u8 cap, u16, slot *}; slots {u16 object, u8, u8 variant}, 0x184 empty
 pockets_list       = 0x02141338   # item list 23 (game_state+0x154), 8 slots: shop buys land here
 shop_defs          = 0x020C76E8   # 24 x {u8 cap, u8 n, u8 keep, u8, u16 *items}; item 0x183 = random pick
@@ -244,3 +244,18 @@ spawn_critter      = 0x0202AB18   # entity *(kind, facing, ?, x, y)
 critter_update     = 0x0202A0DC   # critter states; 0x0E picked up -> inventory object (kind 1 -> 225, 5 -> 236)
 place_object_check = 0x0203F698   # can this object go here: numbers >= 224 only 225 (chicken, max 6 per lot)
 pet_object_removed = 0x02065224   # class +0x14 for objects 225/236/237: object 225 -> spawn_critter(1, ...)
+
+# --- objects and critters (Phase 8)
+place_check_call   = 0x0203E054   # BL place_object_check in the carry/place code (0x0203DF08)
+critter_pick_kind  = 0x0202A2D8   # critter_update state 0x0E: "cmp r0(kind), #5" after the chicken case
+critter_pick_done  = 0x0202A2FC   # "cmp r5, #1": r5 = list_add result (1 = in Pockets, the critter goes)
+critter_pick_nutria = 0x0202A2E0  # the Dancing Nutria case (object 236)
+obj_text_lit       = 0x02014130   # a literal holding object_text_table (moved by urbz_objects.py)
+obj_class_lit      = 0x02008BE8   # a literal holding the class table (moved by urbz_objects.py)
+pockets_ptr        = 0x02141274   # game_state+0x154: -> Pockets (item list 23)
+object_shapes      = 0x020E6954   # u32 per placeable object (0-252): footprint data
+object_models      = 0x020F1D28   # u32 per placeable object: art (model data); 0 = not drawn
+object_variants    = 0x020F211C   # 5 x u32 per placeable object (colour variants)
+object_anims       = 0x020F34E0   # 0x1C per placeable object (7 art pointers: the default look, ...); right after object_variants
+catalog_loop_1     = 0x0201C6E8   # cmp r6, #0x118: the Catalog lists objects 0-279
+catalog_loop_2     = 0x0201C920   # cmp sl, #0x118
