@@ -890,6 +890,32 @@ def p_object_row():
     return ok, 'Glasstown type-16 objects (variant, row): %s; with the table set to 8: %s' % (a, b)
 
 
+def critters(mem, base=0x0214DE20):
+    """(address, kind) of the critters (entity type 9: chickens and co.) in a RAM dump that starts at base."""
+    return [(base + k, struct.unpack_from('<H', mem, k + 10)[0]) for k in range(0, len(mem) - 0x148, 4)
+            if struct.unpack_from('<HH', mem, k + 8)[0] == 9 and struct.unpack_from('<H', mem, k + 10)[0] < 7]
+
+
+def p_pet_place():
+    """A pet you carry home: a Chicken (object 225) written into Pockets (item list 23) is placed in the
+    starting home (area 68) with real inputs: Pockets, double-tap it, close the menu, walk 3 steps, A.
+    It leaves Pockets and becomes a walking chicken (critter kind 1). Without it, no chicken appears."""
+    rom = build('vanilla', [])[0]
+    s = [["wait", 60], ["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
+         ["touch", 164, 36, 8], ["wait", 30], ["touch", 164, 36, 8], ["wait", 90], ["touch", 236, 166, 8], ["wait", 60]]
+    s += [["press", "DOWN", 12], ["wait", 20]] * 3 + [["press", "A", 6], ["wait", 400]]
+    script = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'place.json')
+    json.dump(s, open(script, 'w'))
+    reads = ('0x02141338:4', HEAP_SCAN)
+    res = {}
+    for name, pokes in (('with', ['0x02141338=02', '0x02141892=e1000000']), ('without', [])):
+        r = ram(rom, 10, *reads, pokes=pokes, script=script, start=['--city', '--goto', '68'])
+        res[name] = (r['0x02141338:4'][0], [k for _, k in critters(r[HEAP_SCAN])])
+    ok = res['with'][0] == 1 and 1 in res['with'][1] and 1 not in res['without'][1]
+    return ok, 'Pockets count after placing: %d (was 2); critter kinds with: %s, without: %s' % (
+        res['with'][0], res['with'][1], res['without'][1])
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
@@ -902,7 +928,8 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('melonds', p_melonds)]
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place),
+          ('melonds', p_melonds)]
 
 
 def main(argv):

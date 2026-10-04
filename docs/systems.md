@@ -473,7 +473,12 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   `place_object_check` 0x0203F698: only at home (`is_home_area` 0x02046AF4: the 3 bytes per row of
   0x020C812C, or an unlocked one of 11 extra lots at 0x020C8110: areas 17, 24, 32, 52, 78, 25, 53, 55, 57,
   56, 46), fewer than 63 objects on the lot, objects 104-113 and 185-196 have extra rules, numbers >= 224
-  are refused except 225, and at most 6 chickens (count of placed 225s > 5 refuses). Not yet tried at home.
+  are refused except 225, and at most 6 chickens (count of placed 225s > 5 refuses).
+  **Proven (proof `pet-place`):** the starting home is area 68 (Skyline Penthouse; lot byte 0x02141230 = 0 picks
+  row 0 of 0x020C812C). Double-tapping an item in Pockets puts the player in carry mode (state 0x16): the
+  item is held, the D-pad walks, a tile in front shows red (blocked) or yellow (free); A places (input bit 1),
+  L/R rotate (0x200/0x100; from the code), B cancels. Placed there, the Chicken leaves Pockets and a few
+  seconds later walks around as critter kind 1.
 - Clothes are not separate art: Create-a-Bod's "Threads" page is palette choices. The look is
   10 bytes at **0x02141144** (gender, skin, hair style, hair colour, shirt style, 4 clothing colours,
   shoes); only gender and hair style pick sprite art. Tables and save fields: **docs/player-look.md**.
