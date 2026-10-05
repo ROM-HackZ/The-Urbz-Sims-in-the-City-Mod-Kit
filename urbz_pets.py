@@ -122,7 +122,9 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
             try:
                 folder = urbz_import.pet_art(pet['import'], src, os.path.join(
                     os.path.dirname(out_dir), 'imports', '%s-%s' % (mod, pet['name'].lower())))
-            except (OSError, ValueError, KeyError, SystemExit) as e:
+            except urbz_import.SourceMissing as sm:            # build anyway, with the starting animal's art
+                print('warning: mod "%s": %s keeps the %s\'s art: %s' % (mod, pet['name'], pet['from'], sm))
+            except (OSError, ValueError, KeyError) as e:
                 raise PetsError('mod "%s": pet %s: import: %s' % (mod, pet['name'], e))
         if os.path.exists(os.path.join(folder, 'timing.json')):
             from urbz_art import build_pet_art

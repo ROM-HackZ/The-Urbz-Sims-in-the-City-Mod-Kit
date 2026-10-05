@@ -131,11 +131,15 @@ def sources():
 _GAMES = {}
 
 
+class SourceMissing(Exception):
+    """A mod imports from a game this computer has no copy of (sources.json)."""
+
+
 def game(name):
     if name not in _GAMES:
         src = sources()
-        if name not in src:
-            sys.exit('error: no "%s" in sources.json (python urbz_import.py sources)' % name)
+        if name not in src or not os.path.exists(src[name]):
+            raise SourceMissing('no copy of "%s" set up in sources.json (python urbz_import.py help)' % name)
         import urbz_fullfat
         _GAMES[name] = urbz_fullfat.Game(src[name])
     return _GAMES[name]
@@ -213,7 +217,7 @@ def find_model(gname, mname):
     for m in g.models():
         if m['name'] == mname or m['folder'].endswith('/' + mname):
             return g, m
-    sys.exit('error: no model "%s" in %s (see the gallery)' % (mname, gname))
+    raise KeyError('no model "%s" in %s (see the gallery: python urbz_import.py gallery)' % (mname, gname))
 
 
 def render_model(model, yaw, anim=None, frame=0, size=(96, 96), anchor=(48, 80), scale=1.0):

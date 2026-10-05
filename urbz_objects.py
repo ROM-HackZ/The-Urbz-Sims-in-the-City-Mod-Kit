@@ -202,8 +202,12 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         try:
             if 'import' in e:
                 import urbz_import
-                folder = urbz_import.object_art(e['import'], e['like'],
-                                                os.path.join(os.path.dirname(out_dir), 'imports', '%s-%d' % (mod, i)))
+                try:
+                    folder = urbz_import.object_art(e['import'], e['like'], os.path.join(
+                        os.path.dirname(out_dir), 'imports', '%s-%d' % (mod, i)))
+                except urbz_import.SourceMissing as sm:     # build anyway: it keeps its like's art
+                    print('warning: mod "%s": object %d keeps object %d\'s art: %s' % (mod, i, e['like'], sm))
+                    continue
             else:
                 folder = os.path.join(e.get('_dir', ''), e['art'])
             from urbz_art import build_object_art
