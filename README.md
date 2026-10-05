@@ -208,6 +208,9 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
      unpack; talk to Detective Dan to finish the tower chapter.
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
    In the game: Load Game, slot A.
+4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. The kit's copy uses arrows = D-pad,
+   X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Backspace = Select, Tab = fast forward (hold),
+   F11 = full screen; the mouse is the stylus on the bottom screen.
 
 ## NPC Life
 
