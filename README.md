@@ -206,8 +206,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
    handy, copy one of the kit's saves there (it replaces your game in that file):
    - `verify\saves\apartment.sav`: just moved into the Small Brownstone (first apartment), $850, a crate to
      unpack; talk to Detective Dan to finish the tower chapter.
-   - `verify\saves\apartment-pets.sav`: the same, with the Puppy, the Kitten and the three more-furniture pieces
-     in Pockets (needs a build with `pets` and `more-furniture`).
+   - `verify\saves\apartment-pets.sav`: the same, with all eight pets in Pockets (Puppy, Kitten, Bunny, Hamster,
+     Guinea Pig, Cockatoo, Macaw, Snake; needs a build with `pets`).
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
    In the game: Load Game, slot A.
 4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. The kit's copy uses arrows = D-pad,
@@ -321,7 +321,8 @@ angle, its size, 16 colours) every time you build. Your copies of those games st
 4. Build. Without the source game the mod still builds, with its drawn art if it has some, else the
    starting animal's or object's art (a warning says so).
 
-`mods\pets` already imports the Apartment Pets beagle (Puppy) and black cat (Kitten). To use your own
+`mods\pets` already imports the Apartment Pets animals: Puppy (beagle), Kitten, Bunny, Hamster, Guinea Pig,
+Cockatoo, Macaw and Snake (`"coat"` picks another dog breed or cat coat, see `docs\other-games.md`). To use your own
 drawing instead, remove that pet's `"import"` line. In the game: buy, Pockets, place at home, turn, pick up,
 all as usual; tested in DeSmuME and melonDS.
 

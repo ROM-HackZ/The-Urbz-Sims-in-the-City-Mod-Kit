@@ -2,22 +2,23 @@
  "relocs": [
   332,
   428,
-  648,
-  652
+  684,
+  688
  ],
  "symbols": {
-  "mod_on_boot": 520,
+  "mod_on_boot": 556,
   "pets_anim_kind": 432,
-  "pets_count": 656,
+  "pets_count": 692,
   "pets_object_of": 0,
   "pets_pick_stub": 340,
   "pets_removed": 116,
   "pets_stop_stub": 500,
+  "pets_tap_stub": 520,
   "pets_walk_stub": 480
  },
  "bss": 0,
  "sources": {
-  "pets.c": "ca7d4f6bd27c5a5ff8552be378640de2c9fc9a91",
-  "hooks.txt": "e3bd87e2a3e3bed9c42dd3ed913245d9cfd5efa4"
+  "pets.c": "0de4cb0db1132a7fca84f803b77d31374a412fb4",
+  "hooks.txt": "8664992c3f3099ca6a15c6e236fc20d4ab52d425"
  }
 }

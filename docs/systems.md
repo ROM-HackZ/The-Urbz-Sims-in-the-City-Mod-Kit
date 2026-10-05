@@ -463,6 +463,14 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   have, so a Puppy copied from the rooster slid along in its stand pose. `code/pets-kit` jumps both tests to
   stubs that treat every pet as kind 1. Behaviours of the other kinds (decompile): 0x020298E4 (state 0x3E),
   0x02029AB4 (0x37, random slots 0-3 on timers), 0x02029C64 (0x33-0x58, the Living Artemisia eating).
+- **Picking up is also kind-limited (from the code, 2026-10-05; not yet done with real inputs):** the
+  chicken/rooster `critter_table` +8 handler `critter_tap` (0x0202A4F8, called when the player in state 0x10
+  is at the critter) returns unless kind-1 <= 1 (`critter_tap_kind` 0x0202A570). code/pets-kit treats pets
+  as kind 1 there too. How the player triggers it is still unknown: A presses and walking into a placed
+  Chicken in the vanilla game didn't call it in the harness.
+- **Critter sprite memory:** a critter frame may use 32 tiles; a 40-tile frame drew as garbage (see
+  docs/other-games.md). Critter speed = `critter_table` +0xC (16.16; chicken 0x22000, rooster 0x30000);
+  pets.json `"speed"` scales it.
 - **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,
   then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
   so free-running critters don't seem to be saved. Caveat: home was reached with the experimental

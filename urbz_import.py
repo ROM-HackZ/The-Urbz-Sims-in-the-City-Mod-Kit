@@ -216,8 +216,12 @@ class Model:
         self.parts = []
         for s in self.subs:
             tex, f = None, g.textures.get(s['texture'])
+            if f and texture_swap and '@coat' in texture_swap:     # a dog breed / cat coat: head_X, body_X
+                f = _coat(g, f, texture_swap['@coat'])
             if f and texture_swap:
                 for old, new in texture_swap.items():
+                    if old.startswith('@'):
+                        continue
                     if old in f['name']:
                         try:
                             f = g.find(f['name'].replace(old, new))
@@ -270,6 +274,20 @@ class Model:
         import numpy as np
         ys = np.concatenate([s['tris'][..., 1].ravel() for s, _t, _c in self.parts]) if self.parts else np.zeros(1)
         return float((ys.max() - self.offset[1]) * self.unit)
+
+
+def _coat(g, f, coat):
+    """head_<coat> / body_<coat> instead of the model's own head_/body_ texture (collie: head_collie2)."""
+    d, base = f['name'].rsplit('/', 1)
+    part = base.split('_', 1)[0]
+    if part not in ('head', 'body') or '_' not in base:
+        return f
+    for name in (coat, coat + '2', coat + '1'):
+        try:
+            return g.find('%s/%s_%s.nitro_texture' % (d, part, name))
+        except KeyError:
+            pass
+    raise KeyError('no %s_%s texture next to %s (coats: see docs/other-games.md)' % (part, coat, f['name']))
 
 
 def find_model(gname, mname):
@@ -375,27 +393,97 @@ PET_ANIMS = {'0-stand': ['standidle', 'idle', 'stand'], '1-walk': ['walk', 'swim
              '2-move': ['sniff', 'happy', 'walk'], '3-move': ['sitidle', 'happy', 'walk'],
              '4-move': ['happy', 'walk']}
 
+# Each Apartment Pets animal as an Urbz pet: which animation for each slot, its height in Urbz pixels
+# (standing), and a hop for animals that have no walk cycle (the caged ones: they get their busiest idle
+# plus a hop of that many metres, so they don't slide along). Fish are left out (they need water).
+ANIMALS = {
+    'dog':       {'anims': {'0-stand': 'standidle', '1-walk': 'walk', '2-move': 'sniffwag', '3-move': 'sitidle',
+                            '4-move': 'happy'}, 'height': 28},
+    'cat':       {'anims': {'0-stand': 'cat_standidle', '1-walk': 'walk', '2-move': 'catsniffwalk',
+                            '3-move': 'idlesit', '4-move': 'happy'}, 'height': 23},
+    'rabbit':    {'anims': {'0-stand': 'idle', '1-walk': 'idle2', '2-move': 'lookround', '3-move': 'idlesitup',
+                            '4-move': 'idlescratch'}, 'height': 18, 'hop': 0.10},
+    'hamster':   {'anims': {'0-stand': 'idle', '1-walk': 'idleshimmy', '2-move': 'idlenose', '3-move': 'idlecircle',
+                            '4-move': 'idlenose'}, 'height': 9, 'hop': 0.06},
+    'guineapig': {'anims': {'0-stand': 'idle', '1-walk': 'idleshimmy', '2-move': 'idlenose', '3-move': 'idlecircle',
+                            '4-move': 'idlenose'}, 'height': 10, 'hop': 0.06},
+    'cockatoo':  {'anims': {'0-stand': 'idle_varient', '1-walk': 'idlebob', '2-move': 'idlemove2',
+                            '3-move': 'cleans', '4-move': 'idlemove1'}, 'height': 20, 'hop': 0.06},
+    'macaw':     {'anims': {'0-stand': 'idle_varient', '1-walk': 'idlebob', '2-move': 'idlemove2',
+                            '3-move': 'cleans', '4-move': 'idlemove1'}, 'height': 19, 'hop': 0.06},
+    'snake2':    {'anims': {'0-stand': 'idle', '1-walk': 'idlesway', '2-move': 'idlenoise', '3-move': 'idledance',
+                            '4-move': 'idlesway'}, 'height': 22},
+}
+
 
 def pet_art(cfg, kind, folder):
     """Render an imported animal into an urbz_art pet folder: every slot and direction the starting
-    animal (critter kind) has, with as many frames; a drop shadow; one 16-colour palette.
-    cfg = {"from", "model", "anims": {"0-stand": "standidle", ...}, "scale", "textures"}."""
+    animal (critter kind) has, with as many frames; a shadow under it; one 16-colour palette.
+    cfg = {"from", "model", "coat", "anims": {"0-stand": "standidle", ...}, "height" (pixels standing) or
+    "scale", "hop" (metres), "textures"}."""
     import numpy as np
-    from PIL import Image
     import urbz_art as A
     from urbz_anims import script_of
     g, info = find_model(cfg['from'], cfg['model'])
-    model = Model(g, info, cfg.get('textures'))
+    animal = ANIMALS.get(info['name'], {}) if cfg['from'] == 'aptpets' else {}
+    swap = dict(cfg.get('textures') or {})
+    if cfg.get('coat'):
+        swap['@coat'] = cfg['coat']
+    model = Model(g, info, swap or None)
     src = A.critter_slots(kind)
     spal = A.critter_palette(kind)
     os.makedirs(folder, exist_ok=True)
-    # size: as tall as the animal it replaces (its standing frame), unless "scale" says otherwise
-    ref = A.frames_of(src[0][0][2][0], src[0][0][2][1], spal)[0].getbbox() if src[0][0] else None
+    anims = dict(animal.get('anims', {}))
+    anims.update(cfg.get('anims', {}))
+    stand = next((a for a in [anims.get('0-stand')] + PET_ANIMS['0-stand'] if a and a in info['anims']), None)
+    ys = np.concatenate([t[..., 1].ravel() for t, _x, _c in model.posed(stand, 0)])
+    tall = max(float(ys.max()), 0.05)                       # standing height in metres
     if 'scale' in cfg:
         ppm = PX_PER_M * cfg['scale']
+    elif cfg.get('height') or animal.get('height'):
+        ppm = (cfg.get('height') or animal['height']) / tall
+    else:                    # as tall as the animal it replaces (its standing frame)
+        ref = A.frames_of(src[0][0][2][0], src[0][0][2][1], spal)[0].getbbox() if src[0][0] else None
+        ppm = ((ref[3] - ref[1]) * 0.9 if ref else 24) / tall
+    hop = cfg.get('hop', animal.get('hop', 0))
+    for _try in range(4):                  # shrink until every frame fits the critter's sprite memory
+        timing, frames = _pet_frames(model, info, src, spal, anims, ppm, hop, folder)
+        worst = max(_tiles(im) for _p, im in frames)
+        edge = any(im[0, :, 3].any() or im[-1, :, 3].any() or im[:, 0, 3].any() or im[:, -1, 3].any()
+                   for _p, im in frames)                  # cut off by the canvas
+        if worst <= PET_MAX_TILES and not edge:
+            break
+        if worst <= PET_MAX_TILES:
+            worst = PET_MAX_TILES * 1.3
+        ppm *= (PET_MAX_TILES / worst) ** 0.5 * 0.95
     else:
-        want = (ref[3] - ref[1]) * 0.9 if ref else 24
-        ppm = want / max(model.height() * 0.95, 0.05)
+        raise ValueError('%s: frames still need %d tiles of sprite memory (%d fit)' % (info['name'], worst,
+                                                                                     PET_MAX_TILES))
+    pal, imgs = _fit_palette([im for _, im in frames])
+    for (path, _), im in zip(frames, imgs):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        im.save(path)
+    A.save_palette(os.path.join(folder, 'palette.png'), pal)
+    json.dump(timing, open(os.path.join(folder, 'timing.json'), 'w'), indent=1)
+    return folder
+
+
+# A critter's frame may use 32 tiles (8x8) of sprite memory: seen in the game, a 24-tile Puppy draws
+# fine and a 40-tile Macaw (wings spread) came out as garbage. pet_art shrinks an animal until it fits.
+PET_MAX_TILES = 32
+
+
+def _tiles(im):
+    from urbz_anims import cut_cells
+    import urbz_art as A
+    idx = (im[..., 3] > 0).astype(int).tolist()
+    return sum((sz // 8) ** 2 for _x, _y, sz in cut_cells(idx, A.PET_CANVAS, A.PET_ORIGIN))
+
+
+def _pet_frames(model, info, src, spal, anims, ppm, hop, folder):
+    import numpy as np
+    import urbz_art as A
+    from urbz_anims import script_of
     timing = {'from': 'import', 'slots': {}}
     frames, seen = [], {}
     for s, (recs, script) in enumerate(src):
@@ -408,7 +496,7 @@ def pet_art(cfg, kind, folder):
             continue
         seen[tuple(recs)] = slot
         timing['slots'][slot] = {'script': script_of(script) or 'default', 'param': recs[0][3]}
-        want_anims = [cfg.get('anims', {}).get(slot)] + PET_ANIMS[slot]
+        want_anims = [anims.get(slot)] + PET_ANIMS[slot]
         anim = next((a for a in want_anims if a and a in info['anims']), None)
         for d, (gfx, lay, _, _) in enumerate(recs):
             n = len(A.frames_of(gfx, lay, spal))
@@ -417,16 +505,15 @@ def pet_art(cfg, kind, folder):
             for k in range(n):
                 f = (k * nf) // n if anim else 0
                 parts = model.posed(anim, f)
-                im = rasterize(shadow_tris(parts) + parts, view(yaw + model.front), ppm,
+                shadow = shadow_tris(parts)
+                if hop and slot == '1-walk':      # two hops per walk cycle
+                    up = hop * abs(np.sin(2 * np.pi * k / n))
+                    for t, _x, _c in parts:
+                        t[..., 1] += up
+                im = rasterize(shadow + parts, view(yaw + model.front), ppm,
                                (A.PET_CANVAS, A.PET_CANVAS), A.PET_ORIGIN)
                 frames.append((os.path.join(folder, slot, 'dir%d' % d, '%02d.png' % k), im))
-    pal, imgs = _fit_palette([im for _, im in frames])
-    for (path, _), im in zip(frames, imgs):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        im.save(path)
-    A.save_palette(os.path.join(folder, 'palette.png'), pal)
-    json.dump(timing, open(os.path.join(folder, 'timing.json'), 'w'), indent=1)
-    return folder
+    return timing, frames
 
 
 # ------------------------------------------------------------------ gallery

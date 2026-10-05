@@ -991,7 +991,7 @@ def p_pets_data():
         i = r2[HEAP_SCAN].find(struct.pack('<I', 0x43544550))
         spawned, picked, n = struct.unpack_from('<III', r2[HEAP_SCAN], i + 4)
         left = [k for _, k in critters(r2[HEAP_SCAN])]
-        good = r2['0x02141338:4'][0] == 2 and slot == obj and kind not in left and (spawned, picked, n) == (1, 1, 2)
+        good = r2['0x02141338:4'][0] == 2 and slot == obj and kind not in left and (spawned, picked) == (1, 1) and n >= 2
         ok = ok and good
         res.append('%d -> kind %d -> picked up: Pockets slot 2 = %d, kinds left %s, counters %s' % (
             obj, kind, slot, left, (spawned, picked, n)))
@@ -1008,7 +1008,10 @@ def p_mods_split():
     for name, mods in (('split-pets', [pets]), ('split-furniture', [furn]), ('split-both', [pets, furn])):
         log = build(name, mods)[1]
         reports[name] = [l for l in log.splitlines() if l.startswith('objects:')]
-    want = {'split-pets': '(386, 389)', 'split-furniture': '(430, 431, 432)', 'split-both': '(386, 389, 430, 431, 432)'}
+    pet_objs = sorted(p['object'] for p in json.load(open(os.path.join(pets, 'pets.json')))['pets'])
+    furn_objs = sorted(o['id'] for o in json.load(open(os.path.join(furn, 'objects.json')))['objects'])
+    tup = lambda xs: '(%s)' % ', '.join(map(str, xs))
+    want = {'split-pets': tup(pet_objs), 'split-furniture': tup(furn_objs), 'split-both': tup(sorted(pet_objs + furn_objs))}
     builds_ok = all(r and want[n] in r[0] for n, r in reports.items())
     rom = os.path.join(OUT, 'split-furniture.nds')
     cat = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'cat.json')
@@ -1211,18 +1214,35 @@ def p_import_pet():
 
 
 def p_pet_walk():
-    """Pets walk instead of sliding: the game switches a critter to its walk animation (slot 1) when it
-    starts moving and back to stand (slot 0) when it stops, but only for kind 1 (the Chicken); code/pets-kit
-    lets every pet pass that test. The Puppy (kind 7, mods/pets) placed at home: calls of critter_play_anim
-    from those two places in critter_behaviour, over 900 frames."""
+    """Every pet in mods/pets walks instead of sliding: the game switches a critter to its walk animation
+    (slot 1) when it starts moving and back to stand (slot 0) when it stops, but only for kind 1 (the
+    Chicken); code/pets-kit lets every pet pass that test. Each pet placed at home on its own: calls of
+    critter_play_anim from those two places in critter_behaviour, over 900 frames. (With sources.json the
+    pets are the Apartment Pets animals; their frames must fit the critter's 32 tiles, or they turn to
+    garbage: checked here too.)"""
     rom = build('pet-walk', [os.path.join(KIT, 'mods', 'pets')])[0]
+    pets = json.load(open(os.path.join(KIT, 'mods', 'pets', 'pets.json')))['pets']
     sc = place_script()
-    out = run(VERIFY + ['watch', rom, '--city', '--goto', '68', '--script', sc, '--frames', '900',
-                        '--hook', 'exec:0x02029804'] + sum([['--poke', p] for p in pocket_pokes(386)], []))
-    hits = [h for h in (l.split() for l in out.splitlines()) if len(h) >= 7 and h[0].isdigit() and h[1] == 'exec']
-    walk = sum(1 for h in hits if h[4].lower() == '0202a754' and h[6] == '1')
-    stand = sum(1 for h in hits if h[4].lower() == '0202a778' and h[6] == '0')
-    return walk > 0 and stand > 0, 'walk animation started %d time(s), stand %d time(s)' % (walk, stand)
+    res, ok = [], True
+    for pet in pets:
+        out = run(VERIFY + ['watch', rom, '--city', '--goto', '68', '--script', sc, '--frames', '900',
+                            '--hook', 'exec:0x02029804'] + sum([['--poke', p] for p in pocket_pokes(pet['object'])], []))
+        hits = [h for h in (l.split() for l in out.splitlines()) if len(h) >= 7 and h[0].isdigit() and h[1] == 'exec']
+        walk = sum(1 for h in hits if h[4].lower() == '0202a754' and h[6] == '1')
+        stand = sum(1 for h in hits if h[4].lower() == '0202a778' and h[6] == '0')
+        ok = ok and walk > 0 and stand > 0
+        res.append('%s %d/%d' % (pet['name'], walk, stand))
+    import numpy as np
+    from PIL import Image
+    sys.path.insert(0, KIT)
+    import urbz_import as I
+    big = []
+    for d in glob.glob(os.path.join(KIT, 'build', 'imports', 'pets-*')):
+        w = max([I._tiles(np.array(Image.open(f).convert('RGBA'))) for f in glob.glob(os.path.join(d, '*', 'dir*', '*.png'))] or [0])
+        if w > I.PET_MAX_TILES:
+            big.append('%s %d tiles' % (os.path.basename(d), w))
+    return ok and not big, 'walk/stand switches per pet: %s; art within %d tiles: %s' % (
+        ', '.join(res), I.PET_MAX_TILES, ('NO: ' + ', '.join(big)) if big else 'yes')
 
 
 def p_import_melonds():

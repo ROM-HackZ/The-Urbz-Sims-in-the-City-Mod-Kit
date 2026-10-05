@@ -273,5 +273,7 @@ ui_sprite_table    = 0x020CB134   # 16-byte records {gfx gid, layout gid, palett
 critter_play_anim  = 0x02029804   # (critter, slot): records by facing (critter_facing_map) + frame script
 critter_walk_kind  = 0x0202A73C   # critter_behaviour, starting to move: "ldrh r0,[r4,#0xA]; cmp r0,#1" (walk anim only for the Chicken)
 critter_stop_kind  = 0x0202A760   # same when it stops (stand anim only for the Chicken)
+critter_tap        = 0x0202A4F8   # critter_table +8 for the chicken/rooster: the player at it (state 0x10) -> pick up (state 0x12)
+critter_tap_kind   = 0x0202A570   # "ldrh r2,[r5,#0xA]; ldr r1,=0xFFFF" then kind-1 <= 1: only kinds 1-2 can be picked up
 critter_facing_map = 0x020C22B4   # u8[8]: facing -> direction 0-4 (0 1 2 3 4 3 2 1)
 crit_table_lit     = 0x0202AC1C   # a literal holding critter_table (moved by urbz_pets.py; code/pets finds the pet list before it)

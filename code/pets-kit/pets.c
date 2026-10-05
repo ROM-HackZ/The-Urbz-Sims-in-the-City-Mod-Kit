@@ -107,6 +107,21 @@ __attribute__((naked)) void pets_stop_stub(void)
         ".ltorg\n");
 }
 
+/* The player picking a critter up (critter_tap) only accepts kinds 1-2 (chicken, rooster): pets count
+   as kind 1. r0, r3 and ip are live there. */
+__attribute__((naked)) void pets_tap_stub(void)
+{
+    __asm__ volatile(
+        "push {r0, r3, ip, lr}\n"
+        "ldrh r0, [r5, #0xA]\n"
+        "bl pets_anim_kind\n"
+        "mov r2, r0\n"
+        "pop {r0, r3, ip, lr}\n"
+        "ldr r1, =0xFFFF\n"
+        "ldr pc, =0x0202A578\n"
+        ".ltorg\n");
+}
+
 void mod_on_boot(void)
 {
     u32 n;

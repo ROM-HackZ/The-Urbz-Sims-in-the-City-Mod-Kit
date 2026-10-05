@@ -61,6 +61,11 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - **2026-10-05, Jonathan:** clock-speed, npc-visit and npc-body-proto are no longer player mods; they live in
   `tests/mods/` as test fixtures (the platform proofs use them). Player mods: npc-life, pets, more-furniture.
 
+- **All Apartment Pets animals (2026-10-05):** the game only switched kind 1 between walk/stand (pets slid)
+  and only let kinds 1-2 be picked up; code/pets-kit fixes both for every pet. mods/pets has 8 pets (386,
+  389-395); caged animals walk with an idle + hop; `"coat"` for breeds; frames must fit 32 tiles (pet_art
+  shrinks). Proof `pet-walk`. Picking up with real inputs is still not found.
+
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
 - Still open: buying in a shop with real taps; picking a pet up with real taps; saving placed new objects;

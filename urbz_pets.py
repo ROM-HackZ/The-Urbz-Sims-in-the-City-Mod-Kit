@@ -12,6 +12,10 @@ pets.json:
             you draw your own).
   price, sell, page   as in objects.json (page defaults to 4, Recreation).
   art       a folder of drawings (urbz_art.py template makes one); missing = the starting animal's art.
+  import    instead of drawings: an animal from another Sims game (urbz_import.py), e.g.
+            {"from": "aptpets", "model": "dog", "coat": "beagle"}; options: coat (dog breeds / cat coats),
+            height (pixels standing), anims, hop. Missing source game = the drawings / starting art.
+  speed     walking speed as a multiple of the starting animal's (0.5 = half; default 1).
 
 The builder (urbz_build.py) calls pets_mod(): each pet gets a critter kind (7, 8, ...). The game's three
 critter tables (behaviour, art, palette) are copied with room for the new kinds into a hidden generated
@@ -114,6 +118,9 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
     for i, (mod, md, pet) in enumerate(pets):
         kind, src = N_KINDS + i, FROM[pet['from']]
         table.append(bytearray(table[src]))
+        if 'speed' in pet:                             # walking speed, x the starting animal's (16.16 px/tick)
+            sp = struct.unpack_from('<I', table[src], 0xC)[0]
+            struct.pack_into('<I', table[kind], 0xC, int(sp * float(pet['speed'])))
         anims.append(bytearray(anims[src]))
         pals.append(bytearray(pals[src]))
         folder = os.path.join(md, pet.get('art', 'art/' + pet['name'].lower()))

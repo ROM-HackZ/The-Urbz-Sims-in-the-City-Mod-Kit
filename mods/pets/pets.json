@@ -1,8 +1,26 @@
 {"pets": [
   {"name": "Puppy", "object": 386, "from": "rooster", "price": 60, "sell": {"9": "common"},
    "description": "A playful pup that follows its nose around your pad.", "art": "art/puppy",
-   "import": {"from": "aptpets", "model": "dog", "textures": {"collie2": "beagle", "collie": "beagle"}}},
+   "import": {"from": "aptpets", "model": "dog", "coat": "beagle"}},
   {"name": "Kitten", "object": 389, "from": "chicken", "price": 45, "sell": {"9": "common"},
    "description": "A curious kitten. It naps, it pounces, it ignores you.", "art": "art/kitten",
-   "import": {"from": "aptpets", "model": "cat", "scale": 1.2}}
+   "import": {"from": "aptpets", "model": "cat"}},
+  {"name": "Bunny", "object": 390, "from": "chicken", "price": 35, "sell": {"9": "common"}, "speed": 0.7,
+   "description": "A fluffy bunny that hops about and twitches its nose at everything.", "art": "art/bunny",
+   "import": {"from": "aptpets", "model": "rabbit"}},
+  {"name": "Hamster", "object": 391, "from": "chicken", "price": 15, "sell": {"9": "common"}, "speed": 0.5,
+   "description": "A tiny hamster with big cheeks and bigger plans.", "art": "art/hamster",
+   "import": {"from": "aptpets", "model": "hamster"}},
+  {"name": "Guinea Pig", "object": 392, "from": "chicken", "price": 20, "sell": {"9": "uncommon"}, "speed": 0.5,
+   "description": "Squeaks when happy, which is always.", "art": "art/guinea-pig",
+   "import": {"from": "aptpets", "model": "guineapig"}},
+  {"name": "Cockatoo", "object": 393, "from": "chicken", "price": 80, "sell": {"9": "uncommon"}, "speed": 0.6,
+   "description": "A crested cockatoo with a lot to say and no indoor voice.", "art": "art/cockatoo",
+   "import": {"from": "aptpets", "model": "cockatoo"}},
+  {"name": "Macaw", "object": 394, "from": "chicken", "price": 95, "sell": {"9": "rare"}, "speed": 0.6,
+   "description": "A blue-and-gold macaw. Bright, loud and very sure of itself.", "art": "art/macaw",
+   "import": {"from": "aptpets", "model": "macaw"}},
+  {"name": "Snake", "object": 395, "from": "chicken", "price": 70, "sell": {"9": "rare"}, "speed": 0.4,
+   "description": "A corn snake. Calm, curious, and not as scary as it looks.", "art": "art/snake",
+   "import": {"from": "aptpets", "model": "snake2"}}
 ]}

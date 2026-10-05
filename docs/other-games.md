@@ -87,6 +87,20 @@ python urbz_import.py show aptpets dog   # one model: 5 turns + walk frames
 Options: `scale` (1.0 = real size; pets default to the size of the animal they replace), `textures` (swap texture
 names, e.g. a dog breed), `colour` (The Sims 3 colour choice), `anims` (pets: which animation per slot).
 
+## Apartment Pets animals as Urbz pets (2026-10-05)
+`mods/pets` imports all of them except the fish (they need water): Puppy (dog), Kitten (cat), Bunny, Hamster,
+Guinea Pig, Cockatoo, Macaw, Snake (objects 386, 389-395). `urbz_import.ANIMALS` picks each one's animations
+per slot, its height in pixels and, for the caged animals, a hop:
+- Only the dog and cat have walk cycles. Rabbits, hamsters, guinea pigs, birds and the snake live in cages in
+  Apartment Pets, so they have idles only; as Urbz pets they walk with their busiest idle and a small hop
+  (`"hop"`, metres) and slower (`"speed"` in pets.json).
+- Dog breeds and cat coats (`"coat"`): dogs beagle, black, boxer, collie, dalmation, doberman, golden, setter,
+  zebra; cats black, blackwhite, ginger, leopard, pied, siamese, tiger, tortoiseshell, white.
+- Sprite memory: a critter frame may use 32 tiles (8x8). Seen: 24 tiles draw fine, a 40-tile Macaw with its
+  wings spread turned to garbage; frames cut off by the 88x88 canvas also broke. `pet_art` shrinks an animal
+  until every frame fits (proof `pet-walk` checks).
+- The birds use their calm idles (`idle_varient`, `idlebob`): `idle` and `idlesquark` spread the wings.
+
 ## Survey tool (`python3 research/survey_rom.py <game.nds>`)
 Lists a ROM's file kinds, largest files and, for an Urbz-style container, how many entries hold EA chunks. (It
 misses formats inside compressed chunks: The Sims 2 DS's NSBMD models were found by decompressing.)
