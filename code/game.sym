@@ -114,6 +114,12 @@ list_add           = 0x0203D0CC   # int (list *, object, u8, u8 variant)
 shop_ui            = 0x02148F30   # shop screen state; +4 u8 = which list is shown
 shop_buy           = 0x0209CDA8   # money check, list_add(pockets), add_stat(2, -price)
 is_home_area       = 0x02046AF4   # (lots, area): can objects be placed in this area
+home_lots          = 0x020C812C   # 7 x 8: {u8 area, 0, u8 area2, u8 area3 (82 none), u16 name string, u16}
+home_lot           = 0x02141230   # u8 current lot (game_state+0x110), +1 u8 crate pending, +2 u16 unlocked extra lots
+move_home          = 0x02046C7C   # (lots, lot): clear the old home, move in, things go into a crate
+rent_sign_create   = 0x0204697C   # area record type 24 {.., u16 weekly (+8), u16 deposit (+0xA), u8 lot (+0xC)}
+rent_sign_dialog   = 0x020463A8   # Yes: pay the deposit, move_home, weekly bills at 0x02141B8A, m0g5 sub 2 done
+subgoal_set_done   = 0x020545A0   # (m, g, s) (I: from the rent dialog's call (0, 5, 2))
 home_areas         = 0x020C812C   # 8-byte rows, 3 area bytes each
 extra_lots         = 0x020C8110   # u8[11] areas, each usable when unlocked (FUN_02046878)
 

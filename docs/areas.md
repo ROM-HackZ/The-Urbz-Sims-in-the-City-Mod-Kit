@@ -86,6 +86,24 @@ I = inferred (read from the decompile, not exercised).
     0x0208FFF4); the Talk menu changes its topics after each one.
   - Save menu: the list button (128,170) → Save Game (200,58) → green check (225,118) → overwrite: RIGHT, A, then
     tap the check (168,98) twice.
+- P: **renting the first home (2026-10-05).** Homes are 7 lots: `home_lots` 0x020C812C, 8 bytes each `{u8 area, u8 0,
+  u8 area2, u8 area3 (82 = none), u16 name string, u16 0}`: 0 = Skyline Penthouse 68 (where you start), 1 = Small
+  Brownstone 22, 2 = Large Brownstone 23, 3 = Townhouse 74/75, 4 = First Mate's Quarters 38, 5 = City Apartment 30,
+  6 = Skyline Penthouse 67/69. The current lot is game_state+0x110 (0x02141230). Lots are rented at **rent signs**,
+  area record type 24 `{.., u16 weekly bills (+8), u16 deposit (+0xA), u8 lot (+0xC)}` (create 0x0204697C; no sign
+  for the lot you already live in): Urbania Park 19 lot 1 ($150, $175 a week) and lot 2 ($200), Sim Quarter
+  Farmer's Market 13 lot 3 ($1,000), Salty's Riverboat 12 lot 4 ($1,350), City Apartment Lobby 31 lot 5 ($3,500),
+  Tower Lobby 66 (later section) lot 6 ($6,500). A on the sign: "Would you like to buy the Small Brownstone for a
+  $150 deposit and $175 for weekly bills?"; Yes (`rent_sign_dialog` 0x020463A8) checks money, calls `move_home`
+  0x02046C7C (clears the old home, sets the lot, your things go into a crate), pays, stores the weekly bills at
+  0x02141B8A and marks m0g5 sub-goal 2 done (0x020545A0(0, 5, 2)). Chapter 1 goals: m0g0 Slave to the Grind,
+  g1 Get Cleaned Up, g2 Help Kris, g3 Get the Key (with Find the Key), g4 Get out of Jail, g5 Find a Place to Live
+  (Hoopz, earn $150, Buy a House), then "Talk to Det. Dan D. Mann" completes it.
+  **`verify/saves/apartment.sav`** (`--from apartment`): Small Brownstone, day 0 17:36, $850, the crate to
+  unpack, m0g5 waiting to be reported to Dan. Made from `lobby.sav` with goals m0g1-g4 poked complete (shortcut,
+  their own side effects skipped), m0g5 sub-goals 0-1 done, $1,000, `--goto 19:0`, then the real sign, Yes and
+  the Save menu: `verify/scripts/rent_first_apartment.json` (byte-identical when rerun:
+  `play base.nds --from lobby --poke 0x02141940=<goals> --poke 0x02141124=e8030000 --goto 19:0 --script ... --export-sav`). Loads from power-off in DeSmuME and melonDS (vanilla and mod builds).
 - P: **the street doors still don't appear after the first goal** (no door entities in the lobby after reporting). The lobby's street doors (section 1, group 1:
   seven type-3 doors to area 4) are a script-switched group, and the chapter goes on: Get Cleaned Up (shower, nap,
   vending machine), Help Kris (move a bed, repair a TV and two fountains), Get the Key (a mechanical skill point,

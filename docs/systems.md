@@ -251,7 +251,8 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
   uses **2,569 of 4,064 bytes (63%)**, so about 1.4 KB per slot is free.
 - Known slot fields: +0x05 clock, +0x0B money (24-bit), +0x8E needs (u16[8], 8.8 fixed point: value × 256; proof `save-edit`).
 - `urbz_save.py info/set/fix`. Proven: a save edited to §4,321 and 10% hunger loads with both.
-- Load from power-on: `verify/scripts/loadgame.json` with `--sav file.sav`. Save from the city:
+- Saves to start from: `city.sav` (city, start), `lobby.sav` (first goal done), `apartment.sav` (renting
+  the Small Brownstone, docs/areas.md). Load from power-on: `verify/scripts/loadgame.json` with `--sav file.sav`. Save from the city:
   `verify/scripts/savegame.json` (Options > Save Game > slot A > overwrite).
 - **Save path (proven, Phase 5):** `save_game(slot)` 0x0207EBAC → `save_finish_slot` 0x0207EB28: clears the
   slot buffer (memset 0xFE0 at 0x0207EE68), resets the cursor, calls `save_serialize_all` (BL at
