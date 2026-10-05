@@ -54,8 +54,8 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - Phase 8 next: furniture art (docs/plan-phase8.md step 3), then fold `urbz_anims.py` into `urbz_art.py`.
 - Still open: picking a pet up with real inputs; frame counts other than the template's; using copied
   furniture (sit, sleep); buying in a shop with real taps.
-- Known flaky: the `melonds` proof sometimes fails inside the full run (no boot screenshot) and passes
-  alone (`python3 tests/proofs.py melonds`). Harness timing, not the game; to look into.
+- The melonDS harness used to lose a screenshot now and then in full runs (an unchecked capture);
+  captures are now checked and retried. Full run 2026-10-05: 40/40.
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
