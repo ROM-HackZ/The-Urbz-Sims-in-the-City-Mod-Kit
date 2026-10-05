@@ -79,6 +79,34 @@ __attribute__((naked)) void pets_pick_stub(void)
         ".ltorg\n");
 }
 
+/* critter_behaviour switches to the walk animation (slot 1) when a critter starts moving and back to
+   stand (slot 0) when it stops, but only for kind 1 (the Chicken). Both "ldrh r0, [r4, #0xA]; cmp r0, #1"
+   jump here: pets count as kind 1 for this test, so they walk instead of sliding in their stand pose. */
+unsigned pets_anim_kind(unsigned kind)
+{
+    return kind == 1 || pets_object_of(kind) ? 1 : kind;
+}
+
+__attribute__((naked)) void pets_walk_stub(void)
+{
+    __asm__ volatile(
+        "ldrh r0, [r4, #0xA]\n"
+        "bl pets_anim_kind\n"
+        "cmp r0, #1\n"
+        "ldr pc, =0x0202A744\n"           /* bne: no walk anim */
+        ".ltorg\n");
+}
+
+__attribute__((naked)) void pets_stop_stub(void)
+{
+    __asm__ volatile(
+        "ldrh r0, [r4, #0xA]\n"
+        "bl pets_anim_kind\n"
+        "cmp r0, #1\n"
+        "ldr pc, =0x0202A768\n"           /* bne: no stand anim */
+        ".ltorg\n");
+}
+
 void mod_on_boot(void)
 {
     u32 n;

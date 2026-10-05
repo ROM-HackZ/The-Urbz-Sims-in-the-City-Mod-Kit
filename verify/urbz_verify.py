@@ -301,7 +301,7 @@ def _stack_calls(regs, mem, n=24):
 
 def _install_watches(emu, watches, limit=4000, stack=False, only_r0=None):
     """watches: ["exec:ADDR", "read:ADDR[:SIZE]", "write:ADDR[:SIZE]"].
-    Logs [frame, kind, addr, pc, lr, r0, value] per hit (first `limit` hits,
+    Logs [frame, kind, addr, pc, lr, r0, value] per hit (value = r1 for exec hits; first `limit` hits,
     then counts only). Note: block stores (STM) don't trigger write hooks."""
     regs, mem = emu.memory.register_arm9, emu.memory.unsigned
     log = {'hits': [], 'counts': {}}
@@ -313,7 +313,7 @@ def _install_watches(emu, watches, limit=4000, stack=False, only_r0=None):
             if only_r0 is not None and regs.r0 != only_r0:
                 return
             if len(log['hits']) < limit:
-                v = int.from_bytes(bytes(mem[addr:addr + size]), 'little') if kind != 'exec' else None
+                v = int.from_bytes(bytes(mem[addr:addr + size]), 'little') if kind != 'exec' else regs.r1
                 hit = [FRAME[0], kind, addr, regs.r15, regs.r14, regs.r0, v]
                 if stack:
                     hit.append(_stack_calls(regs, mem))

@@ -457,6 +457,12 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   slot 1 when it walks; slots 2-4 belong to other behaviours (0x020298E4, 0x02029AB4, 0x02029C64) and the
   chicken reuses its walk there. Frame counts: chicken stand 6, walk 9 per direction; rooster 10/6/12;
   nutria 7/-/2+. Size around the feet: chicken x -14..22, y -15..19; rooster x -22..32, y -54..21.
+- **Walk/stand switch is Chicken-only (fixed 2026-10-05, proof `pet-walk`):** when a critter starts or stops
+  moving, `critter_behaviour` plays slot 1 / slot 0 only if its kind is 1 ("ldrh r0,[r4,#0xA]; cmp r0,#1" at
+  `critter_walk_kind` 0x0202A73C and `critter_stop_kind` 0x0202A760). Other kinds keep whatever slot they
+  have, so a Puppy copied from the rooster slid along in its stand pose. `code/pets-kit` jumps both tests to
+  stubs that treat every pet as kind 1. Behaviours of the other kinds (decompile): 0x020298E4 (state 0x3E),
+  0x02029AB4 (0x37, random slots 0-3 on timers), 0x02029C64 (0x33-0x58, the Living Artemisia eating).
 - **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,
   then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
   so free-running critters don't seem to be saved. Caveat: home was reached with the experimental

@@ -287,9 +287,10 @@ def render_model(model, yaw, anim=None, frame=0, size=(96, 96), anchor=(48, 80),
 # ------------------------------------------------------------------ art folders for the builder
 
 def shadow_tris(parts, darkness=(34, 30, 40)):
-    """A flat drop shadow: every triangle squashed onto the floor along the light, drawn first."""
+    """A flat shadow right under the animal (like the Urbz critters'): every triangle squashed straight down
+    onto the floor, drawn first. (A slanted light made a shadow that swung round with the animal's facing.)"""
     import numpy as np
-    L = np.array([0.35, -1.0, 0.25])
+    L = np.array([0.0, -1.0, 0.0])
     out = []
     for tris, _t, _c in parts:
         t = tris.copy()

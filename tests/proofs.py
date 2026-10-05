@@ -1210,6 +1210,21 @@ def p_import_pet():
     return ok, '%s; placed Puppy: critter kinds %s; build/proofs/import-pet.png' % (line[0] if line else 'no pets line', kinds)
 
 
+def p_pet_walk():
+    """Pets walk instead of sliding: the game switches a critter to its walk animation (slot 1) when it
+    starts moving and back to stand (slot 0) when it stops, but only for kind 1 (the Chicken); code/pets-kit
+    lets every pet pass that test. The Puppy (kind 7, mods/pets) placed at home: calls of critter_play_anim
+    from those two places in critter_behaviour, over 900 frames."""
+    rom = build('pet-walk', [os.path.join(KIT, 'mods', 'pets')])[0]
+    sc = place_script()
+    out = run(VERIFY + ['watch', rom, '--city', '--goto', '68', '--script', sc, '--frames', '900',
+                        '--hook', 'exec:0x02029804'] + sum([['--poke', p] for p in pocket_pokes(386)], []))
+    hits = [h for h in (l.split() for l in out.splitlines()) if len(h) >= 7 and h[0].isdigit() and h[1] == 'exec']
+    walk = sum(1 for h in hits if h[4].lower() == '0202a754' and h[6] == '1')
+    stand = sum(1 for h in hits if h[4].lower() == '0202a778' and h[6] == '0')
+    return walk > 0 and stand > 0, 'walk animation started %d time(s), stand %d time(s)' % (walk, stand)
+
+
 def p_import_melonds():
     """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
     the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
@@ -1257,7 +1272,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
