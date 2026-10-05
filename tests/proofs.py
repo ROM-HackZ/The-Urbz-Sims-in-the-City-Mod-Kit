@@ -74,7 +74,7 @@ def find_magic(rom, frames, magic, size):
     return r[i:i + size], CODE_BASE + i
 
 
-HEAP_SCAN = '0x0214DE20:0x42000'   # code region + the start of the heap (the entity pool moves with the code)
+HEAP_SCAN = '0x0214DE20:0x70000'   # code region + the start of the heap (the entity pool moves with the code)
 
 
 def people_in(mem, base=0x0214DE20):
@@ -1031,6 +1031,50 @@ def p_mods_split():
         ['%08x' % c for c in chairs])
 
 
+def p_pets_art():
+    """Pets with their own art (urbz_art.py + urbz_pets.py): a copy of mods/pets where the Kitten has
+    placeholder art made at test time (the chicken's frames in orange, with a new palette), built together
+    with an urbz_anims mod (Gramma Hattie's placeholder sit) so two mods add art at once. The Kitten's
+    critter row points at new art files (numbers after the game's and the anims mod's) and its palette is
+    a new file; placed at home it runs around as kind 8 (build/proofs/pets-art.png)."""
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    pets, anims = os.path.join(work, 'pets'), os.path.join(work, 'anim-proof')
+    shutil.copytree(os.path.join(KIT, 'mods', 'pets'), pets)
+    run([sys.executable, os.path.join(KIT, 'urbz_art.py'), 'placeholder', pets, 'kitten'])
+    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'placeholder', anims, '43', 'sit'])
+    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'build', anims])
+    run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', os.path.join(anims, 'code')])
+    rom, log, _ = build('pets-art', [anims, pets])
+    line = [l for l in log.splitlines() if l.startswith('pets:')]
+    n_game = len(json.load(open(os.path.join(PROJ, 'manifest.json')))['entries'])
+    n_anims = len([f for f in os.listdir(os.path.join(anims, 'assets')) if f.endswith('.bin')])
+    lits = ram(rom, 1, '0x02029858:4', '0x0202A824:4', start=['--from', 'lobby'])
+    anims_at = struct.unpack('<I', lits['0x02029858:4'])[0]
+    pals_at = struct.unpack('<I', lits['0x0202A824:4'])[0]
+    rows = ram(rom, 1, '0x%08X:0x28' % (anims_at + 0x28 * 8), '0x%08X:4' % (pals_at + 4 * 8),
+               start=['--from', 'lobby'])
+    rec = struct.unpack_from('<I', rows['0x%08X:0x28' % (anims_at + 0x28 * 8)], 0)[0]
+    pal = struct.unpack('<I', rows['0x%08X:4' % (pals_at + 4 * 8)])[0]
+    gfx = struct.unpack('<I', ram(rom, 1, '0x%08X:4' % rec, start=['--from', 'lobby'])['0x%08X:4' % rec])[0]
+    shot = os.path.join(work, 'shot.json')
+    s = json.load(open(place_script()))
+    json.dump(s + [["wait", 80], ["shot", "kitten"]], open(shot, 'w'))
+    out = run(VERIFY + ['ram', rom, '--city', '--goto', '68', '--frames', '5', '--script', shot,
+                        '--read', HEAP_SCAN] + sum([['--poke', p] for p in pocket_pokes(389)], []))
+    heap = bytes.fromhex([l for l in out.splitlines() if ' = ' in l][0].split(' = ')[1].strip())
+    kinds = [k for _, k in critters(heap)]
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    pic = glob.glob(os.path.join(ev, '*kitten.png'))
+    if pic:
+        shutil.copy(pic[0], os.path.join(OUT, 'pets-art.png'))
+    first_pet = n_game + n_anims + 1                    # game id of the pets' first new file
+    ok = (bool(line) and 'Kitten (kind 8, from chicken, own art)' in line[0] and anims_at >= CODE_BASE
+          and gfx >= first_pet and pal >= first_pet and 8 in kinds)
+    return ok, ('%s; anims mod files %d; Kitten slot 0 records at %08x, first gfx id %d, palette id %d '
+                '(new from %d); placed: critter kinds %s; build/proofs/pets-art.png') % (
+        line[0] if line else 'no pets line', n_anims, rec, gfx, pal, first_pet, kinds)
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
@@ -1043,7 +1087,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('mods-split', p_mods_split),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
           ('melonds', p_melonds)]
 
 

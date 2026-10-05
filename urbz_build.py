@@ -284,6 +284,12 @@ def _first_free_string(proj, mod_dirs):
     return n
 
 
+def _first_free_asset(manifest, mod_dirs):
+    """Kit stages number their new art files after the game's and after any a mod ships itself
+    (assets/NNNNN.bin, e.g. urbz_anims.py), so several mods can add art together."""
+    return len(manifest['entries']) + len(Overlay('', mod_dirs).new_asset_ids(len(manifest['entries'])))
+
+
 def build(proj, out_path, mod_dirs=(), quiet=False):
     manifest = json.load(open(os.path.join(proj, 'manifest.json')))
     from urbz_code import check_mod_set, CodeError
@@ -297,7 +303,8 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
     from urbz_objects import objects_mod, ObjectsError
     gen = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build')
     try:
-        pdirs, pet_objects, pets_line = pets_mod(proj, mod_dirs, os.path.join(gen, 'new-pets'))
+        pdirs, pet_objects, pets_line = pets_mod(proj, mod_dirs, os.path.join(gen, 'new-pets'),
+                                                 _first_free_asset(manifest, mod_dirs))
         odir, objects_line = objects_mod(proj, mod_dirs, os.path.join(gen, 'new-objects'),
                                          lambda: _first_free_string(proj, mod_dirs), pet_objects)
     except (PetsError, ObjectsError) as e:

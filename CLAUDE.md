@@ -36,7 +36,9 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
 - Objects: `python3 urbz_objects.py show <n>`; new or changed objects only via a mod's `objects.json`
   (the builder then moves the object tables and adds `code/objects`; rebuild it after changing
   `code/objects/*.c`: `python3 urbz_patch.py build --dir code/objects`, commit its `build/`).
-  Pets: `mods/pets` (numbers 386, 389-429); furniture: `mods/more-furniture` (430-511).
+  Pets: `mods/pets/pets.json` (numbers 386, 389-429; builder stage `urbz_pets.py`, kit code
+  `code/pets-kit`); furniture: `mods/more-furniture` (430-511). Pet art: `python3 urbz_art.py
+  template|preview|placeholder <mod> <pet>`.
 
 ## Writing style for Jonathan
 Plain language, short sentences, no jargon in summaries; say what was proven and what wasn't.

@@ -245,12 +245,31 @@ the new rows by itself. `python urbz_objects.py show 225` prints an object's row
 New numbers: 386 and 389-511. New art for a new object is not done yet: it uses the copied object's.
 
 Two mods use this, each picked on its own in the mod manager (no in-game switch):
-- **`mods\pets`** adds a Puppy: buy it where chickens are sold, place it at home and it runs around
-  like a chicken (dark-rooster art until the real drawings exist); pick it up and it goes back to Pockets.
-  Numbers 386 and 389-429.
+- **`mods\pets`** adds pets from `pets.json` (a Puppy and a Kitten): buy them where chickens are sold,
+  place them at home and they run around; pick them up and they go back to Pockets. Their art: see
+  "Drawing a pet" below. Numbers 386 and 389-429.
 - **`mods\more-furniture`** adds three pieces of furniture to the Catalog and the furniture shop
   (copies of a chair, a bed and a recliner with new names and prices, until new art exists).
   Numbers 430-511.
+
+## Drawing a pet
+
+Pets live in `mods\pets\pets.json` (Puppy and Kitten so far; add more the same way). Each starts from
+an animal of the game (`"from"`: chicken, rooster or nutria): it moves like that animal and wears its art
+until you draw your own:
+```
+python urbz_art.py template pets puppy      mods\pets\art\puppy\: the rooster's frames to draw over
+python urbz_art.py preview pets puppy       art\puppy\preview.png: every frame, big, off-colour pixels pink
+```
+In the folder: `0-stand\dir0\00.png ...` (slot 0 = standing, 1 = walking, 2-4 = other moves; dir0 faces
+you, dir2 side-on, dir4 faces away, the game mirrors the rest), `palette.png` (the pet's 16 colours: the
+first square is see-through; change a square to recolour everything drawn in it), `timing.json` (frame
+lengths; `same_as` reuses another slot). Every frame is 88x88 with the feet on pixel (32, 64); the
+shadow is part of the drawing. Keep the number of frames the template has (other counts aren't
+tested yet). Then build
+the ROM as usual: the builder turns the drawings into game art itself (and numbers new art so pets,
+townspeople's animations and later furniture can all be built together).
+The template pictures are the game's own: keep the `art` folder to yourself until it's all your drawing.
 
 ## Save files
 

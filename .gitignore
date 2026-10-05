@@ -31,3 +31,4 @@ mods/*
 mods/npc-life/sim/orig_tables.h
 tests/mods/*/code/build/
 verify/melonds/
+mods/pets/art/

@@ -454,6 +454,18 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
   so free-running critters don't seem to be saved. Caveat: home was reached with the experimental
   `--goto 68`, not by walking there. To check on the Thor: does a chicken you let loose survive a save?
+- **Pets as data (proofs `pets-data`, `pets-art`, 2026-10-05):** `urbz_pets.py` (builder stage) reads
+  `pets.json` (name, object, `from` = chicken/rooster/nutria, price, sell, art folder), gives each pet a
+  critter kind (7, 8, ...), copies the critter tables into a hidden generated mod with the new rows, and
+  hands the pets' objects (copies of 225) to `urbz_objects.py`; `code/pets-kit` (precompiled) reads the
+  list `{object, kind}` before the moved behaviour table ('PETM') and does the spawn and the pick-up for
+  every pet. Art: `urbz_art.py template` writes the starting animal's frames (88x88, feet at (32, 64)),
+  `palette.png` and `timing.json`; the builder converts them (`build_pet_art`: graphics + layout per slot
+  and direction, a script, a 32-byte palette file) and numbers new art after any a mod ships itself.
+  Proven: Puppy (kind 7) and Kitten (kind 8) spawn and go back to Pockets as 386 / 389; a placeholder
+  Kitten drawn in orange from a new palette is shown in the game with new art files, built together
+  with an `urbz_anims` mod. Code region: the copy limit (160 KB) now counts only what is copied at boot;
+  the moved asset tables are zero-filled by the start-up (all of pets + furniture + assets: ~182 KB of heap).
 - Adding a Splicer species would mean new rows in the per-kind tables (sprites, palettes, speed, names),
   new art (2 views per animation), and teaching the splicer and pet show about it; not looked at.
 

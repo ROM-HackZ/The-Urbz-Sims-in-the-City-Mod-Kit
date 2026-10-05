@@ -172,9 +172,10 @@ def views_of(recs):
     return {'front': front} if front == back else {'front': front, 'back': back}
 
 
-def cut_cells(idx):
+def cut_cells(idx, canvas=CANVAS, origin=ORIGIN):
     """Canvas colour indices -> [(x, y, size)] square cells (8/16/32) covering every drawn pixel,
     x/y relative to the feet. Big blocks where they are mostly filled, smaller ones elsewhere."""
+    CANVAS, ORIGIN = canvas, origin
     pts = [(x, y) for y in range(CANVAS) for x in range(CANVAS) if idx[y][x]]
     if not pts:
         return []
@@ -212,13 +213,14 @@ def cut_cells(idx):
     raise ValueError('frame too spread out (more than 31 sprite pieces)')
 
 
-def frame_data(img, pal, extra):
+def frame_data(img, pal, extra, canvas=CANVAS, origin=ORIGIN):
     """A canvas PNG -> (layout Entry, chunk content bytes)."""
     import urbz_composite as C
+    CANVAS, ORIGIN = canvas, origin
     idx = C._image_indices(img.convert('RGBA'), pal, None)
     cells, tiles, t = [], bytearray(), 0
     size_code = {8: 0, 16: 1, 32: 2}
-    for x, y, s in cut_cells(idx):
+    for x, y, s in cut_cells(idx, canvas, origin):
         cells.append(C.Cell(x, y, 0, size_code[s], t, 0))
         for ty in range(0, s, 8):
             for tx in range(0, s, 8):

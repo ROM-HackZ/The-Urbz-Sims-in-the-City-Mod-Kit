@@ -669,9 +669,11 @@ def apply_code(arm9_data, mods, fmap, core=None):
     # 4. New autoload section + move the heap up.
     # At boot the section's bytes sit inside the game's BSS (from about
     # 0x02123700) and are copied out before BSS is cleared; past ~160 KB the
-    # copy would overlap its own destination.
-    if len(region) > 160 * 1024:
-        raise CodeError('code mods total %d KB; the limit is 160 KB' % (len(region) // 1024))
+    # copy would overlap its own destination. Trailing zeros (e.g. the moved
+    # asset tables, placed last) are not copied: the start-up clears them.
+    copied = len(bytes(region).rstrip(b'\0'))
+    if copied > 160 * 1024:
+        raise CodeError('code mods total %d KB to copy at boot; the limit is 160 KB' % (copied // 1024))
     if len(region) > HEAP_COMFORT:
         report.append('warning: code mods take %d KB from the game heap (measured headroom in '
                       'the city is about 1.4 MB; see docs/systems.md)' % (len(region) // 1024))

@@ -58,6 +58,13 @@ What a template folder looks like (example: `mods/more-furniture/art/430-farmhou
 4. **One tool**: `urbz_art.py` (template, preview, check) for furniture, pets and people; `urbz_anims.py`
    stays as a thin alias so nothing you know breaks.
 
+## Status (2026-10-05)
+Decided: everything within the game's own capabilities (real size, 16 colours, its recolouring), just new
+stuff; pets first. **Pets done** (steps 1, 2, 4 for pets): pets as data (`pets.json`, `urbz_pets.py`,
+`code/pets-kit`), `urbz_art.py template/preview/placeholder` for pets, shared art numbering in the builder
+(proofs `pets-data`, `pets-art`). Pets have 5 drawn directions per slot (not front/back). Next: furniture
+art (step 3), then moving `urbz_anims.py` into `urbz_art.py`.
+
 ## Steps (each ends with something proven in the emulator)
 
 1. **Research** (short): which palette holds furniture colour rows and how a row is picked; icon table
