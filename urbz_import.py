@@ -11,7 +11,8 @@ To bring a model over, name it in a mod: objects.json {"id": 440, "like": 136, .
 "aptpets", "model": "armchair4"}} or pets.json {"name": "Puppy", ..., "import": {"from": "aptpets", "model":
 "dog"}}. The builder renders it every build (README "Importing from other Sims games").
 
-sources.json (next to this file; local, never committed) names your own copies of the games:
+sources.json (next to this file; local, never committed) names your own copies of the games (.nds, or a
+.zip holding one, unpacked once into build/sources):
   {"aptpets": "D:/ROMS/Sims 2 - Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}
 
 The Urbz camera (docs/systems.md "The Urbz camera"): orthographic, 45 degrees round, 30 degrees down
@@ -141,11 +142,35 @@ class SourceMissing(Exception):
     """A mod imports from a game this computer has no copy of (sources.json)."""
 
 
+def _rom_path(name, path):
+    """A source may be a .nds or a .zip holding one: a zip is unpacked once into build/sources/."""
+    if not path.lower().endswith('.zip'):
+        return path
+    import zipfile
+    out = os.path.join(KIT, 'build', 'sources', name + '.nds')
+    if os.path.exists(out) and os.path.getmtime(out) >= os.path.getmtime(path):
+        return out
+    with zipfile.ZipFile(path) as z:
+        nds = [n for n in z.namelist() if n.lower().endswith('.nds')]
+        if not nds:
+            raise SourceMissing('%s: no .nds inside' % path)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with z.open(nds[0]) as f, open(out + '.part', 'wb') as o:
+            while True:
+                b = f.read(1 << 20)
+                if not b:
+                    break
+                o.write(b)
+    os.replace(out + '.part', out)
+    return out
+
+
 def game(name):
     if name not in _GAMES:
-        src = sources()
+        src = dict(sources())
         if name not in src or not os.path.exists(src[name]):
             raise SourceMissing('no copy of "%s" set up in sources.json (python urbz_import.py help)' % name)
+        src[name] = _rom_path(name, src[name])
         if name == 'sims3':
             import urbz_sims3
             _GAMES[name] = urbz_sims3.Game(src[name])

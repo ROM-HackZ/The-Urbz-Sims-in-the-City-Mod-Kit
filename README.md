@@ -292,6 +292,7 @@ The Sims 2 (DS). Their worlds are 3D; the kit renders each model the way The Urb
 angle, its size, 16 colours) every time you build. Your copies of those games stay on your computer:
 1. Create `sources.json` next to `urbz_build.py` (it is never committed):
    `{"aptpets": "D:\\ROMS\\Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}`
+   (a `.zip` holding the `.nds` works too; it is unpacked once into `build\sources`)
 2. `python urbz_import.py gallery` renders every model into `catalog\imports\index.html`: pick from there.
    `python urbz_import.py show aptpets dog` shows one model in 5 turns and walking.
 3. Name your pick in a mod:
