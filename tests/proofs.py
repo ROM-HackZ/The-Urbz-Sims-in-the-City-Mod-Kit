@@ -1031,7 +1031,7 @@ def p_mods_split():
         ['%08x' % c for c in chairs])
 
 
-def p_pets_art():
+def p_pets_art(extra=(), name='pets-art'):
     """Pets with their own art (urbz_art.py + urbz_pets.py): a copy of mods/pets where the Kitten has
     placeholder art made at test time (the chicken's frames in orange, with a new palette), built together
     with an urbz_anims mod (Gramma Hattie's placeholder sit) so two mods add art at once. The Kitten's
@@ -1044,7 +1044,10 @@ def p_pets_art():
     run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'placeholder', anims, '43', 'sit'])
     run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'build', anims])
     run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', os.path.join(anims, 'code')])
-    rom, log, _ = build('pets-art', [anims, pets])
+    n_game0 = len(json.load(open(os.path.join(PROJ, 'manifest.json')))['entries'])
+    n_anims0 = len([f for f in os.listdir(os.path.join(anims, 'assets')) if f.endswith('.bin')])
+    extra = extra(n_game0 + n_anims0) if callable(extra) else list(extra)
+    rom, log, _ = build(name, [anims] + extra + [pets])
     line = [l for l in log.splitlines() if l.startswith('pets:')]
     n_game = len(json.load(open(os.path.join(PROJ, 'manifest.json')))['entries'])
     n_anims = len([f for f in os.listdir(os.path.join(anims, 'assets')) if f.endswith('.bin')])
@@ -1066,13 +1069,40 @@ def p_pets_art():
     ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
     pic = glob.glob(os.path.join(ev, '*kitten.png'))
     if pic:
-        shutil.copy(pic[0], os.path.join(OUT, 'pets-art.png'))
-    first_pet = n_game + n_anims + 1                    # game id of the pets' first new file
+        shutil.copy(pic[0], os.path.join(OUT, name + '.png'))
+    first_pet = n_game + n_anims + 1 + len(extra)       # game id of the pets' first new file
     ok = (bool(line) and 'Kitten (kind 8, from chicken, own art)' in line[0] and anims_at >= CODE_BASE
           and gfx >= first_pet and pal >= first_pet and 8 in kinds)
     return ok, ('%s; anims mod files %d; Kitten slot 0 records at %08x, first gfx id %d, palette id %d '
-                '(new from %d); placed: critter kinds %s; build/proofs/pets-art.png') % (
-        line[0] if line else 'no pets line', n_anims, rec, gfx, pal, first_pet, kinds)
+                '(new from %d); placed: critter kinds %s; build/proofs/%s.png') % (
+        line[0] if line else 'no pets line', n_anims, rec, gfx, pal, first_pet, kinds, name)
+
+
+def p_rom_grow():
+    """The ROM can grow past the original 32 MB: a test mod adds 40 MB of padding as the first new asset, so
+    the pets' and animations' new art files land beyond 64 MB of the ROM. The builder writes a bigger chip
+    size into the header; DeSmuME places and draws the Kitten from those files (as in pets-art) and melonDS
+    boots the same ROM."""
+    def pad(number):                                # numbered after the anims mod's own new files
+        d = new_mod('grow-pad')
+        os.makedirs(os.path.join(d, 'assets'))
+        random.seed(11)
+        open(os.path.join(d, 'assets', '%05d.bin' % number), 'wb').write(
+            bytes(random.getrandbits(8) for _ in range(1 << 16)) * 640)      # 40 MB
+        return [d]
+    ok, detail = p_pets_art(extra=pad, name='rom-grow')
+    rom = os.path.join(OUT, 'rom-grow.nds')
+    h = open(rom, 'rb').read(0x200)
+    used = struct.unpack_from('<I', h, 0x80)[0]
+    size_ok = used > 64 << 20 and (128 << 10) << h[0x14] >= os.path.getsize(rom) >= used
+    melon = ''
+    import urbz_melon
+    if urbz_melon.available():
+        melon = subprocess.run([sys.executable, os.path.join(KIT, 'verify', 'urbz_melon.py'), 'boot', rom],
+                               capture_output=True, text=True).stdout
+    melon_ok = 'boot: OK' in melon or not urbz_melon.available()
+    return ok and size_ok and melon_ok, 'ROM %.1f MB used, header chip size %d MB; melonDS: %s; %s' % (
+        used / 2 ** 20, (128 << h[0x14]) >> 10, (melon.strip().splitlines() or ['not installed'])[-1][:60], detail)
 
 
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
@@ -1080,7 +1110,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
