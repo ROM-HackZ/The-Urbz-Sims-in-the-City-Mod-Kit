@@ -1,0 +1,20 @@
+{
+ "relocs": [
+  332,
+  428,
+  560,
+  564
+ ],
+ "symbols": {
+  "mod_on_boot": 432,
+  "pets_count": 568,
+  "pets_object_of": 0,
+  "pets_pick_stub": 340,
+  "pets_removed": 116
+ },
+ "bss": 0,
+ "sources": {
+  "pets.c": "da14bcf00949b8ea15bd71b42d8945f63f4feb36",
+  "hooks.txt": "1a4c67e48cbe6f921b949b72456cd70183191ae9"
+ }
+}

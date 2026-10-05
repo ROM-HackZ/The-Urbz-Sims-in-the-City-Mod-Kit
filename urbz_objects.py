@@ -72,18 +72,20 @@ def table_refs(arm9):
     return out
 
 
-def mod_objects(mod_dirs):
-    """[(mod name, entry)] from every mod's objects.json, checked."""
-    out, seen = [], {}
+def mod_objects(mod_dirs, extra=()):
+    """[(mod name, entry)] from every mod's objects.json and `extra` [(mod name, [entries])] (objects
+    other kit stages add, e.g. pets from pets.json), checked."""
+    out, seen, sources = [], {}, []
     for md in mod_dirs:
         p = os.path.join(md, 'objects.json')
         if not os.path.exists(p):
             continue
         name = os.path.basename(os.path.normpath(md))
         try:
-            entries = json.load(open(p, encoding='utf-8'))['objects']
+            sources.append((name, json.load(open(p, encoding='utf-8'))['objects']))
         except (ValueError, KeyError) as e:
             raise ObjectsError('mod "%s": objects.json: %s' % (name, e))
+    for name, entries in list(sources) + list(extra):
         for e in entries:
             i = e.get('id')
             if not isinstance(i, int) or not 0 <= i <= LAST or i in (RANDOM, EMPTY):
@@ -100,10 +102,10 @@ def mod_objects(mod_dirs):
     return out
 
 
-def objects_mod(proj, mod_dirs, out_dir, first_string):
+def objects_mod(proj, mod_dirs, out_dir, first_string, extra=()):
     """first_string() gives the first free string number for new text. Write the generated mod (code/build/patch.bin+json, hooks.txt, text/strings.tsv).
     Returns ([the generated mod, code/objects], report line) or (None, None) if no mod has objects.json."""
-    entries = mod_objects(mod_dirs)
+    entries = mod_objects(mod_dirs, extra)
     if not entries:
         return None, None
     from urbz_code import game_symbols, _address, CodeError

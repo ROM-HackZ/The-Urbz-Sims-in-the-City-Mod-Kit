@@ -443,6 +443,13 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   (critter_pickup, state 0x12 / action 0x0E; the "kind" test at 0x0202A2D8) gives back object 386.
   Proven: placed, kind 7 exists; put in the pick-up state, it goes back to Pockets as object 386 and the
   critter is gone. Not yet: picking it up with real inputs, the Puppy's own art and sounds.
+- **Critter art (2026-10-05):** `critter_anims[kind]` = 5 slots x {records, frame script (0 = the game's
+  default timing)}; records = 5 directions x {gfx gid, layout gid, palette, param}; `critter_facing_map`
+  0x020C22B4 maps the 8 facings to directions 0 1 2 3 4 3 2 1 (the other 3 are mirrored). **Seen**
+  (watch on `critter_play_anim` 0x02029804 with a placed Chicken): slot 0 when it appears and stands,
+  slot 1 when it walks; slots 2-4 belong to other behaviours (0x020298E4, 0x02029AB4, 0x02029C64) and the
+  chicken reuses its walk there. Frame counts: chicken stand 6, walk 9 per direction; rooster 10/6/12;
+  nutria 7/-/2+. Size around the feet: chicken x -14..22, y -15..19; rooster x -22..32, y -54..21.
 - **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,
   then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
   so free-running critters don't seem to be saved. Caveat: home was reached with the experimental

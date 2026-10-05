@@ -292,17 +292,21 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
             print(w)
     except CodeError as e:
         raise BuildError(str(e))
-    # Objects: mods with objects.json get the object tables moved (a generated, hidden mod).
+    # Pets (pets.json) and objects (objects.json): generated, hidden mods (urbz_pets.py, urbz_objects.py).
+    from urbz_pets import pets_mod, PetsError
     from urbz_objects import objects_mod, ObjectsError
+    gen = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build')
     try:
-        odir, objects_line = objects_mod(proj, mod_dirs, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'new-objects'),
-                                         lambda: _first_free_string(proj, mod_dirs))
-    except ObjectsError as e:
+        pdirs, pet_objects, pets_line = pets_mod(proj, mod_dirs, os.path.join(gen, 'new-pets'))
+        odir, objects_line = objects_mod(proj, mod_dirs, os.path.join(gen, 'new-objects'),
+                                         lambda: _first_free_string(proj, mod_dirs), pet_objects)
+    except (PetsError, ObjectsError) as e:
         raise BuildError(str(e))
-    if odir:
-        mod_dirs = list(mod_dirs) + odir
-        if not quiet:
-            print(objects_line)
+    for dirs, line in ((pdirs, pets_line), (odir, objects_line)):
+        if dirs:
+            mod_dirs = list(mod_dirs) + dirs
+            if not quiet:
+                print(line)
     ov = Overlay(proj, mod_dirs)
     n_existing = len(manifest['entries'])
 

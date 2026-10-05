@@ -1,0 +1,6 @@
+{"pets": [
+  {"name": "Puppy", "object": 386, "from": "rooster", "price": 60, "sell": {"9": "common"},
+   "description": "A playful pup that follows its nose around your pad.", "art": "art/puppy"},
+  {"name": "Kitten", "object": 389, "from": "chicken", "price": 45, "sell": {"9": "common"},
+   "description": "A curious kitten. It naps, it pounces, it ignores you.", "art": "art/kitten"}
+]}

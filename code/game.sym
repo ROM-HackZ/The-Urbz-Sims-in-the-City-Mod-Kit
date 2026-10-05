@@ -261,3 +261,6 @@ object_anims       = 0x020F34E0   # 0x1C per placeable object (7 art pointers: t
 catalog_loop_1     = 0x0201C6E8   # cmp r6, #0x118: the Catalog lists objects 0-279
 catalog_loop_2     = 0x0201C920   # cmp sl, #0x118
 ui_sprite_table    = 0x020CB134   # 16-byte records {gfx gid, layout gid, palette gid, param} by sprite id; object icons use the object's model number (~632 rows)
+critter_play_anim  = 0x02029804   # (critter, slot): records by facing (critter_facing_map) + frame script
+critter_facing_map = 0x020C22B4   # u8[8]: facing -> direction 0-4 (0 1 2 3 4 3 2 1)
+crit_table_lit     = 0x0202AC1C   # a literal holding critter_table (moved by urbz_pets.py; code/pets finds the pet list before it)

@@ -968,31 +968,38 @@ def p_objects_new():
         ['%08x' % c for c in chairs])
 
 
-def p_pet_new_kind():
-    """A new pet (mods/pets): the Puppy (object 386, copies the Chicken) placed at home becomes a
-    critter of the new kind 7 (the critter tables moved into the mod; rooster art for now). Put in the
-    game's pick-up state (state 0x12, action 0x0E), it goes back to Pockets as object 386."""
+def p_pets_data():
+    """Pets as data (mods/pets: pets.json; urbz_pets.py + code/pets-kit): the Puppy (object 386, from the
+    rooster) and the Kitten (389, from the chicken) get critter kinds 7 and 8. Each, placed at home, becomes
+    a critter of its own kind; put in the game's pick-up state (state 0x12, action 0x0E), it goes back to
+    Pockets as its own object."""
     rom = build('pets', [os.path.join(KIT, 'mods', 'pets')])[0]
-    start = ['--city', '--goto', '68']
-    r = ram(rom, 10, HEAP_SCAN, pokes=pocket_pokes(386), script=place_script(), start=start)[HEAP_SCAN]
-    kinds = critters(r)
-    pup = [a for a, k in kinds if k == 7]
-    if not pup:
-        return False, 'no kind-7 critter after placing the Puppy (critters: %s)' % kinds
-    a = pup[0]
-    script = place_script([["poke", "0x%08X=0000" % (a + 0x108)], ["poke", "0x%08X=120E" % (a + 0x104)], ["wait", 60]])
-    r2 = ram(rom, 10, HEAP_SCAN, '0x02141338:4', '0x0214188C:12', pokes=pocket_pokes(386), script=script, start=start)
-    slot = struct.unpack_from('<H', r2['0x0214188C:12'], 6)[0]
-    i = r2[HEAP_SCAN].find(struct.pack('<I', 0x53544550))
-    spawned, picked = struct.unpack_from('<II', r2[HEAP_SCAN], i + 4)
-    after = [k for _, k in critters(r2[HEAP_SCAN])]
-    ok = r2['0x02141338:4'][0] == 2 and slot == 386 and 7 not in after and spawned == 1 and picked == 1
-    return ok, ('placed: critter kinds %s; picked up: Pockets count %d, slot 2 = object %d, kinds left %s '
-                '(spawned %d, picked %d)') % ([k for _, k in kinds], r2['0x02141338:4'][0], slot, after, spawned, picked)
+    start, res, ok = ['--city', '--goto', '68'], [], True
+    for obj, kind in ((386, 7), (389, 8)):
+        r = ram(rom, 10, HEAP_SCAN, pokes=pocket_pokes(obj), script=place_script(), start=start)[HEAP_SCAN]
+        mine = [a for a, k in critters(r) if k == kind]
+        if not mine:
+            res.append('%d: no kind-%d critter (kinds %s)' % (obj, kind, [k for _, k in critters(r)]))
+            ok = False
+            continue
+        a = mine[0]
+        script = place_script([["poke", "0x%08X=0000" % (a + 0x108)], ["poke", "0x%08X=120E" % (a + 0x104)],
+                               ["wait", 60]])
+        r2 = ram(rom, 10, HEAP_SCAN, '0x02141338:4', '0x0214188C:12', pokes=pocket_pokes(obj), script=script,
+                 start=start)
+        slot = struct.unpack_from('<H', r2['0x0214188C:12'], 6)[0]
+        i = r2[HEAP_SCAN].find(struct.pack('<I', 0x43544550))
+        spawned, picked, n = struct.unpack_from('<III', r2[HEAP_SCAN], i + 4)
+        left = [k for _, k in critters(r2[HEAP_SCAN])]
+        good = r2['0x02141338:4'][0] == 2 and slot == obj and kind not in left and (spawned, picked, n) == (1, 1, 2)
+        ok = ok and good
+        res.append('%d -> kind %d -> picked up: Pockets slot 2 = %d, kinds left %s, counters %s' % (
+            obj, kind, slot, left, (spawned, picked, n)))
+    return ok, '; '.join(res)
 
 
 def p_mods_split():
-    """Pets and new furniture are separate mods (mods/pets: 386 and 389-429; mods/more-furniture: 430-511):
+    """Pets and new furniture are separate mods (mods/pets: pets.json, 386 and 389-429; mods/more-furniture: 430-511):
     each builds alone and both build together. With more-furniture alone, its armchair (430, a copy of
     the Country Class Chair) put in Pockets is placed at home and drawn; the Furniture catalog page at
     its end: build/proofs/mods-split.png."""
@@ -1001,7 +1008,7 @@ def p_mods_split():
     for name, mods in (('split-pets', [pets]), ('split-furniture', [furn]), ('split-both', [pets, furn])):
         log = build(name, mods)[1]
         reports[name] = [l for l in log.splitlines() if l.startswith('objects:')]
-    want = {'split-pets': '(386)', 'split-furniture': '(430, 431, 432)', 'split-both': '(386, 430, 431, 432)'}
+    want = {'split-pets': '(386, 389)', 'split-furniture': '(430, 431, 432)', 'split-both': '(386, 389, 430, 431, 432)'}
     builds_ok = all(r and want[n] in r[0] for n, r in reports.items())
     rom = os.path.join(OUT, 'split-furniture.nds')
     cat = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'cat.json')
@@ -1036,7 +1043,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pet-new-kind', p_pet_new_kind), ('mods-split', p_mods_split),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('mods-split', p_mods_split),
           ('melonds', p_melonds)]
 
 
