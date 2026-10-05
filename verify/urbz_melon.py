@@ -95,7 +95,19 @@ def _run_raw(rom, script, out=None, quick=False):
             frames(10)
         elif s[0] == 'shot':
             f = os.path.join(out, 'melon_%s.png' % s[1])
-            subprocess.run(['import', '-window', wid or 'root', '-crop', '256x384+0+%d' % menu_bar, '+repage', f])
+            errors = []
+            for attempt in range(4):              # a busy machine sometimes fails a capture: retry
+                r = subprocess.run(['import', '-window', wid or 'root', '-crop', '256x384+0+%d' % menu_bar,
+                                    '+repage', f], capture_output=True, text=True)
+                if r.returncode == 0 and os.path.exists(f):
+                    break
+                errors.append('import exit %d: %s' % (r.returncode, r.stderr.strip()[:200]))
+                time.sleep(1)
+            else:
+                raise RuntimeError('screenshot %r failed (melonDS %s): %s' % (
+                    s[1], 'running' if p.poll() is None else 'exited %s' % p.poll(), ' | '.join(errors)))
+            if errors:
+                print('note: screenshot %r needed %d retries (%s)' % (s[1], len(errors), errors[0]))
             shots.append((s[1], f))
         else:
             raise ValueError('unknown step %r' % (s,))
