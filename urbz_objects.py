@@ -43,6 +43,8 @@ TABLES = [('text', TEXT, 0x14, N_GAME), ('info', INFO, 0x14, N_GAME), ('class', 
           ('anim', ANIM, 0x1C, N_PLACE)]
 RANDOM, EMPTY = 0x183, 0x184               # object numbers the game uses as markers
 FIRST_NEW, LAST = 386, 511
+UI_SPRITES, UI_ROWS = 0x020CB134, 632      # icon records by model number; model 632 = "not sold"
+UI_SPRITE_REFS = (0x0204E7B0, 0x0204ED20)  # the only two words in the game that hold its address
 SHOP_PICK_COUNT = 0x0203C6AC               # literal: objects shop_pick looks at (386)
 CATALOG_LOOPS = (0x0201C6E8, 0x0201C920)   # "cmp rN, #0x118": the Catalog only looks at objects 0-279
 RARITY = {'common': 1, 'uncommon': 2, 'rare': 3}        # info word (shop_pick reads +4, +8, +0xC)
@@ -82,7 +84,10 @@ def mod_objects(mod_dirs, extra=()):
             continue
         name = os.path.basename(os.path.normpath(md))
         try:
-            sources.append((name, json.load(open(p, encoding='utf-8'))['objects']))
+            ents = json.load(open(p, encoding='utf-8'))['objects']
+            for e in ents:
+                e['_dir'] = md
+            sources.append((name, ents))
         except (ValueError, KeyError) as e:
             raise ObjectsError('mod "%s": objects.json: %s' % (name, e))
     for name, entries in list(sources) + list(extra):
@@ -102,10 +107,16 @@ def mod_objects(mod_dirs, extra=()):
     return out
 
 
-def objects_mod(proj, mod_dirs, out_dir, first_string, extra=()):
-    """first_string() gives the first free string number for new text. Write the generated mod (code/build/patch.bin+json, hooks.txt, text/strings.tsv).
+def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=None):
+    """first_string() gives the first free string number for new text; first_asset() the first free
+    asset number for new art. Write the generated mod (code/build/patch.bin+json, hooks.txt, text/strings.tsv,
+    assets/ for objects with "art" or "import").
     Returns ([the generated mod, code/objects], report line) or (None, None) if no mod has objects.json."""
     entries = mod_objects(mod_dirs, extra)
+    adir = os.path.join(out_dir, 'assets')
+    if os.path.isdir(adir):
+        for f in os.listdir(adir):
+            os.remove(os.path.join(adir, f))
     if not entries:
         return None, None
     from urbz_code import game_symbols, _address, CodeError
@@ -169,18 +180,73 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=()):
             w = struct.unpack_from('<I', rows['info'][i], 4 * RARITY[rarity])[0] | 1 << int(shop)
             struct.pack_into('<I', rows['info'][i], 4 * RARITY[rarity], w)
 
+    # Art: objects with "art" (a folder of PNGs, urbz_art.py) or "import" (a model from another Sims game,
+    # urbz_import.py) get new art files, their own palette (variants 0xFD: drawn in a palette of their own,
+    # like the game's Personal Painting) and, with an icon, a new row in the moved icon table.
+    art = {}
+    nxt = [first_asset() if first_asset else None]
+
+    def new_asset(data):
+        os.makedirs(adir, exist_ok=True)
+        open(os.path.join(adir, '%05d.bin' % nxt[0]), 'wb').write(data)
+        nxt[0] += 1
+        return nxt[0]                           # game id = file number + 1
+    for mod, e in entries:
+        if 'art' not in e and 'import' not in e:
+            continue
+        i = e['id']
+        if i < N_GAME:
+            raise ObjectsError('mod "%s": object %d: new art is for new objects (386, 389-%d)' % (mod, i, LAST))
+        if nxt[0] is None:
+            raise ObjectsError('object %d has art, but the builder gave no asset numbers' % i)
+        try:
+            if 'import' in e:
+                import urbz_import
+                folder = urbz_import.object_art(e['import'], e['like'],
+                                                os.path.join(os.path.dirname(out_dir), 'imports', '%s-%d' % (mod, i)))
+            else:
+                folder = os.path.join(e.get('_dir', ''), e['art'])
+            from urbz_art import build_object_art
+            art[i] = build_object_art(folder, e['like'], new_asset)
+        except (OSError, ValueError, KeyError, SystemExit) as ex:
+            raise ObjectsError('mod "%s": object %d: art: %s' % (mod, i, ex))
+        rows['variant'][i] = bytearray(struct.pack('<5I', *[0xFD] * 5))
+
     like = list(range(LAST + 1))                # what each object counts as for the game's checks
     for _, e in entries:
         if e['id'] >= N_GAME:
             like[e['id']] = e['like']
-    blob = bytearray(b'NEWO' + struct.pack('<%dH' % (LAST + 1), *like))  # code/objects finds it before obj_text
+    # Own palettes for code/objects: {u16 object, u16 0, u32 palette id x 4} ..., u32 count, 'OPAL', then 'NEWO'.
+    opal = b''.join(struct.pack('<HH4I', i, 0, *[a['palette']] * 4) for i, a in sorted(art.items()))
+    blob = bytearray(opal + struct.pack('<I', len(art)) + b'OPAL')
+    blob += b'NEWO' + struct.pack('<%dH' % (LAST + 1), *like)  # code/objects finds it before obj_text
     syms = {}
+    relocs = []
     for name, addr, stride, count in TABLES:    # text first: the like list sits right before it
         while len(blob) % 4:
             blob.append(0)
         syms['obj_' + name] = len(blob)
         blob += b''.join(rows[name])
+    for i, a in sorted(art.items()):            # the art records; the model rows point at them
+        while len(blob) % 4:
+            blob.append(0)
+        row = syms['obj_model'] + 4 * i
+        struct.pack_into('<I', blob, row, len(blob))
+        relocs.append(row)
+        blob += a['records']
+    icons = [(i, a['icon']) for i, a in sorted(art.items()) if a['icon']]
+    if icons:                                   # the icon table moves and grows: new model numbers 633+
+        base = UI_SPRITES - ARM9_BASE
+        while len(blob) % 4:
+            blob.append(0)
+        syms['ui_sprites'] = len(blob)
+        blob += arm9[base:base + 16 * UI_ROWS] + bytes(16)        # row 632 means "not sold": never drawn
+        for k, (i, rec) in enumerate(icons):
+            blob += rec
+            struct.pack_into('<I', blob, syms['obj_text'] + 0x14 * i, UI_ROWS + 1 + k)
     lines = ['# Generated by urbz_objects.py: the object tables, %d rows' % n]
+    if icons:
+        lines += ['u32 0x%08X @ui_sprites' % a for a in UI_SPRITE_REFS]
     for addr, name, off in table_refs(arm9):
         lines.append('u32 0x%08X @obj_%s+0x%X' % (addr, name, off))
     lines.append('u32 0x%08X %d' % (SHOP_PICK_COUNT, n))
@@ -193,7 +259,7 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=()):
     os.makedirs(os.path.join(cdir, 'build'), exist_ok=True)
     open(os.path.join(cdir, 'hooks.txt'), 'w').write('\n'.join(lines) + '\n')
     open(os.path.join(cdir, 'build', 'patch.bin'), 'wb').write(bytes(blob))
-    json.dump({'relocs': [], 'symbols': syms, 'bss': 0, 'sources': {}},
+    json.dump({'relocs': relocs, 'symbols': syms, 'bss': 0, 'sources': {}},
               open(os.path.join(cdir, 'build', 'patch.json'), 'w'))
     tdir = os.path.join(out_dir, 'text')
     if strings:
@@ -206,8 +272,9 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=()):
     json.dump({'name': 'new-objects', 'description': 'Kit: room for the objects mods add', 'toggle': False,
                'hidden': True}, open(os.path.join(out_dir, 'mod.json'), 'w'))
     new = sorted(e['id'] for _, e in entries if e['id'] >= N_GAME)
-    return [out_dir, os.path.join(KIT, 'code', 'objects')], 'objects: %d new (%s), %d changed; tables moved (%d rows)' % (
-        len(new), ', '.join(map(str, new)) or '-', len(entries) - len(new), n)
+    return [out_dir, os.path.join(KIT, 'code', 'objects')], 'objects: %d new (%s), %d changed; tables moved (%d rows)%s' % (
+        len(new), ', '.join(map(str, new)) or '-', len(entries) - len(new), n,
+        '; own art: %s' % ', '.join(map(str, sorted(art))) if art else '')
 
 
 def main(argv):

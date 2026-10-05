@@ -5,6 +5,13 @@ animations: urbz_anims.py.)
   python urbz_art.py template <mod> <pet>      PNGs to draw over: the frames of the animal it starts from
   python urbz_art.py preview <mod> <pet>       art/<pet>/preview.png: every frame at 1x and 4x
   python urbz_art.py placeholder <mod> <pet>   (tests) the template, recoloured from a new palette
+  python urbz_art.py object-template <folder> <like>   furniture: start an art folder from object <like>
+
+Furniture (objects.json "art": "art/<folder>"): view-away.png (the piece facing up-right, the game's
+first 3 turns), view-toward.png (facing down-left; the game mirrors both for the other turns), extra
+state frames view-away-1.png ... (e.g. an unmade bed; missing ones repeat the first), palette.png (16
+colours: the piece has its own, not the catalog's 5 colour ramps), icon.png (32x32, Pockets and the
+Catalog) with icon-palette.png. Canvas 128x128; the west corner of the piece's tile is pixel (24, 100).
 
 <pet> is a name from the mod's pets.json ("puppy"). The folder is the pet's "art" (default art/<pet>):
   palette.png        its 16 colours (16 squares; the first is "see-through"). Change a colour and every
@@ -268,7 +275,133 @@ def build_pet_art(adir, kind, new_asset):
     return {'slots': out, 'palette': new_asset(pdata)}
 
 
+# ------------------------------------------------------------------ furniture (objects.json "art")
+
+OBJ_CANVAS, OBJ_ORIGIN = 128, (24, 100)          # placed art: the origin is the west corner of the tile
+ICON_CANVAS, ICON_ORIGIN = 32, (16, 16)
+VIEWS = ('view-away', 'view-toward')               # model records 0-2 (faces up-right) and 3-4 (down-left)
+UI_SPRITES = 0x020CB134                            # ui_sprite_table: 16-byte icon records by model number
+
+
+def object_records(obj):
+    """The game's 5 art records {gfx, layout, palette, param} of placeable object obj."""
+    from urbz_anims import u32
+    from urbz_objects import MODEL
+    p = u32(MODEL + 4 * obj)
+    return [tuple(u32(p + 16 * d + 4 * j) for j in range(4)) for d in range(5)] if p else None
+
+
+def object_colours(obj, variant=0):
+    """The 16 colours the game draws object obj with in catalog colour `variant` (its palette row)."""
+    from urbz_anims import u32, asset
+    from urbz_palette import bgr555
+    from urbz_objects import VARIANT
+    row = u32(VARIANT + 0x14 * obj + 4 * variant)
+    if not 2 <= row <= 8:
+        return [(0, 0, 0)] + [(16 * i, 16 * i, 16 * i) for i in range(1, 16)]
+    data = asset(u32(0x020C82C4 + 4 * (row - 2)) - 1)            # street_palette_table: rows 2-8
+    return [bgr555(struct.unpack_from('<H', data, 2 * i)[0]) for i in range(16)]
+
+
+def icon_record(obj):
+    from urbz_anims import u32
+    from urbz_objects import TEXT
+    model = u32(TEXT + 0x14 * obj)
+    return tuple(u32(UI_SPRITES + 16 * model + 4 * j) for j in range(4))
+
+
+def _sheet_frames(gfx, layout, pal, canvas, origin):
+    import urbz_composite as C
+    from PIL import Image
+    out = []
+    for e, chunk in C.frames(gfx - 1, layout - 1):
+        im = Image.new('RGBA', (canvas, canvas), (0, 0, 0, 0))
+        fr = C.compose_frame(e, chunk, pal)
+        im.paste(fr, (origin[0] + e.x, origin[1] + e.y), fr)
+        out.append(im)
+    return out
+
+
+def object_template(adir, like):
+    """Write an art folder for a new piece of furniture, starting from object `like`'s own art."""
+    recs = object_records(like)
+    if not recs:
+        raise ValueError('object %d has no art to start from' % like)
+    pal = object_colours(like)
+    os.makedirs(adir, exist_ok=True)
+    for name, rec in zip(VIEWS, (recs[1], recs[3])):
+        frs = _sheet_frames(rec[0], rec[1], pal, OBJ_CANVAS, OBJ_ORIGIN)
+        for k, im in enumerate(frs):
+            im.save(os.path.join(adir, '%s%s.png' % (name, '' if k == 0 else '-%d' % k)))
+    save_palette(os.path.join(adir, 'palette.png'), pal)
+    ic = icon_record(like)
+    from urbz_anims import asset
+    from urbz_palette import bgr555
+    ipal = [bgr555(struct.unpack_from('<H', asset(ic[2] - 1), 2 * i)[0]) for i in range(16)]
+    _sheet_frames(ic[0], ic[1], ipal, ICON_CANVAS, ICON_ORIGIN)[0].save(os.path.join(adir, 'icon.png'))
+    save_palette(os.path.join(adir, 'icon-palette.png'), ipal)
+    return adir
+
+
+def _sheet(pngs, pal, head, extra, canvas, origin, new_asset):
+    import urbz_composite as C
+    from PIL import Image
+    from urbzcomp import pack_chunk
+    from urbz_anims import frame_data, CHUNK_FLAGS
+    gfx, entries = bytearray(), []
+    for f in pngs:
+        e, content = frame_data(Image.open(f), pal, extra, canvas, origin)
+        e.index, e.chunk_off = len(entries), len(gfx)
+        gfx += pack_chunk(CHUNK_FLAGS, content)
+        while len(gfx) % 4:
+            gfx += b'\0'
+        entries.append(e)
+    if len(gfx) > 0xFFFF:
+        raise ValueError('the sheet is %d bytes; the game allows 64 KB' % len(gfx))
+    lay = C.Layout(bytes([max(e.w for e in entries), max(e.h for e in entries)]) + head[2:], entries, 0,
+                   len(extra) // 6)
+    return new_asset(bytes(gfx)), new_asset(C.build_layout(lay))
+
+
+def build_object_art(adir, like, new_asset):
+    """A furniture art folder -> new art files. Returns {'records': 5 x 16 bytes, 'palette': game id,
+    'icon': 16-byte icon record or None}. The pieces keep the like object's frame count: missing state
+    frames (view-away-1.png ...) repeat the first."""
+    import urbz_composite as C
+    from urbz_anims import asset
+    from urbz_palette import to555
+    recs = object_records(like)
+    pal = load_palette(os.path.join(adir, 'palette.png'))
+    out = {}
+    for name, rec in zip(VIEWS, (recs[1], recs[3])):
+        lay0 = C.parse_layout(asset(rec[1] - 1))
+        n = len(lay0.entries)
+        first = os.path.join(adir, name + '.png')
+        if not os.path.exists(first):
+            raise ValueError('%s.png is missing' % name)
+        pngs = [os.path.join(adir, '%s-%d.png' % (name, k)) for k in range(1, n)]
+        pngs = [first] + [p if os.path.exists(p) else first for p in pngs]
+        out[name] = _sheet(pngs, pal, lay0.head, lay0.entries[0].extra, OBJ_CANVAS, OBJ_ORIGIN, new_asset)
+    pal_id = new_asset(b''.join(struct.pack('<H', to555(c)) for c in pal))
+    away, toward = out['view-away'], out['view-toward']
+    records = b''.join(struct.pack('<4I', g, l, 0, recs[d][3]) for d, (g, l) in
+                       enumerate((away, away, away, toward, toward)))
+    icon = None
+    if os.path.exists(os.path.join(adir, 'icon.png')):
+        ic = icon_record(like)
+        ipal_path = os.path.join(adir, 'icon-palette.png')
+        ipal = load_palette(ipal_path) if os.path.exists(ipal_path) else pal
+        lay0 = C.parse_layout(asset(ic[1] - 1))
+        g, l = _sheet([os.path.join(adir, 'icon.png')], ipal, lay0.head, lay0.entries[0].extra,
+                      ICON_CANVAS, ICON_ORIGIN, new_asset)
+        icon = struct.pack('<4I', g, l, new_asset(b''.join(struct.pack('<H', to555(c)) for c in ipal)), ic[3])
+    return {'records': records, 'palette': pal_id, 'icon': icon}
+
+
 def main(argv):
+    if len(argv) == 3 and argv[0] == 'object-template':
+        print(object_template(argv[1], int(argv[2])))
+        return
     if len(argv) == 3 and argv[0] in ('template', 'preview', 'placeholder'):
         {'template': template, 'preview': preview, 'placeholder': placeholder}[argv[0]](argv[1], argv[2])
         return

@@ -117,6 +117,13 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
         anims.append(bytearray(anims[src]))
         pals.append(bytearray(pals[src]))
         folder = os.path.join(md, pet.get('art', 'art/' + pet['name'].lower()))
+        if 'import' in pet:                            # rendered from another Sims game (urbz_import.py)
+            import urbz_import
+            try:
+                folder = urbz_import.pet_art(pet['import'], src, os.path.join(
+                    os.path.dirname(out_dir), 'imports', '%s-%s' % (mod, pet['name'].lower())))
+            except (OSError, ValueError, KeyError, SystemExit) as e:
+                raise PetsError('mod "%s": pet %s: import: %s' % (mod, pet['name'], e))
         if os.path.exists(os.path.join(folder, 'timing.json')):
             from urbz_art import build_pet_art
             try:

@@ -1,2 +1,5 @@
 # Kit: new objects (urbz_objects.py) answer the game's number checks as the object they copy.
 call place_check_call objects_place_check
+# Objects drawn in their own palette (catalog colours 0xFD): let new objects in, not only object 61.
+u32 own_palette_check 0xE1A00000
+call own_palette_call objects_own_palette

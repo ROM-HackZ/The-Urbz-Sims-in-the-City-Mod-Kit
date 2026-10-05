@@ -32,7 +32,7 @@ def view(yaw_deg, pitch_deg=PITCH):
     """Rotation from model space (Y up, the model faces +Z) to view space (X right, Y up, +Z to the eye).
     yaw 0 = the model faces the viewer; positive yaw turns it to face screen-right."""
     import numpy as np
-    y, p = np.radians(-yaw_deg), np.radians(pitch_deg)
+    y, p = np.radians(yaw_deg), np.radians(pitch_deg)
     Ry = np.array([[np.cos(y), 0, np.sin(y)], [0, 1, 0], [-np.sin(y), 0, np.cos(y)]])
     Rx = np.array([[1, 0, 0], [0, np.cos(p), -np.sin(p)], [0, np.sin(p), np.cos(p)]])
     return Rx @ Ry
@@ -149,7 +149,7 @@ class Model:
         self.g, self.info = g, info
         self.subs = F.mesh(info['mesh']['data'])
         self.bones = F.skeleton(info['skeleton']['data']) if info.get('skeleton') else None
-        self.parts = []
+        self.parts, self.texture_names = [], []
         for s in self.subs:
             tex, f = None, g.textures.get(s['texture'])
             if f and texture_swap:
@@ -161,6 +161,7 @@ class Model:
                             pass
             translucent = False
             if f:
+                self.texture_names.append(f['name'])
                 try:
                     tex, _p, _n, translucent = F.texture(f['data'])
                 except ValueError:
@@ -219,6 +220,149 @@ def render_model(model, yaw, anim=None, frame=0, size=(96, 96), anchor=(48, 80),
     return rasterize(model.posed(anim, frame), view(yaw + model.front), PX_PER_M * scale, size, anchor)
 
 
+# ------------------------------------------------------------------ art folders for the builder
+
+def shadow_tris(parts, darkness=(34, 30, 40)):
+    """A flat drop shadow: every triangle squashed onto the floor along the light, drawn first."""
+    import numpy as np
+    L = np.array([0.35, -1.0, 0.25])
+    out = []
+    for tris, _t, _c in parts:
+        t = tris.copy()
+        k = t[..., 1] / -L[1]
+        t[..., 0] += k * L[0]
+        t[..., 2] += k * L[2]
+        t[..., 1] = -0.002                      # just under the floor, behind everything drawn on it
+        t[..., 5:8] = (0.0, 1.0, 0.0)
+        out.append((t, None, darkness))
+    return out
+
+
+def _fit_palette(images, colours=15):
+    """One palette (index 0 see-through + `colours`) for several RGBA renders; returns
+    (palette, [RGBA images using only those colours])."""
+    import numpy as np
+    from PIL import Image
+    opaque = np.concatenate([im[im[..., 3] > 0][:, :3] for im in images if (im[..., 3] > 0).any()] or
+                            [np.zeros((1, 3), np.uint8)])
+    strip = Image.fromarray(opaque.reshape(1, -1, 3).astype(np.uint8))
+    q = strip.quantize(colors=colours, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    pal = [(0, 0, 0)] + [tuple(q.getpalette()[3 * i:3 * i + 3]) for i in range(colours)]
+    P = np.array(pal[1:], np.int32)
+    out = []
+    for im in images:
+        rgb = im[..., :3].reshape(-1, 3).astype(np.int32)
+        idx = ((rgb[:, None, :] - P[None]) ** 2).sum(-1).argmin(1)
+        o = np.zeros_like(im)
+        o[..., :3] = P[idx].reshape(im.shape[:2] + (3,)).astype(np.uint8)
+        o[..., 3] = np.where(im[..., 3] > 0, 255, 0)
+        out.append(Image.fromarray(o, 'RGBA'))
+    return pal, out
+
+
+def _place(img, bbox_target):
+    """Move a canvas-sized RGBA render so its drawn box's centre-x and bottom match bbox_target."""
+    from PIL import Image
+    b = img.getbbox()
+    if not b or not bbox_target:
+        return img
+    dx = round((bbox_target[0] + bbox_target[2]) / 2 - (b[0] + b[2]) / 2)
+    dy = bbox_target[3] - b[3]
+    out = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    out.paste(img, (dx, dy), img)
+    return out
+
+
+def object_art(cfg, like, folder):
+    """Render an imported model into an urbz_art furniture folder (view-away/-toward, icon, palettes).
+    cfg = {"from": game, "model": name, "scale": 1.0 (optional), "textures": {"old": "new"} (optional)}."""
+    import numpy as np
+    from PIL import Image
+    import urbz_art as A
+    g, info = find_model(cfg['from'], cfg['model'])
+    model = Model(g, info, cfg.get('textures'))
+    os.makedirs(folder, exist_ok=True)
+    ramp = A.object_colours(like)
+    recs = A.object_records(like)
+    views = []
+    for name, yaw, rec in (('view-away', 135, recs[1]), ('view-toward', -45, recs[3])):
+        target = A._sheet_frames(rec[0], rec[1], ramp, A.OBJ_CANVAS, A.OBJ_ORIGIN)[0].getbbox()
+        im = rasterize(model.posed(), view(yaw + model.front), PX_PER_M * cfg.get('scale', 1.0),
+                       (A.OBJ_CANVAS, A.OBJ_CANVAS), A.OBJ_ORIGIN)
+        views.append((name, np.array(_place(Image.fromarray(im), target))))
+    pal, imgs = _fit_palette([v for _, v in views])
+    for (name, _), im in zip(views, imgs):
+        im.save(os.path.join(folder, name + '.png'))
+    A.save_palette(os.path.join(folder, 'palette.png'), pal)
+    hp = max(model.height(), 0.05)
+    icon = rasterize(model.posed(), view(-45 + model.front), min(26.0 / (hp * 0.9), 40.0 / hp) / 1.0,
+                     (A.ICON_CANVAS, A.ICON_CANVAS), (16, 28))
+    icon = np.array(_place(Image.fromarray(icon), (2, 2, 30, 30)))
+    ipal, (iim,) = _fit_palette([icon])
+    iim.save(os.path.join(folder, 'icon.png'))
+    A.save_palette(os.path.join(folder, 'icon-palette.png'), ipal)
+    json.dump(cfg, open(os.path.join(folder, 'import.json'), 'w'))
+    return folder
+
+
+PET_ANIMS = {'0-stand': ['standidle', 'idle', 'stand'], '1-walk': ['walk', 'swim', 'fly', 'move'],
+             '2-move': ['sniff', 'happy', 'walk'], '3-move': ['sitidle', 'happy', 'walk'],
+             '4-move': ['happy', 'walk']}
+
+
+def pet_art(cfg, kind, folder):
+    """Render an imported animal into an urbz_art pet folder: every slot and direction the starting
+    animal (critter kind) has, with as many frames; a drop shadow; one 16-colour palette.
+    cfg = {"from", "model", "anims": {"0-stand": "standidle", ...}, "scale", "textures"}."""
+    import numpy as np
+    from PIL import Image
+    import urbz_art as A
+    from urbz_anims import script_of
+    g, info = find_model(cfg['from'], cfg['model'])
+    model = Model(g, info, cfg.get('textures'))
+    src = A.critter_slots(kind)
+    spal = A.critter_palette(kind)
+    os.makedirs(folder, exist_ok=True)
+    # size: as tall as the animal it replaces (its standing frame), unless "scale" says otherwise
+    ref = A.frames_of(src[0][0][2][0], src[0][0][2][1], spal)[0].getbbox() if src[0][0] else None
+    if 'scale' in cfg:
+        ppm = PX_PER_M * cfg['scale']
+    else:
+        want = (ref[3] - ref[1]) * 0.9 if ref else 24
+        ppm = want / max(model.height() * 0.95, 0.05)
+    timing = {'from': 'import', 'slots': {}}
+    frames, seen = [], {}
+    for s, (recs, script) in enumerate(src):
+        slot = A.SLOTS[s]
+        if recs is None:
+            timing['slots'][slot] = {'none': True}
+            continue
+        if tuple(recs) in seen:
+            timing['slots'][slot] = {'same_as': seen[tuple(recs)]}
+            continue
+        seen[tuple(recs)] = slot
+        timing['slots'][slot] = {'script': script_of(script) or 'default', 'param': recs[0][3]}
+        want_anims = [cfg.get('anims', {}).get(slot)] + PET_ANIMS[slot]
+        anim = next((a for a in want_anims if a and a in info['anims']), None)
+        for d, (gfx, lay, _, _) in enumerate(recs):
+            n = len(A.frames_of(gfx, lay, spal))
+            yaw = 180 - 45 * d                    # dir0 faces away ... dir4 faces you
+            nf = model.frames(anim) if anim else 1
+            for k in range(n):
+                f = (k * nf) // n if anim else 0
+                parts = model.posed(anim, f)
+                im = rasterize(shadow_tris(parts) + parts, view(yaw + model.front), ppm,
+                               (A.PET_CANVAS, A.PET_CANVAS), A.PET_ORIGIN)
+                frames.append((os.path.join(folder, slot, 'dir%d' % d, '%02d.png' % k), im))
+    pal, imgs = _fit_palette([im for _, im in frames])
+    for (path, _), im in zip(frames, imgs):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        im.save(path)
+    A.save_palette(os.path.join(folder, 'palette.png'), pal)
+    json.dump(timing, open(os.path.join(folder, 'timing.json'), 'w'), indent=1)
+    return folder
+
+
 # ------------------------------------------------------------------ gallery
 
 def gallery(names):
@@ -237,8 +381,8 @@ def gallery(names):
             try:
                 model = Model(g, info)
                 if not os.path.exists(path):
-                    h = model.height()
-                    big = 1.0 if h * PX_PER_M < 90 else 90.0 / (h * PX_PER_M)
+                    hp = max(model.height() * PX_PER_M, 1e-3)
+                    big = min(90.0 / hp, max(1.0, 40.0 / hp))     # tiny things shown bigger
                     views = [render_model(model, yaw, scale=big, size=(110, 110), anchor=(55, 90))
                              for yaw in (-45, 135)]
                     sheet = Image.new('RGBA', (220, 110), (0, 0, 0, 0))
@@ -261,8 +405,12 @@ def gallery(names):
             if info['kind'] != kind:
                 continue
             if key:
-                html.append('<div class=c><img src="img/%s.png"><br><b>%s</b> <span class=k>%s, %.2f m tall, '
-                            '%d animations</span></div>' % (key, info['name'], gname, h, len(info['anims'])))
+                hp = max(h * PX_PER_M, 1e-3)
+                zoom = min(90.0 / hp, max(1.0, 40.0 / hp))
+                html.append('<div class=c><img src="img/%s.png"><br><b>%s</b> <span class=k>%s, %.2f m tall '
+                            '(~%d px in the Urbz)%s, %d animations</span></div>' % (
+                                key, info['name'], gname, h, round(hp), '' if abs(zoom - 1) < 0.01 else
+                                ', shown x%.1f' % zoom, len(info['anims'])))
             else:
                 html.append('<div class=c><b>%s</b> <span class=k>%s: %s</span></div>' % (info['name'], gname, h))
         html.append('</div>')

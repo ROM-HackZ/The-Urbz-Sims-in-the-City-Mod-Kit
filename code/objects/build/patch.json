@@ -1,11 +1,12 @@
 {
  "relocs": [],
  "symbols": {
+  "objects_own_palette": 72,
   "objects_place_check": 0
  },
  "bss": 0,
  "sources": {
-  "objects.c": "11692d027c627fe6600ed7b3426a20ca867e439a",
-  "hooks.txt": "8fa1bbbc876dfc9ca02bbf65f8b47bd67dddf472"
+  "objects.c": "52d756bd885b85d7504a2e502d1ac32366b37a61",
+  "hooks.txt": "672b9c6cc6ea9d2cfd233cee2344c878095dfb36"
  }
 }

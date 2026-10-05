@@ -306,7 +306,8 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
         pdirs, pet_objects, pets_line = pets_mod(proj, mod_dirs, os.path.join(gen, 'new-pets'),
                                                  _first_free_asset(manifest, mod_dirs))
         odir, objects_line = objects_mod(proj, mod_dirs, os.path.join(gen, 'new-objects'),
-                                         lambda: _first_free_string(proj, mod_dirs), pet_objects)
+                                         lambda: _first_free_string(proj, mod_dirs), pet_objects,
+                                         lambda: _first_free_asset(manifest, list(mod_dirs) + list(pdirs or [])))
     except (PetsError, ObjectsError) as e:
         raise BuildError(str(e))
     for dirs, line in ((pdirs, pets_line), (odir, objects_line)):

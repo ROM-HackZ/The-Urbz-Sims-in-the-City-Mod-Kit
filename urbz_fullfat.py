@@ -128,7 +128,8 @@ class Game:
     def models(self):
         """[{'name', 'kind': pet|object|accessory, 'mesh', 'skeleton', 'anims': {name: file}}]"""
         out = []
-        meshes = [f for f in self.files if f['name'].endswith('.mesh.nitro_mesh') or f['name'].endswith('.mesh')]
+        meshes = [f for f in self.files if f['name'].endswith('nitro_mesh') and '/lots/' not in f['name']
+                  and '/debug/' not in f['name']]
         folders = {}
         for f in meshes:
             folders.setdefault(os.path.dirname(f['name']), []).append(f)
@@ -148,7 +149,7 @@ class Game:
             else:
                 kind = 'other'
             if kind == 'object':
-                best = [f for f in fs if os.path.basename(f['name']).startswith('object_mesh')] or \
+                best = [f for f in fs if os.path.basename(f['name']).startswith(('object_mesh', 'mesh.'))] or \
                        [f for f in fs if '_low' not in f['name']] or fs
                 picks = best[:1]
             else:
@@ -346,7 +347,7 @@ def gx_run(data, off, end, tags=None):
         elif c == 0x2A:
             m['tex'] = p[0]
         elif c == 0x40:
-            m = {'tris': [], 'prim': p[0] & 3, 'polyattr': m['polyattr'], 'tex': m['tex']}
+            m = {'tris': [], 'prim': p[0] & 3, 'polyattr': m['polyattr'], 'tex': m['tex'], 'at': at - off}
             verts = []
             subs.append(m)
     return subs
@@ -371,11 +372,15 @@ def mesh(d):
         eo, es = B[0xE]
         w = struct.unpack_from('<%dI' % (es // 4), d, eo)
         mats = [w[13 * i:13 * i + 13] for i in range(es // 52)]
+    # A material's words 1-7 are the display-list offsets of the commands it sets (colours, polygon
+    # attributes, texture): it applies to every BEGIN_VTXS after them, until the next material.
+    starts = [min(x for x in mt[1:8] if x) if any(mt[1:8]) else 0 for mt in mats]
     out = []
     for i, m in enumerate(subs):
         a = np.array(m['tris'], np.float64).reshape(-1, 3, 10)
         a[..., 3:5] /= 128.0                    # display lists address a 128x128 texture space
-        mat = mats[i] if i < len(mats) else None
+        before = [k for k, st0 in enumerate(starts) if st0 <= m['at']]
+        mat = mats[before[-1]] if before else (mats[i] if i < len(mats) else None)
         dif = (mat[8] if mat else 0x7FFF) & 0x7FFF
         pa = mat[10] if mat else m['polyattr']
         out.append({'tris': a, 'texture': mat[11] if mat else 0, 'colour': _bgr(dif),

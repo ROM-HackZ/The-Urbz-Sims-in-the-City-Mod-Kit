@@ -1105,12 +1105,117 @@ def p_rom_grow():
         used / 2 ** 20, (128 << h[0x14]) >> 10, (melon.strip().splitlines() or ['not installed'])[-1][:60], detail)
 
 
+# ---------------------------------------------------------------- imports from other Sims DS games
+
+def _sources(*games):
+    """The local sources.json entries (urbz_import.py), or None when a game isn't set up here."""
+    p = os.path.join(KIT, 'sources.json')
+    src = json.load(open(p)) if os.path.exists(p) else {}
+    return src if all(g in src and os.path.exists(src[g]) for g in games) else None
+
+
+def p_import_render():
+    """urbz_import.py reads Apartment Pets' 3D dog (GX display list, skeleton, walk animation, textures)
+    and renders it at the Urbz camera: the beagle textures resolve by hash, the walk moves its legs (frames
+    differ), and the picture has the expected size (~0.41 m tall: ~15 px at 42 px per metre)."""
+    if not _sources('aptpets'):
+        return None, 'skipped: no aptpets in sources.json (your own copy of The Sims 2: Apartment Pets)'
+    import numpy as np
+    import urbz_import as I
+    g, info = I.find_model('aptpets', 'dog')
+    m = I.Model(g, info, {'collie2': 'beagle', 'collie': 'beagle'})
+    names = sorted({n.split('/')[-1] for n in m.texture_names})
+    a = I.render_model(m, 90, 'walk', 0)
+    b = I.render_model(m, 90, 'walk', m.frames('walk') // 2)
+    ys = np.nonzero(a[..., 3])[0]
+    h = ys.max() - ys.min() + 1 if len(ys) else 0
+    moved = int((a[..., 3] != b[..., 3]).sum())
+    ok = 'body_beagle.nitro_texture' in names and 12 <= h <= 20 and moved > 20
+    return ok, 'textures %s; side view %d px tall; walk frame 0 vs middle: %d pixels differ' % (
+        ', '.join(n.replace('.nitro_texture', '') for n in names), h, moved)
+
+
+def _import_mod():
+    d = new_mod('imports')
+    json.dump({'objects': [
+        {'id': 440, 'like': 136, 'name': 'Green Lounger', 'price': 140, 'page': 3, 'description': 'Imported.',
+         'import': {'from': 'aptpets', 'model': 'armchair4'}},
+        {'id': 441, 'like': 136, 'name': 'Dog Basket', 'price': 40, 'page': 4, 'description': 'Imported.',
+         'import': {'from': 'aptpets', 'model': 'dog_basket'}}]}, open(os.path.join(d, 'objects.json'), 'w'))
+    json.dump({'pets': [
+        {'name': 'Puppy', 'object': 386, 'from': 'rooster', 'price': 60, 'description': 'A beagle pup.',
+         'import': {'from': 'aptpets', 'model': 'dog', 'textures': {'collie2': 'beagle', 'collie': 'beagle'}}},
+        {'name': 'Kitten', 'object': 389, 'from': 'chicken', 'price': 45, 'description': 'A kitten.',
+         'import': {'from': 'aptpets', 'model': 'cat'}}]}, open(os.path.join(d, 'pets.json'), 'w'))
+    return build('imports', [d])
+
+
+def p_import_furniture():
+    """Furniture from Apartment Pets (objects.json "import"): an armchair (440) and a dog basket (441) are
+    rendered into new art with their own palettes and icons. In Pockets both show their new icons (model
+    numbers 633+, the icon table moved); placed at home, the armchair is an object entity drawn in a palette
+    of its own (entity flag 0x20 and its palette table in the code region, through code/objects)
+    (build/proofs/import-pockets.png, import-furniture.png)."""
+    if not _sources('aptpets'):
+        return None, 'skipped: no aptpets in sources.json'
+    rom, log, _ = _import_mod()
+    line = [l for l in log.splitlines() if l.startswith('objects:')]
+    lit = struct.unpack('<I', ram(rom, 1, '0x0204E7B0:4')['0x0204E7B0:4'])[0]
+    text = struct.unpack('<I', ram(rom, 1, '0x02014130:4')['0x02014130:4'])[0]
+    model = struct.unpack('<I', ram(rom, 1, '0x%08X:4' % (text + 0x14 * 440))['0x%08X:4' % (text + 0x14 * 440)])[0]
+    pk = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'pk.json')
+    json.dump([["wait", 60], ["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
+               ["shot", "pockets"]], open(pk, 'w'))
+    out = run(VERIFY + ['ram', rom, '--city', '--frames', '1', '--script', pk, '--poke', '0x02141338=03',
+                        '--poke', '0x02141892=' + struct.pack('<HHHH', 440, 0, 441, 0).hex()])
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    for f in glob.glob(os.path.join(ev, '*pockets.png')):
+        shutil.copy(f, os.path.join(OUT, 'import-pockets.png'))
+    sc = place_script([["wait", 30], ["shot", "placed"]])
+    out = run(VERIFY + ['ram', rom, '--city', '--goto', '68', '--frames', '1', '--script', sc, '--read', HEAP_SCAN,
+                        '--read', '0x02141338:4'] + sum([['--poke', p] for p in pocket_pokes(440)], []))
+    vals = dict(l.split(' = ') for l in out.splitlines() if ' = ' in l)
+    heap = bytes.fromhex(vals[HEAP_SCAN].strip())
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    for f in glob.glob(os.path.join(ev, '*placed.png')):
+        shutil.copy(f, os.path.join(OUT, 'import-furniture.png'))
+    ents = [(struct.unpack_from('<I', heap, k + 0xC)[0], struct.unpack_from('<I', heap, k + 0xC8)[0])
+            for k in range(0, len(heap) - 0x148, 4)
+            if struct.unpack_from('<HH', heap, k + 8) == (5, 440) and struct.unpack_from('<H', heap, k + 0x146)[0] == 440]
+    own = [e for e in ents if e[0] & 0x20 and CODE_BASE <= e[1] < CODE_BASE + 0x70000]
+    ok = bool(line) and 'own art: 440, 441' in line[0] and lit >= CODE_BASE and model >= 633 and len(own) == 1
+    return ok, ('%s; icon table at %08x, object 440 model %d; placed: entities with id 440 %s, own palette %s; '
+                'build/proofs/import-pockets.png, import-furniture.png') % (
+        line[0] if line else 'no objects line', lit, model, len(ents), bool(own))
+
+
+def p_import_pet():
+    """Pets from Apartment Pets (pets.json "import"): the Puppy is the 3D beagle and the Kitten the cat,
+    rendered in every direction and frame the rooster and chicken have, with their walk animations and a
+    drop shadow. Placed at home they run around as critter kinds 7 and 8 (build/proofs/import-pet.png)."""
+    if not _sources('aptpets'):
+        return None, 'skipped: no aptpets in sources.json'
+    rom, log, _ = _import_mod()
+    line = [l for l in log.splitlines() if l.startswith('pets:')]
+    sc = place_script([["wait", 30], ["shot", "pet"]])
+    out = run(VERIFY + ['ram', rom, '--city', '--goto', '68', '--frames', '5', '--script', sc, '--read', HEAP_SCAN]
+              + sum([['--poke', p] for p in pocket_pokes(386)], []))
+    heap = bytes.fromhex([l for l in out.splitlines() if ' = ' in l][0].split(' = ')[1].strip())
+    kinds = [k for _, k in critters(heap)]
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    for f in glob.glob(os.path.join(ev, '*pet.png')):
+        shutil.copy(f, os.path.join(OUT, 'import-pet.png'))
+    ok = bool(line) and 'Puppy (kind 7, from rooster, own art)' in line[0] and 'Kitten (kind 8, from chicken, own art)' \
+        in line[0] and 7 in kinds
+    return ok, '%s; placed Puppy: critter kinds %s; build/proofs/import-pet.png' % (line[0] if line else 'no pets line', kinds)
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
@@ -1129,15 +1234,20 @@ def main(argv):
         print('\n'.join(n for n, _ in PROOFS))
         return
     sel = [(n, f) for n, f in PROOFS if not argv or n in argv]
-    bad = 0
+    bad = skipped = 0
     for n, f in sel:
         try:
             ok, detail = f()
         except Exception as e:                      # report and carry on
             ok, detail = False, 'error: %s' % str(e).splitlines()[0][:300]
+        if ok is None:                              # needs something this machine doesn't have
+            skipped += 1
+            print('%-16s SKIP  %s' % (n, detail), flush=True)
+            continue
         bad += not ok
         print('%-16s %s  %s' % (n, 'PASS' if ok else 'FAIL', detail), flush=True)
-    print('%d/%d passed' % (len(sel) - bad, len(sel)))
+    print('%d/%d passed%s' % (len(sel) - bad - skipped, len(sel) - skipped,
+                              ', %d skipped' % skipped if skipped else ''))
     sys.exit(1 if bad else 0)
 
 

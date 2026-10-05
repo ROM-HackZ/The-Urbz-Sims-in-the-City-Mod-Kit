@@ -85,6 +85,7 @@ typedef struct {                 /* save_ctx: the slot stream being written or r
 
 /* ---- objects and critters (docs/systems.md "Buyable objects", "Pets") ----- */
 /* Can this object be put down here? 1 = yes (else the game shows why). */
+#define entity_palette_table GAME_FN(ADDR_entity_palette_table, void (*)(void *e, const u32 *palette_ids))
 #define place_object_check GAME_FN(ADDR_place_object_check, int (*)(void *e, unsigned obj, unsigned rot))
 /* Add an object to an item list (Pockets: game_state+0x154). 1 = added. */
 #define list_add     GAME_FN(ADDR_list_add, int (*)(void *list, unsigned obj, unsigned a, unsigned variant))

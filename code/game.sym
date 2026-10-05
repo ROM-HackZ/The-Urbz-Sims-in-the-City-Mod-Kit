@@ -167,6 +167,9 @@ build_player_palette = 0x02083538 # builds the player's 2 OBJ rows from assets 1
 # --- palettes and fonts
 npc_palette_table  = 0x020D0054   # u32 palette game id per character id (Kris 45 -> file 09160)
 street_palette_table = 0x020C82C4 # u32 game ids loaded into OBJ rows 2-8 on streets
+entity_palette_table = 0x0206D724 # void (entity, const u32 *palette ids): draw it in a palette of its own (row from the people pool)
+own_palette_check  = 0x02068258   # in object setup: "bne" unless the object is 61 (Personal Painting, variants 0xFD)
+own_palette_call   = 0x02068264   # in object setup: BL entity_palette_table(e, 0x020F58EC) for object 61
 set_palette_row    = 0x0206D84C   # void set_palette_row(entity, row): entity+0x90 bits 12-15 (row 0xFF = leave it)
 load_palette_row   = 0x0206D73C   # people: take a free/shared row from the pool and load a 16-colour palette into it
 obj16_rows         = 0x020C2828   # u32[5]: OBJ palette row per variant for area record type 16 (pick-ups)
