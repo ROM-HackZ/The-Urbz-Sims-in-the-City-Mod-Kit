@@ -58,12 +58,21 @@ What a template folder looks like (example: `mods/more-furniture/art/430-farmhou
 4. **One tool**: `urbz_art.py` (template, preview, check) for furniture, pets and people; `urbz_anims.py`
    stays as a thin alias so nothing you know breaks.
 
-## Status (2026-10-05)
-Decided: everything within the game's own capabilities (real size, 16 colours, its recolouring), just new
-stuff; pets first. **Pets done** (steps 1, 2, 4 for pets): pets as data (`pets.json`, `urbz_pets.py`,
-`code/pets-kit`), `urbz_art.py template/preview/placeholder` for pets, shared art numbering in the builder
-(proofs `pets-data`, `pets-art`). Pets have 5 drawn directions per slot (not front/back). Next: furniture
-art (step 3), then moving `urbz_anims.py` into `urbz_art.py`.
+## Status (2026-10-05): done
+Decided: everything within the game's own capabilities (real size, 16 colours), just new stuff; pets first.
+- **Pets** (steps 1, 2, 4): pets as data (`pets.json`, `urbz_pets.py`, `code/pets-kit`), `urbz_art.py
+  template/preview/placeholder`, shared art numbering (proofs `pets-data`, `pets-art`). 5 drawn directions.
+- **Furniture art** (step 3): `objects.json` `"art"` (drawn, `urbz_art.py object-template`) or `"import"`;
+  the builder makes the views, an own palette per object (`code/objects` `objects_own_palette`, OPAL list),
+  and an icon (icon table moved, models 633+). Proof `import-furniture`.
+- **Imports from the other Sims DS games** (added 2026-10-05, Jonathan: "take our pick of the assets"):
+  readers for Apartment Pets / Castaway (`urbz_fullfat.py`), The Sims 3 (`urbz_sims3.py`), The Sims 2
+  (`urbz_nsbmd.py`); renderer + gallery (`urbz_import.py`, 1,516 models); `mods/pets` imports the beagle
+  and cat. Formats: `docs/other-games.md`. Proofs `rom-grow`, `import-render`, `import-furniture`,
+  `import-pet`, `import-melonds` (the imported armchair placed with real taps in melonDS, 99.8% the same
+  as DeSmuME).
+- Open: buying in a shop with real taps; picking a pet up with real taps; The Sims 2 DS animals (no
+  skinning/animation reader) and 16 of its models that render black; `urbz_anims.py` still separate.
 
 ## Steps (each ends with something proven in the emulator)
 

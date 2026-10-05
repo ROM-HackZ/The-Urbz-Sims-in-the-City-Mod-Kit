@@ -1,4 +1,4 @@
-# Handoff (2026-10-05, Phase 8: pets)
+# Handoff (2026-10-05, Phase 8 done: pets, furniture art, imports)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase7.md`.
 
@@ -48,14 +48,22 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   ignores zero-filled tables. Proofs `pets-data`, `pets-art`. Facts: 5 drawn directions per slot, slot 0
   stand, 1 walk (docs/systems.md "Pets").
 
+- **Imports (2026-10-05)**, Jonathan: "take our pick of the assets we want to move over". Readers for the other
+  Sims DS games (`urbz_fullfat.py`: Apartment Pets + Castaway; `urbz_sims3.py`; `urbz_nsbmd.py`: The Sims 2 DS),
+  a software renderer at the Urbz camera (`urbz_import.py`: 30 degrees down, 45 round, ~42 px/m), a gallery
+  (`python urbz_import.py gallery`, 1,516 models, local only), `"import"` in `objects.json` / `pets.json`.
+  Furniture now has its own art, palette (`code/objects` `objects_own_palette` + OPAL list) and icon (icon
+  table moved, models 633+). `mods/pets` imports the beagle and cat. Sources: a local `sources.json` with
+  Jonathan's ROM paths (cloud: /root/urbz/others/*.nds). Proofs `rom-grow`, `import-render`,
+  `import-furniture`, `import-pet`, `import-melonds` (they SKIP without sources). Formats:
+  `docs/other-games.md`; camera, own palettes, space: `docs/systems.md`.
+
 ## Next
-- **Jonathan:** draw the Puppy (`python urbz_art.py template pets puppy`, README "Drawing a pet") and test on
-  the Thor; also: does a chicken let loose at home survive a save?
-- Phase 8 next: furniture art (docs/plan-phase8.md step 3), then fold `urbz_anims.py` into `urbz_art.py`.
-- Still open: picking a pet up with real inputs; frame counts other than the template's; using copied
-  furniture (sit, sleep); buying in a shop with real taps.
-- The melonDS harness used to lose a screenshot now and then in full runs (an unchecked capture);
-  captures are now checked and retried. Full run 2026-10-05: 40/40.
+- **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
+- Still open: buying in a shop with real taps; picking a pet up with real taps; saving placed new objects;
+  using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
+  and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
+- Later phases (PLAN.md): outfits, hair styles, characters.
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).

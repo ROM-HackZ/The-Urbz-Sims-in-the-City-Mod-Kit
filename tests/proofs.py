@@ -1210,12 +1210,54 @@ def p_import_pet():
     return ok, '%s; placed Puppy: critter kinds %s; build/proofs/import-pet.png' % (line[0] if line else 'no pets line', kinds)
 
 
+def p_import_melonds():
+    """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
+    the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
+    A: the chair stands there, drawn in its own colours. The same steps in DeSmuME give the same picture
+    (build/proofs/import-melonds.png)."""
+    if not _sources('aptpets'):
+        return None, 'skipped: no aptpets in sources.json'
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_melon as M
+    if not M.available():
+        return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
+    rom, _, _ = _import_mod()
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    sav = os.path.join(work, 'home.sav')
+    run(VERIFY + ['play', rom, '--city', '--goto', '68', '--script', os.path.join(KIT, 'verify', 'scripts', 'savegame.json'),
+                  '--save', os.path.join(work, 'x.dst'), '--export-sav', sav] + sum([['--poke', p] for p in pocket_pokes(440)], []))
+    place = json.load(open(place_script([["wait", 30], ["shot", "placed"]])))
+    load = [['wait', 600]] + [['press', 'START'], ['wait', 300]] * 4 + [['wait', 300], ['press', 'DOWN', 10],
+            ['wait', 60], ['press', 'A', 10], ['wait', 150], ['touch', 220, 117, 15], ['wait', 600], ['shot', 'home']]
+    shots = dict(M.run(rom, load + place, sav=sav))
+    script = os.path.join(work, 'place.json')
+    json.dump(place, open(script, 'w'))
+    out = run(VERIFY + ['ram', rom, '--sav', sav, '--script', os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'),
+                        '--frames', '1'])
+    ref_run = run(VERIFY + ['play', rom, '--sav', sav, '--script', _concat(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'), script),
+                            '--save', os.path.join(work, 'y.dst')])
+    ref = glob.glob(os.path.join(sorted(glob.glob(os.path.join(KIT, 'verify', 'evidence', '*-play')))[-1], '*placed.png'))
+    from PIL import Image
+    a = Image.open(shots['placed']).convert('RGB').crop((0, 0, 256, 192))
+    b = Image.open(ref[0]).convert('RGB').crop((0, 0, 256, 192)) if ref else a
+    same = sum(1 for p, q in zip(a.tobytes()[::3], b.tobytes()[::3]) if abs(p - q) < 24) / (256 * 192)
+    shutil.copy(shots['placed'], os.path.join(OUT, 'import-melonds.png'))
+    return bool(ref) and same > 0.9, 'melonDS vs DeSmuME after placing the imported chair: %.1f%% of the top screen the same; ' \
+        'build/proofs/import-melonds.png' % (100 * same)
+
+
+def _concat(*scripts):
+    p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'all.json')
+    json.dump(sum((json.load(open(s)) for s in scripts), []), open(p, 'w'))
+    return p
+
+
 PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-call', p_hooks_wrap_call),
           ('hooks-thumb', p_hooks_thumb), ('hooks-jump', p_hooks_jump), ('relayout', p_relayout),
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),

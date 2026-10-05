@@ -18,6 +18,12 @@ Addresses are ARM9 RAM addresses (code loads at 0x02000000; ITCM code at 0x01FF8
   (9 bytes per asset of heap), and patches those literals in the ROM. Proven: proof `npc-anims` (the game
   loads a new asset; it plays in DeSmuME and the build runs in melonDS). Before this, added assets were
   silently never loaded.
+- **Space (proven 2026-10-05, proof `rom-grow`):** the ROM file is not the limit. The original is 32 MB (30.4 MB
+  used); DS cartridges go to 512 MB (The Sims 3 DS is 128 MB). A build padded to 128 MB writes a correct header
+  (size, card size, CRCs), boots in DeSmuME and melonDS and loads an added asset from past the old end. The real
+  limits are the DS's memory while playing, which emulators emulate too: the heap (~0.7-1.4 MB free, below), VRAM
+  (what's on screen), 16 OBJ palette rows (people use rows 9+; imported furniture/pets each take one), ~31
+  hardware pieces per drawing, the 8 KB save, and 9 bytes of heap per added asset.
 - Frame scripts (an animation's frame order and timing) are assets too: pairs `{u8 frame, u8 ticks}`, then
   0xFF (hold the last frame) or 0xFD (loop). An animation row's script 0 = the default.
 
@@ -539,6 +545,19 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   indexed by the object's model number (`object_text_table` +0): chair (model 151) = 0x703/0x704 with its
   own palette 0x705 (~24x32). Pets: `critter_anims` rows are the same records (chicken: stand 6 frames,
   walk 9, 16x24, own palette). Plan for drawing new art: docs/plan-phase8.md.
+- **Own-palette objects (proven 2026-10-05, proofs `import-furniture`, `import-melonds`):** object setup
+  (0x020681F0) normally colours an object with its `object_variants` ramp rows; only object 0x3D (the Personal
+  Painting, variants 0xFD) gets a palette of its own from `entity_palette_table` (0x0206D724). The check at
+  `own_palette_check` 0x02068258 is NOPed and the call at `own_palette_call` 0x02068264 goes to
+  `objects_own_palette` (code/objects): 0x3D as before, else a lookup in the builder's `OPAL` list (`{u16 obj, u16
+  0, u32 palette asset x4}`, before `NEWO`). Objects with `"art"`/`"import"` get variants 0xFD x5 and their own
+  palette asset.
+- **Icon table moved:** `ui_sprite_table` 0x020CB134 has 632 rows and only two literal references (0x0204E7B0,
+  0x0204ED20). The objects mod copies it into the code region and appends rows; new art gets model numbers 633+.
+- **The camera (measured from the art, 2026-10-05):** orthographic, turned 45 degrees, looking 30 degrees down (floor
+  tiles 2:1), ~42 px per metre. Furniture art's origin is the west corner of its tile; records 0-2 show the piece
+  facing up-right (yaw 135 for a model facing -Z), 3-4 facing down-left (yaw -45). Pets: dir k = yaw 180 - 45k
+  (dir0 away, dir2 right, dir4 towards you). Code: `urbz_import.py` (`view`, `rasterize`).
 - A mod that writes into the old tables (e.g. a price with a `u32` hook) can't be combined with a mod that
   adds objects: the builder stops and asks for an `objects.json` change instead.
 - Clothes are not separate art: Create-a-Bod's "Threads" page is palette choices. The look is

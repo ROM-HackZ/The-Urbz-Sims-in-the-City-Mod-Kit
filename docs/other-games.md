@@ -4,7 +4,7 @@ Jonathan (2026-10-05): "We can probably pull pet assets from a Sims pet game for
 there's any furniture we don't have in Urbz that may be in the other Sims games." Then: "do all the research
 necessary to learn how this all works so we can take our pick of the assets we want to move over."
 
-**Status (2026-10-05): four games are readable and render into Urbz-style art.** Pick from the gallery
+**Status (2026-10-05): four games are readable and render into Urbz-style art (1,516 models in the gallery).** Pick from the gallery
 (`python urbz_import.py gallery` → `catalog/imports/index.html`), name the pick in a mod's `objects.json` or
 `pets.json` (`"import"`), build. Nothing from these games goes into git: the builder renders the art from your own
 ROMs (`sources.json`) every build; without them a mod still builds and keeps its starting art (a warning says so).
@@ -62,10 +62,17 @@ draws (below) and hands the pictures to the builder.
   u16 width, height, colours, palette, texels. Furniture faces -Z.
 
 ### The Sims 2 (DS)
-- Models are standard Nintendo **NSBMD** (`BMD0`: MDL0 + TEX0) inside the EA-compressed `rom.bin` assets.
-  `urbz_nsbmd.py` reads dictionaries, nodes (translation, rotation incl. the pivot form, scale), the render bytecode
-  (NODEDESC/MTX/MAT/SHP), materials and TEX0 textures (all DS formats incl. 4x4 compressed). Skinning (NODEMIX),
-  billboards and animations (BCA0, 2,818 files) are not read.
+- Models are standard Nintendo **NSBMD** (`BMD0`: MDL0 + TEX0) inside the EA-compressed `rom.bin` assets (329).
+  `urbz_nsbmd.py` reads dictionaries (entries start at offset + the u16 at +6), nodes (translation, rotation incl.
+  the pivot form, scale), the render bytecode (NODEDESC 0x06, MTX 0x03, MAT 0x04, SHP 0x05, RET 0x01), materials
+  and TEX0 textures (all DS formats incl. 4x4 compressed).
+- **Textures usually live in the next asset:** the model's TEX0 has the dictionaries but its texel data is zero;
+  the following `rom.bin` asset holds the data, **palettes first, then texels**. The reader splices it in when the
+  model's own data is empty.
+- Units 1/8 m after the model's position scale; furniture faces -Z.
+- Result: 310 of 329 models render textured, 16 render black (a texture we haven't matched), 3 have none.
+  Skinning (NODEMIX 0x09), billboards and animations (BCA0, 2,818 files) are not read, so its people and animals
+  come out in their bind pose: fine for furniture, not for pets.
 
 ## Using it
 ```

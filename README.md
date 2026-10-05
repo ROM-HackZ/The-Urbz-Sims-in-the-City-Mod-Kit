@@ -303,7 +303,16 @@ angle, its size, 16 colours) every time you build. Your copies of those games st
    Options: `"scale"` (1.0 = real size; pets default to the size of the animal they replace), `"textures"`
    (swap texture names, e.g. a dog breed), `"colour"` (The Sims 3: which colour choice), `"anims"` (pets:
    which animation for each slot, e.g. `{"0-stand": "sitidle"}`).
-4. Build. Without the source game the mod still builds, with the starting art (a warning says so).
+4. Build. Without the source game the mod still builds, with its drawn art if it has some, else the
+   starting animal's or object's art (a warning says so).
+
+`mods\pets` already imports the Apartment Pets beagle (Puppy) and black cat (Kitten). To use your own
+drawing instead, remove that pet's `"import"` line. In the game: buy, Pockets, place at home, turn, pick up,
+all as usual; tested in DeSmuME and melonDS.
+
+What limits how much you can add: not the ROM file (it grows as needed; DS ROMs go up to 512 MB and
+emulators load them fine), but the DS's memory while playing: keep pieces Urbz-sized, 16 colours each,
+and don't crowd one room with many different imported pieces (each takes a palette row; there are 16).
 Formats and findings: `docs\other-games.md`.
 
 ## Save files

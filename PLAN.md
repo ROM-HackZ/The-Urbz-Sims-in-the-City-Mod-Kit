@@ -153,7 +153,7 @@ Plan and status: `docs/plan-phase7.md`. People keep their own look; no needs, mo
 that vary from day to day; `urbz_anims.py` to draw the missing animations per person; the builder now makes
 added assets actually load (the game's asset tables are moved to fit them).
 
-## Phase 8: Pets, furniture and the art tool (plan: docs/plan-phase8.md)
+## Phase 8: Pets, furniture and the art tool (plan: docs/plan-phase8.md) — done
 
 **Changed with Jonathan (2026-10-04):** clothes wait; first **pets** (everyday pets: dogs, cats..., bought
 and placed at home like the Chicken) and **functional furniture**, as separate mods picked in the manager.
@@ -161,7 +161,12 @@ Explored first, then planned (`docs/plan-phase8.md`). Done and proven so far: th
 sell (daily stock from per-object masks), buys go to Pockets, placing works only at home (`pet-place`); new
 objects through `objects.json` (`urbz_objects.py`: seven tables moved, new text, `code/objects`;
 `objects-new`); a new pet kind (`mods/pets`, critter kind 7; `pet-new-kind`); furniture copies
-(`mods/more-furniture`; `mods-split`). Next: the art tool (plan steps 1-5).
+(`mods/more-furniture`; `mods-split`). Then the art tool: pets as data with drawn art, furniture art with
+its own palette and icon, and **imports from the other Sims DS games** (Apartment Pets, Castaway, The Sims 3,
+The Sims 2): pick in a gallery, name it in `objects.json`/`pets.json`, the builder renders it from your own
+ROMs (`docs/other-games.md`). Gate met: the imported Puppy, Kitten, armchair and dog basket in DeSmuME, the
+armchair placed with real taps in melonDS. Space: the ROM file can grow (proof `rom-grow`); the limits
+are the DS's memory while playing (`docs/systems.md` "Assets").
 
 Later (not Phase 8):
 - **Outfits:** clothes are palette choices (`docs/player-look.md`): new colours = palette rows in 11542 +

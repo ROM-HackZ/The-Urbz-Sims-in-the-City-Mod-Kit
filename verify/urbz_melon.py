@@ -139,7 +139,9 @@ def run(rom, script, sav=None, out=None):
     for line in p.stdout.splitlines():
         if line.startswith('RESULT '):
             return json.loads(line[7:])
-    raise RuntimeError('melonDS run failed:\n' + p.stdout[-1500:] + p.stderr[-1500:])
+    log = os.path.join(out, 'melon.log')
+    log = open(log, errors='replace').read()[-1500:] if os.path.exists(log) else ''
+    raise RuntimeError('melonDS run failed (exit %s):\n%s%s%s' % (p.returncode, p.stdout[-1500:], p.stderr[-1500:], log))
 
 
 def screen_stats(png, bottom=False):

@@ -4,15 +4,19 @@ draws its world (2D sprites seen from above at a fixed angle), at Urbz size, in 
 
   python urbz_import.py sources                        which source games are set up (sources.json)
   python urbz_import.py gallery [game ...]             render every model -> catalog/imports/index.html
+                                                       (naming games lists only those; images are cached)
   python urbz_import.py show GAME MODEL [out.png]      one model: 5 directions (+ walk frames for pets)
-  python urbz_import.py build MOD                      fill MOD's art folders from MOD/imports.json
+
+To bring a model over, name it in a mod: objects.json {"id": 440, "like": 136, ..., "import": {"from":
+"aptpets", "model": "armchair4"}} or pets.json {"name": "Puppy", ..., "import": {"from": "aptpets", "model":
+"dog"}}. The builder renders it every build (README "Importing from other Sims games").
 
 sources.json (next to this file; local, never committed) names your own copies of the games:
   {"aptpets": "D:/ROMS/Sims 2 - Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}
 
 The Urbz camera (docs/systems.md "The Urbz camera"): orthographic, 45 degrees round, 30 degrees down
 (floor tiles are 2:1), about 42 pixels per metre. Nothing from the source games goes into git: mods keep
-only imports.json, and the art is made from your ROMs when you run this.
+only the "import" entries, and the art is made from your ROMs when you build.
 """
 import json, os, sys
 
@@ -434,7 +438,7 @@ def gallery(names):
             '.g{display:flex;flex-wrap:wrap;gap:8px}.c{background:#333;padding:6px;width:220px}',
             'img{image-rendering:pixelated;width:220px;background:#3a3a46}.k{color:#aaa;font-size:11px}</style>',
             '<h1>Models you can import</h1><p>Front and back at the Urbz angle (2:1), ~42 px per metre. Name a '
-            'model in a mod\'s <code>imports.json</code> to bring it over.</p>']
+            'model in a mod\'s <code>objects.json</code> or <code>pets.json</code> (<code>"import"</code>) to bring it over.</p>']
     for kind in ('pet', 'object', 'accessory'):
         html.append('<h2>%ss</h2><div class=g>' % kind)
         for gname, info, key, h in rows:
