@@ -104,6 +104,9 @@ I = inferred (read from the decompile, not exercised).
   their own side effects skipped), m0g5 sub-goals 0-1 done, $1,000, `--goto 19:0`, then the real sign, Yes and
   the Save menu: `verify/scripts/rent_first_apartment.json` (byte-identical when rerun:
   `play base.nds --from lobby --poke 0x02141940=<goals> --poke 0x02141124=e8030000 --goto 19:0 --script ... --export-sav`). Loads from power-off in DeSmuME and melonDS (vanilla and mod builds).
+  `verify/saves/apartment-pets.sav`: the same plus Pockets = 386 Puppy, 389 Kitten, 430-432 (poked into list 23:
+  slots of 6 bytes `{u16 object, 4 x 0}` at 0x0214188C, count 0x02141338), saved through the menu with a
+  npc-life + pets + more-furniture build; the Puppy places and walks in the Small Brownstone.
 - P: **the street doors still don't appear after the first goal** (no door entities in the lobby after reporting). The lobby's street doors (section 1, group 1:
   seven type-3 doors to area 4) are a script-switched group, and the chapter goes on: Get Cleaned Up (shower, nap,
   vending machine), Help Kris (move a bed, repair a TV and two fountains), Get the Key (a mechanical skill point,

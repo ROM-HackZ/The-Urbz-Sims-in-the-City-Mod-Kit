@@ -206,6 +206,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
    handy, copy one of the kit's saves there (it replaces your game in that file):
    - `verify\saves\apartment.sav`: just moved into the Small Brownstone (first apartment), $850, a crate to
      unpack; talk to Detective Dan to finish the tower chapter.
+   - `verify\saves\apartment-pets.sav`: the same, with the Puppy, the Kitten and the three more-furniture pieces
+     in Pockets (needs a build with `pets` and `more-furniture`).
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
    In the game: Load Game, slot A.
 4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. The kit's copy uses arrows = D-pad,
