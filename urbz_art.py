@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""The art tool: draw new art for the game, as PNGs. (Pets now; furniture next. Townspeople's
-animations: urbz_anims.py.)
+"""The art tool: draw new art for the game, as PNGs: pets and furniture. (Townspeople's animations:
+urbz_anims.py; art rendered from other Sims games: urbz_import.py.)
 
   python urbz_art.py template <mod> <pet>      PNGs to draw over: the frames of the animal it starts from
   python urbz_art.py preview <mod> <pet>       art/<pet>/preview.png: every frame at 1x and 4x
@@ -17,7 +17,7 @@ Catalog) with icon-palette.png. Canvas 128x128; the west corner of the piece's t
   palette.png        its 16 colours (16 squares; the first is "see-through"). Change a colour and every
                      pixel drawn in it changes. Every pixel you draw snaps to the nearest of the 16.
   0-stand/dir0/00.png ...   the frames: slot 0 = standing, 1 = walking, 2-4 = other moves; dir0-dir4 = the
-                     5 directions the game draws (dir0 faces you, dir2 side-on, dir4 faces away; the
+                     5 directions the game draws (dir0 faces away, dir2 side-on facing right, dir4 faces you; the
                      game mirrors them for the other 3). The shadow is part of each drawing. Each PNG is 88x88 and
                      the animal's feet sit on pixel (32, 64), like the game's own frames.
   timing.json        how long each frame shows ("default" = the game's own timing), which slots reuse

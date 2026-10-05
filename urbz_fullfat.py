@@ -249,14 +249,15 @@ def _fx(v, bits, frac):
     return _s(v, bits) / float(1 << frac)
 
 
-def gx_run(data, off, end, tags=None):
+def gx_run(data, off, end, tags=None, init=None, stack=None):
     """Execute a display list with the matrices as stored (the bind pose). -> submeshes, one per
     BEGIN_VTXS: {'tris': [(v, v, v)], 'polyattr', 'tex'} with v = (x, y, z, s, t, nx, ny, nz, colour, bone)."""
     import numpy as np
     I = np.eye(4)
-    cur = {'pos': I.copy(), 'proj': I.copy(), 'tex': I.copy()}
+    cur = {'pos': I.copy() if init is None else init.copy(), 'proj': I.copy(), 'tex': I.copy()}
     mode = [2]
-    stack, tstack, sp, tag = [I.copy() for _ in range(32)], [-1] * 32, [0], [-1]
+    stack = stack if stack is not None else [I.copy() for _ in range(32)]
+    tstack, sp, tag = [-1] * 32, [0], [-1]
     tags = tags or {}
     st = {'v': [0.0, 0.0, 0.0], 'uv': (0.0, 0.0), 'n': (0.0, 0.0, 1.0), 'c': 0x7FFF}
     subs, verts = [], []

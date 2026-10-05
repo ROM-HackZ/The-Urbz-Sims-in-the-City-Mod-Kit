@@ -24,6 +24,8 @@ GALLERY = os.path.join(KIT, 'catalog', 'imports')
 PITCH = 30.0            # degrees down from horizontal (2:1 floor tiles)
 PX_PER_M = 42.0         # Urbz pixels per metre (a 1.75 m person is ~64 px tall)
 LIGHT = (-0.45, 0.8, 0.55)   # from the upper left, in front (view space)
+SIMS3_FRONT = 180.0          # The Sims 3's furniture faces -Z
+SIMS2_FRONT, SIMS2_UNIT = 180.0, 0.125   # The Sims 2 (DS): faces -Z; 8 units a metre (a chair is 6.6 units)
 
 
 # ------------------------------------------------------------------ rendering
@@ -140,20 +142,49 @@ def game(name):
         src = sources()
         if name not in src or not os.path.exists(src[name]):
             raise SourceMissing('no copy of "%s" set up in sources.json (python urbz_import.py help)' % name)
-        import urbz_fullfat
-        _GAMES[name] = urbz_fullfat.Game(src[name])
+        if name == 'sims3':
+            import urbz_sims3
+            _GAMES[name] = urbz_sims3.Game(src[name])
+        elif name == 'sims2':
+            import urbz_nsbmd
+            _GAMES[name] = urbz_nsbmd.Game(src[name])
+        else:
+            import urbz_fullfat
+            _GAMES[name] = urbz_fullfat.Game(src[name])
     return _GAMES[name]
 
 
 class Model:
     """A Full Fat model ready to render: its parts with textures, its skeleton and animations."""
 
-    def __init__(self, g, info, texture_swap=None):
+    def __init__(self, g, info, texture_swap=None, colour=0):
+        import numpy as np
         import urbz_fullfat as F
         self.g, self.info = g, info
+        self.texture_names = []
+        if getattr(g, 'id', '') in ('sims3', 'sims2'):  # no skeleton here
+            self.bones = None
+            self.parts = []
+            if g.id == 'sims3':
+                import urbz_sims3
+                raw = urbz_sims3.parts(info, colour)
+            else:
+                import urbz_nsbmd
+                raw = [(t[..., :8], tex, col) for t, tex, col in urbz_nsbmd.model(info['bmd'], info.get('extra'))[1]]
+            for tris, tex, col in raw:
+                full = np.zeros(tris.shape[:2] + (10,))
+                full[..., :8] = tris
+                full[..., 9] = -1
+                self.parts.append(({'tris': full}, tex, col))
+            allp = np.concatenate([p[0]['tris'][..., :3].reshape(-1, 3) for p in self.parts]) \
+                if self.parts else np.zeros((1, 3))
+            lo, hi = allp.min(0), allp.max(0)
+            self.unit, self.front = (1.0, SIMS3_FRONT) if g.id == 'sims3' else (SIMS2_UNIT, SIMS2_FRONT)
+            self.offset = np.array([(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2])
+            return
         self.subs = F.mesh(info['mesh']['data'])
         self.bones = F.skeleton(info['skeleton']['data']) if info.get('skeleton') else None
-        self.parts, self.texture_names = [], []
+        self.parts = []
         for s in self.subs:
             tex, f = None, g.textures.get(s['texture'])
             if f and texture_swap:
@@ -279,12 +310,13 @@ def _place(img, bbox_target):
 
 def object_art(cfg, like, folder):
     """Render an imported model into an urbz_art furniture folder (view-away/-toward, icon, palettes).
-    cfg = {"from": game, "model": name, "scale": 1.0 (optional), "textures": {"old": "new"} (optional)}."""
+    cfg = {"from": game, "model": name, "scale": 1.0, "textures": {"old": "new"} (Full Fat games),
+    "colour": 0 (The Sims 3: which of the piece's colour choices)}; all but from/model optional."""
     import numpy as np
     from PIL import Image
     import urbz_art as A
     g, info = find_model(cfg['from'], cfg['model'])
-    model = Model(g, info, cfg.get('textures'))
+    model = Model(g, info, cfg.get('textures'), cfg.get('colour', 0))
     os.makedirs(folder, exist_ok=True)
     ramp = A.object_colours(like)
     recs = A.object_records(like)
@@ -374,7 +406,7 @@ def gallery(names):
     os.makedirs(os.path.join(GALLERY, 'img'), exist_ok=True)
     rows = []
     for gname in names or sorted(sources()):
-        if gname not in ('aptpets', 'castaway'):
+        if gname not in ('aptpets', 'castaway', 'sims3', 'sims2'):
             continue
         g = game(gname)
         for info in g.models():

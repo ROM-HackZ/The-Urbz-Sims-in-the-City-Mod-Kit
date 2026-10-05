@@ -242,7 +242,9 @@ A mod adds or changes objects with an `objects.json`:
 `like` is the object to copy (art and behaviour); `page` is the Catalog page (0 Appliances ...
 5 Utilities, 7 = not shown); `sell` = shop lists that may stock it. The builder makes room for
 the new rows by itself. `python urbz_objects.py show 225` prints an object's row.
-New numbers: 386 and 389-511. New art for a new object is not done yet: it uses the copied object's.
+New numbers: 386 and 389-511. A new object can have its own art: `"art": "art/<folder>"` (your drawings,
+"Drawing furniture" below) or `"import": {...}` (a model from another Sims DS game, "Importing from other Sims
+games" below). Without either it wears the copied object's art.
 
 Two mods use this, each picked on its own in the mod manager (no in-game switch):
 - **`mods\pets`** adds pets from `pets.json` (a Puppy and a Kitten): buy them where chickens are sold,
@@ -262,7 +264,7 @@ python urbz_art.py template pets puppy      mods\pets\art\puppy\: the rooster's 
 python urbz_art.py preview pets puppy       art\puppy\preview.png: every frame, big, off-colour pixels pink
 ```
 In the folder: `0-stand\dir0\00.png ...` (slot 0 = standing, 1 = walking, 2-4 = other moves; dir0 faces
-you, dir2 side-on, dir4 faces away, the game mirrors the rest), `palette.png` (the pet's 16 colours: the
+away, dir2 side-on (facing right), dir4 faces you, the game mirrors the rest), `palette.png` (the pet's 16 colours: the
 first square is see-through; change a square to recolour everything drawn in it), `timing.json` (frame
 lengths; `same_as` reuses another slot). Every frame is 88x88 with the feet on pixel (32, 64); the
 shadow is part of the drawing. Keep the number of frames the template has (other counts aren't
@@ -270,6 +272,39 @@ tested yet). Then build
 the ROM as usual: the builder turns the drawings into game art itself (and numbers new art so pets,
 townspeople's animations and later furniture can all be built together).
 The template pictures are the game's own: keep the `art` folder to yourself until it's all your drawing.
+
+## Drawing furniture
+
+```
+python urbz_art.py object-template mods\more-furniture\art\armchair 136    start from object 136's art
+```
+The folder holds `view-away.png` (the piece facing up-right; the game shows it for 3 of its turns),
+`view-toward.png` (facing down-left), extra state frames `view-away-1.png ...` (e.g. a slept-in bed; missing
+ones repeat the first), `palette.png` (its own 16 colours: unlike the game's furniture it isn't recoloured by
+the catalog colours) and `icon.png` (32x32, for Pockets and the Catalog) with `icon-palette.png`. Canvas
+128x128; the west corner of the piece's floor tile is pixel (24, 100). Point an object at it with
+`"art": "art/armchair"` in `objects.json`.
+
+## Importing from other Sims games
+
+You can bring pets and furniture over from The Sims 2: Apartment Pets, The Sims 2: Castaway, The Sims 3 and
+The Sims 2 (DS). Their worlds are 3D; the kit renders each model the way The Urbz draws (from above at its
+angle, its size, 16 colours) every time you build. Your copies of those games stay on your computer:
+1. Create `sources.json` next to `urbz_build.py` (it is never committed):
+   `{"aptpets": "D:\\ROMS\\Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}`
+2. `python urbz_import.py gallery` renders every model into `catalog\imports\index.html`: pick from there.
+   `python urbz_import.py show aptpets dog` shows one model in 5 turns and walking.
+3. Name your pick in a mod:
+   - furniture, `objects.json`: `{"id": 440, "like": 136, "name": "Green Lounger", "price": 140, "page": 3,
+     "import": {"from": "aptpets", "model": "armchair4"}}` (`like`: the object it behaves like; choose one
+     with a similar size and use);
+   - pets, `pets.json`: `{"name": "Puppy", "object": 386, "from": "rooster", "import": {"from": "aptpets",
+     "model": "dog", "textures": {"collie2": "beagle", "collie": "beagle"}}}`.
+   Options: `"scale"` (1.0 = real size; pets default to the size of the animal they replace), `"textures"`
+   (swap texture names, e.g. a dog breed), `"colour"` (The Sims 3: which colour choice), `"anims"` (pets:
+   which animation for each slot, e.g. `{"0-stand": "sitidle"}`).
+4. Build. Without the source game the mod still builds, with the starting art (a warning says so).
+Formats and findings: `docs\other-games.md`.
 
 ## Save files
 
