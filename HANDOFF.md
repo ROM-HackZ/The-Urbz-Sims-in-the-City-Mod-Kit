@@ -1,4 +1,4 @@
-# Handoff (2026-10-04, Phase 8 exploration)
+# Handoff (2026-10-05, Phase 8: pets)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase7.md`.
 
@@ -41,15 +41,21 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   `mods/pets`). A copied chair (390) places and draws. Pets and furniture are separate mods
   (`mods/pets`: 386, 389-429; `mods/more-furniture`: 430-511; proof `mods-split`). Open: the pet's own art; saving placed new objects; picking up with real inputs; shops not yet seen in the emulator.
 
+- **Pets (2026-10-05)**, Jonathan: "everything within the capabilities of the game, just new stuff; start
+  with pets". Done: pets as data (`mods/pets/pets.json`: Puppy 386 from the rooster, Kitten 389 from the
+  chicken; `urbz_pets.py` builder stage, `code/pets-kit`), pet art (`urbz_art.py template/preview/
+  placeholder`, converted at build), shared art numbering across mods, the 160 KB boot-copy limit now
+  ignores zero-filled tables. Proofs `pets-data`, `pets-art`. Facts: 5 drawn directions per slot, slot 0
+  stand, 1 walk (docs/systems.md "Pets").
+
 ## Next
-- **Phase 8 plan: `docs/plan-phase8.md`** (the art tool `urbz_art.py`: furniture, pets and animations drawn
-  by Jonathan; shared art numbering in the builder). Step 1 (research) is next.
-- Still open from the exploration: picking a pet up with real inputs; using copied furniture (sit, sleep);
-  buying in a shop with real taps; whether loose critters survive a save (once seen: no, in the game too).
-- Jonathan: test on the Thor whether a chicken let loose at home survives a save; test NPC Life v3 (Slice
-  O' Life Pizza around 5 pm on a weekday; the Tower Lobby around 8 am); start drawing (README).
-- Known flaky: the `melonds` proof failed twice inside the full run (no boot screenshot) and passed twice
-  run alone (`python3 tests/proofs.py melonds`). Harness timing, not the game; to look into.
+- **Jonathan:** draw the Puppy (`python urbz_art.py template pets puppy`, README "Drawing a pet") and test on
+  the Thor; also: does a chicken let loose at home survive a save?
+- Phase 8 next: furniture art (docs/plan-phase8.md step 3), then fold `urbz_anims.py` into `urbz_art.py`.
+- Still open: picking a pet up with real inputs; frame counts other than the template's; using copied
+  furniture (sit, sleep); buying in a shop with real taps.
+- Known flaky: the `melonds` proof sometimes fails inside the full run (no boot screenshot) and passes
+  alone (`python3 tests/proofs.py melonds`). Harness timing, not the game; to look into.
 
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
