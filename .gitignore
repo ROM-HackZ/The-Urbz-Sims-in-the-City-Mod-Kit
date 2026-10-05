@@ -23,10 +23,7 @@ __pycache__/
 # Mods: only the example mods are tracked; your own stay local unless you un-ignore them.
 # (A mod that holds files extracted from the game must never be committed.)
 mods/*
-!mods/clock-speed/
-!mods/npc-visit/
 !mods/npc-life/
-!mods/npc-body-proto/
 !mods/pets/
 !mods/more-furniture/
 mods/npc-life/sim/orig_tables.h

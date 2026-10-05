@@ -145,9 +145,8 @@ u8 time_speed_table+4  1      # write a number at a named address
 u32 object_info_table+4000 99 # (names come from code\game.sym)
 data 0x02113B60 01 0F         # or raw bytes
 ```
-The included **`clock-speed`** mod is this kind: it makes in-game days last twice as long.
-Turn it on with `python urbz_mod.py enable clock-speed`, then edit the two numbers in its
-`hooks.txt` to pick another speed (the table in that file shows the options).
+Example: `tests\mods\clock-speed` (the kit's own test mod) makes in-game days last twice as long; copy it
+into `mods\` to use it, then edit the two numbers in its `hooks.txt` (the table in that file shows the options).
 
 **C code.** `python urbz_patch.py new my-mod` adds `code\main.c` and `code\hooks.txt`. Write C
 using `code\include\game.h` (the clock, needs, money, people...), say where it runs in `hooks.txt`:
@@ -158,8 +157,8 @@ jump motive_get my_motive_get      # replace a whole game function
 ```
 then `python urbz_patch.py build my-mod` and build as usual. Compiling needs LLVM
 (`winget install LLVM`); building the ROM doesn't, because each mod keeps its compiled
-`code\build\patch.bin`. The included **`npc-visit`** mod is a small example: it answers the
-game's "where should this person be?" question so that Bayou Boo walks onto the King Tower roof
+`code\build\patch.bin`. A small example is `tests\mods\npc-visit` (a test mod): it answers
+the game's "where should this person be?" question so that Bayou Boo walks onto the King Tower roof
 (where a new game starts) at 10:40 am.
 
 The build prints each code mod's size and address. Code goes in a new block after the game's
@@ -217,10 +216,6 @@ keep to the places the original game puts them, visiting cafés, clubs and parks
 hours, saved with your game. In your area they act it out: they sit down at tables, use the
 toilet, and walk up to each other to chat. Switch it in the game (Options > Mods), see what
 people are doing on its info page, and tune it with two JSON files: see `mods\npc-life\README.md`.
-
-**`mods\npc-body-proto`** (a prototype, off by default) draws Kris Thistle with the player's body
-and animations in her own colours. Switch it on in Options > Mods and find Kris on the King Tower
-roof between 4 and 7 pm.
 
 ## New animations for the townspeople (drawn by you)
 

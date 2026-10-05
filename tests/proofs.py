@@ -106,7 +106,7 @@ def p_vanilla():
 
 
 def p_clock_speed():
-    rom, _, _ = build('clock-speed', [os.path.join(KIT, 'mods', 'clock-speed')])
+    rom, _, _ = build('clock-speed', [os.path.join(TESTS, 'mods', 'clock-speed')])
     a = ram(rom, 1, '0x0214112C:6')['0x0214112C:6']
     b = ram(rom, 61, '0x0214112C:6')['0x0214112C:6']
     secs = lambda t: t[2] * 3600 + t[3] * 60 + t[4] + t[5] / 30
@@ -185,7 +185,7 @@ def p_lz77_repack():
 
 
 def p_npc_schedule_hook():
-    rom, _, _ = build('npc-visit', [os.path.join(KIT, 'mods', 'npc-visit')])
+    rom, _, _ = build('npc-visit', [os.path.join(TESTS, 'mods', 'npc-visit')])
     s, _ = find_magic(rom, 300, 0x54495356, 8)
     answered = struct.unpack_from('<I', s, 4)[0]
     found = 31 in people_in(ram(rom, 300, HEAP_SCAN)[HEAP_SCAN])
@@ -214,7 +214,7 @@ def table_on(rom, frames, index, pokes=()):
 
 def p_toggle_call():
     """A call hook (npc-visit) switched off in-game: the game's own schedule answers again."""
-    rom, _, _ = build('toggle-call', [os.path.join(KIT, 'mods', 'npc-visit')])
+    rom, _, _ = build('toggle-call', [os.path.join(TESTS, 'mods', 'npc-visit')])
     reg = '0x%08X:0x8000' % CODE_BASE
 
     def answered(region):
@@ -235,7 +235,7 @@ def p_toggle_call():
 
 def p_toggle_data():
     """A data hook (clock-speed) switched off and on in-game: the core restores and re-applies the bytes."""
-    rom, _, _ = build('toggle-data', [os.path.join(KIT, 'mods', 'clock-speed')])
+    rom, _, _ = build('toggle-data', [os.path.join(TESTS, 'mods', 'clock-speed')])
     secs = lambda t: t[2] * 3600 + t[3] * 60 + t[4] + t[5] / 30
 
     def rate(pokes):
@@ -330,8 +330,8 @@ def p_switch_persist():
     """A switch changed in the game is written to save memory at once and holds after power-off
     (checked at the title screen, before any game is loaded)."""
     import urbz_save, tempfile
-    rom, _, _ = build('switch-persist', [os.path.join(KIT, 'mods', 'npc-visit'),
-                                         os.path.join(KIT, 'mods', 'clock-speed')])
+    rom, _, _ = build('switch-persist', [os.path.join(TESTS, 'mods', 'npc-visit'),
+                                         os.path.join(TESTS, 'mods', 'clock-speed')])
     wait = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'wait.json')
     json.dump([['wait', 60]], open(wait, 'w'))
     sav = play_export(rom, 'switch-persist', ['--city'], wait, pokes=[core_request(rom, 1, 0)])
@@ -350,8 +350,8 @@ def p_mods_page():
     """The Mods button on Options and the Mods page, driven with real touches: switching
     clock-speed off there restores the clock, and the switch holds after power-off."""
     import shutil, tempfile
-    rom, _, _ = build('mods-page', [os.path.join(KIT, 'mods', 'npc-visit'),
-                                    os.path.join(KIT, 'mods', 'clock-speed')])
+    rom, _, _ = build('mods-page', [os.path.join(TESTS, 'mods', 'npc-visit'),
+                                    os.path.join(TESTS, 'mods', 'clock-speed')])
     script = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'mods.json')
     json.dump([['wait', 30], ['touch', 128, 180, 8], ['wait', 60], ['shot', 'options'],
                ['touch', 61, 120, 8], ['wait', 60], ['shot', 'mods-page'],
@@ -638,7 +638,7 @@ def p_npc_body_prototype():
     """Prototype (mod npc-body-proto, off by default): switched on, Kris (45) is drawn with the player's
     female body in her own colours: layered drawing (+0xC5 bit 0x40), the player's body/clothes/hair tables
     in her slots, two palette rows of her own (9-15); switched off again, she gets her own sprite back."""
-    rom = build('npc-body-prototype', [os.path.join(KIT, 'mods', 'npc-body-proto')])[0]
+    rom = build('npc-body-prototype', [os.path.join(TESTS, 'mods', 'npc-body-proto')])[0]
     on, off = core_request(rom, 0, 1), core_request(rom, 0, 0)
     snaps, out = snapshots(rom, 'lobby', 6, 150, [HEAP_SCAN], pokes=['0x0214112E=1205', on], goto=70,
                            pokes_at={4: [off]})
@@ -741,7 +741,7 @@ def p_melonds():
     import urbz_melon as M
     if not M.available():
         return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
-    rom = npc_life_rom('melonds', [os.path.join(KIT, 'mods', 'clock-speed')])
+    rom = npc_life_rom('melonds', [os.path.join(TESTS, 'mods', 'clock-speed')])
     taps = [['wait', 120], ['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 90],
             ['shot', 'mods']]
     load = [['wait', 600]] + [['press', 'START'], ['wait', 300]] * 4 + [['wait', 300], ['press', 'DOWN', 10],

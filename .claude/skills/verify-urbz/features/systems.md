@@ -23,7 +23,7 @@ ones code mods depend on, so a wrong symbol is caught before a mod is built on i
 - **sys-save:** `play ... --export-sav x.sav` after Options > Save Game (check at 220,117);
   `urbz_save.py set x.sav y.sav --money 4321 --motive hunger=10`; `play <rom> --sav y.sav --script
   verify/scripts/loadgame.json`: the slot screen shows §4,321 and the HUD hunger bar is short.
-- **sys-npc:** build `--mod npc-visit`; from `--city` run 1200 frames: the mod's struct says
+- **sys-npc:** build `--mod tests/mods/npc-visit`; from `--city` run 1200 frames: the mod's struct says
   spawned=1 and the entity at the stored pointer has type 7, character 31; a new person walks on
   the start street (screenshot) where the original has none.
 - **sys-effects:** `--poke 0x02141c30=00 --poke 0x02141218=00000000` (bladder 0) starts the

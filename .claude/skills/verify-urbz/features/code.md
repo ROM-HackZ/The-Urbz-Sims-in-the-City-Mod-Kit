@@ -31,7 +31,7 @@ Preconditions: vanilla build identical; `code/functions.json` and `code/game.sym
 - **Savestates contain the code.** Never test a code mod from an old savestate. Use
   `python verify/urbz_verify.py city <rom>` (boots the build, loads `verify/saves/city.sav`,
   caches a state per ROM hash) and `--city` on `ram/play/watch/find`.
-- **code-data:** build `--mod clock-speed`; `ram <rom> --city --frames 1` and `--frames 61` reading
+- **code-data:** build `--mod tests/mods/clock-speed`; `ram <rom> --city --frames 1` and `--frames 61` reading
   `0x0214112C:6` (game_time): the seconds advance 45 per 60 frames (original 90).
 - **code-blob + code-hooks:** a test mod with `wrap world_tick f` (counter++) and
   `call time_update_call g` (calls `time_add`, counts): read the counters (find them by a magic

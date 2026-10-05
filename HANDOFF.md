@@ -21,7 +21,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   - The people code decompiled (Ghidra 11 headless, see research/README.md; the decompile is not in git):
     wander state 0x23, path requests (3 slots), the object list and classes, `npc_goto_object`.
   - NPC Life v2 visible actions (`mods/npc-life/code/act.inc`): sit, toilet, chat with gestures.
-  - Prototype `mods/npc-body-proto` (off by default): Kris with the player's body and animations.
+  - Prototype `npc-body-proto`: Kris with the player's body and animations (now a test mod, `tests/mods/`).
   - Kit: `urbz_save.py set --clock`, harness `poke` script step, `snapshots(pokes_at=)`, melonDS harness
     waits for its window and measures the menu bar (the melonds proof now matches DeSmuME 100%),
     urbz_patch tracks `.inc`/`.h` files, test mod `tests/mods/obj-probe`.
@@ -57,6 +57,9 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   Jonathan's ROM paths (cloud: /root/urbz/others/*.nds). Proofs `rom-grow`, `import-render`,
   `import-furniture`, `import-pet`, `import-melonds` (they SKIP without sources). Formats:
   `docs/other-games.md`; camera, own palettes, space: `docs/systems.md`.
+
+- **2026-10-05, Jonathan:** clock-speed, npc-visit and npc-body-proto are no longer player mods; they live in
+  `tests/mods/` as test fixtures (the platform proofs use them). Player mods: npc-life, pets, more-furniture.
 
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
@@ -108,4 +111,4 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - Plain language, short sentences, say what's proven vs not. He uses "plan mode" by asking in a message.
 - Don't spawn heavy subagents casually.
 - Open items for him: try NPC Life v3 on the Thor; draw animations; `manager.bat` on Windows. He chose not to
-  roll out the player body (npc-body-proto stays, off by default).
+  roll out the player body.
