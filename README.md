@@ -196,6 +196,20 @@ description. Tick the ones you want, change their order, then **Build**, **Play*
 ROM in the emulator named in `emulator.txt`) or **Build & Play**. **Add mod...** installs a
 mod from a zip file (it refuses zips with ROMs, saves or programs in them).
 
+## Playing on your PC
+
+1. Put a DS emulator anywhere (melonDS, the same one as on the Thor: the Windows zip from its GitHub releases;
+   the kit's own copy can live in `emulator\`, which git ignores) and put the full path of its `.exe` in
+   `emulator.txt`.
+2. In `manager.bat` tick the mods you want, then **Build & Play**. Rebuilding replaces `build\Urbz Mod.nds` but
+   never the save next to it, so your game carries on.
+3. melonDS keeps the save next to the ROM with the same name: `build\Urbz Mod.sav`. To start somewhere
+   handy, copy one of the kit's saves there (it replaces your game in that file):
+   - `verify\saves\apartment.sav`: just moved into the Small Brownstone (first apartment), $850, a crate to
+     unpack; talk to Detective Dan to finish the tower chapter.
+   - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
+   In the game: Load Game, slot A.
+
 ## NPC Life
 
 **`mods\npc-life`** makes the city live: the 36 townspeople have needs, jobs, money and rent and

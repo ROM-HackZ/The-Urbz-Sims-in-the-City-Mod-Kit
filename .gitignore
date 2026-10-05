@@ -14,6 +14,7 @@ verify/states/
 # Your own mods/settings stay local unless you add them on purpose
 mods.json
 emulator.txt
+/emulator/
 
 # Python
 __pycache__/

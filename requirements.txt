@@ -2,3 +2,4 @@ ndspy>=4.0
 Pillow>=10.0
 py-desmume>=0.0.9
 capstone>=5.0
+numpy>=1.24
