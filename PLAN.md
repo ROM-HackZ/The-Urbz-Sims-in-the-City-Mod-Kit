@@ -177,6 +177,15 @@ Later (not Phase 8):
 
 **Gate:** buy, place and use the new thing with real taps, in DeSmuME and melonDS.
 
+## Phase 9: Pets, completed (plan: docs/plan-phase9.md)
+
+Jonathan (2026-10-06): "let's get pets completed in this next phase." Pets you buy in a shop, keep, look after
+and play with: they stay through saves and trips out (a "my pets" list in the mod save data), get their own
+icons, a menu when you walk up to them (Pet / Play / Feed / Pick up), light needs (hunger, happiness; neglect
+only makes them mope), their own behaviour with many more animations (sleep, sit, sniff, play, greet you, use
+their bed), and are sold in a shop. Caged animals keep roaming with a hop. Gate: one melonDS session with real
+taps from buying to saving and loading.
+
 ## Working in the cloud
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).
