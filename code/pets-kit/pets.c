@@ -370,9 +370,26 @@ static void talk_tick(void)
         if (!r)
             return;
         talk.choice = (r >= 1 && r <= 4) ? (int)r : 0;
-        talk.stage = 2;
         talk.timer = 0;
         pets_stats.last_pick = (u32)talk.choice;
+        talk.stage = 3;                             /* first it comes up to you (not to be pocketed) */
+        if (talk.choice >= OPT_PET && talk.choice <= OPT_FEED)
+            pets_play(e, A_WALK);
+        else
+            talk.timer = 90;
+    }
+    if (talk.stage == 3) {                          /* coming up to you */
+        int dx = ENT_X(pl) - ENT_X(e), dy = ENT_Y(pl) - ENT_Y(e);
+        if (dx * dx + dy * dy > 20 * 20 && ++talk.timer < 90) {
+            entity_face(e, entity_dir_to(e, pl));
+            entity_go(e);
+            return;
+        }
+        entity_stop(e);
+        entity_face(e, entity_dir_to(e, pl));
+        entity_face(pl, entity_dir_to(pl, e));
+        talk.stage = 2;
+        talk.timer = 0;
         switch (talk.choice) {
         case OPT_PET:
             entity_set_state(pl, 0);
@@ -410,6 +427,8 @@ static void talk_tick(void)
         }
         return;
     }
+    if (talk.stage != 2)
+        return;
     /* stage 2: the action plays out */
     talk.timer++;
     if (talk.choice == OPT_PET) {
