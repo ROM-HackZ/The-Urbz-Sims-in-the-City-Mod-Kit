@@ -160,3 +160,25 @@ melonDS with real taps.
 - **Heap:** more animation files load only while playing. The code grows by a few KB.
 - **Renders:** each extra action adds frames (ROM only). Every frame must keep within 32 tiles (`pet_art`
   checks).
+
+## Status (2026-10-06): done
+
+All steps proven; the gate passes in melonDS.
+
+| Step | What | Proof |
+|---|---|---|
+| 1 | "My pets" (12) kept in the mod save data and respawned at home after a trip or a load | `pets-persist` |
+| 2 | Each pet's own Pockets/Catalog icon (models 633+) | `pets-icons` |
+| 3 | A at a pet: the game's question box, Pet / Play / Feed / Put in Pocket; the pet comes up to you | `pets-menu` |
+| 4 | Pets and Pet Treats (396, $10) sold by the Bayou Bazaar clerk, Sim Quarter Farmer's Market (list 9) | `pets-shop` |
+| 5 | 12 rendered actions per pet, `pets_behaviour` (idles, sleep at night, greet, mope), hunger/happiness | `pets-life`, `pets-needs` |
+| 7 | melonDS with real taps: buy, save; (DeSmuME: the trip home); place, Pet, Feed, save; loaded: kept | `pets-gate` |
+
+Changes from the plan:
+- The game's touch route (`critter_tap`) never fired for the player, so pets-kit checks A presses itself (the
+  plan's fallback). The box holds 4 options, so it is the game's own question box, no new menu.
+- The menu says "Put in Pocket" (an existing string) for Pick up.
+- Pitfall found by the gate: after the box the player is left in state 0 (no walking, Save Game buzzes);
+  pets-kit puts him back in 0x10 when the talk ends.
+- Not done: pet beds (pets don't look for a basket yet), sounds (step 6: no fitting sound ids found), the
+  Mods-page info page, carrying pets along when moving home (untested).

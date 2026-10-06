@@ -186,6 +186,9 @@ only makes them mope), their own behaviour with many more animations (sleep, sit
 their bed), and are sold in a shop. Caged animals keep roaming with a hop. Gate: one melonDS session with real
 taps from buying to saving and loading.
 
+**Status (2026-10-06): done**, gate `pets-gate` passes in melonDS (details: docs/plan-phase9.md "Status"). Not
+done: pet beds, sounds, a Mods-page pets page.
+
 ## Working in the cloud
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).
