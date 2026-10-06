@@ -208,6 +208,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
      unpack; talk to Detective Dan to finish the tower chapter.
    - `verify\saves\apartment-pets.sav`: the same, with all eight pets in Pockets (Puppy, Kitten, Bunny, Hamster,
      Guinea Pig, Cockatoo, Macaw, Snake; needs a build with `pets`).
+   - `verify\saves\pet-shop.sav`: standing at the Bayou Bazaar clerk (Farmer's Market) with $850; today's
+     shelf has the Puppy, Kitten, Bunny and Pet Treats (press A at the clerk). Home is the Small Brownstone.
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
    In the game: Load Game, slot A.
 4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. The kit's copy uses arrows = D-pad,

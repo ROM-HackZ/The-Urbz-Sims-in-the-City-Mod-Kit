@@ -107,6 +107,9 @@ I = inferred (read from the decompile, not exercised).
   `verify/saves/apartment-pets.sav`: the same plus Pockets = the eight pets 386, 389-395 (poked into list 23:
   slots of 6 bytes `{u16 object, 4 x 0}` at 0x0214188C, count 0x02141338), saved through the menu with a
   npc-life + pets + more-furniture build; each pet places and walks in the Small Brownstone.
+  `verify/saves/pet-shop.sav`: from apartment.sav, standing at the Bayou Bazaar clerk (char id 15, Sim Quarter
+  Farmer's Market, area 13; loads at (995,598)), $850; list 9's shelf (slots at 0x021414F0) poked to Puppy 386,
+  Kitten 389, Bunny 390 and Pet Treats 396 and saved through the menu (stock is saved with the game).
 - P: **the street doors still don't appear after the first goal** (no door entities in the lobby after reporting). The lobby's street doors (section 1, group 1:
   seven type-3 doors to area 4) are a script-switched group, and the chapter goes on: Get Cleaned Up (shower, nap,
   vending machine), Help Kris (move a bed, repair a TV and two fountains), Get the Key (a mechanical skill point,

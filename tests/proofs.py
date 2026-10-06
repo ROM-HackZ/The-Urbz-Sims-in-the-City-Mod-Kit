@@ -1008,7 +1008,10 @@ def p_mods_split():
     for name, mods in (('split-pets', [pets]), ('split-furniture', [furn]), ('split-both', [pets, furn])):
         log = build(name, mods)[1]
         reports[name] = [l for l in log.splitlines() if l.startswith('objects:')]
-    pet_objs = sorted(p['object'] for p in json.load(open(os.path.join(pets, 'pets.json')))['pets'])
+    pet_objs = [p['object'] for p in json.load(open(os.path.join(pets, 'pets.json')))['pets']]
+    if os.path.exists(os.path.join(pets, 'objects.json')):          # its other objects (Pet Treats)
+        pet_objs += [o['id'] for o in json.load(open(os.path.join(pets, 'objects.json')))['objects']]
+    pet_objs = sorted(pet_objs)
     furn_objs = sorted(o['id'] for o in json.load(open(os.path.join(furn, 'objects.json')))['objects'])
     tup = lambda xs: '(%s)' % ', '.join(map(str, xs))
     want = {'split-pets': tup(pet_objs), 'split-furniture': tup(furn_objs), 'split-both': tup(sorted(pet_objs + furn_objs))}
