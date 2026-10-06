@@ -411,7 +411,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   sprite numbers, the parts are drawn scattered. Limits: the female body always has a skirt and no cap;
   person animations the player lacks (ids >= 196 or empty) show as standing.
 
-## Pets (Phase 8 exploration, from the code + game text; not yet played through)
+## Pets (Phase 8 exploration from the code + game text; Phase 9 made them real pets)
 
 - The game's pets are **Splicer Island's spliced animals**: you extract DNA from amber and splice genes at the
   Splicer Lab (minigames, strings 155/156/162), then show pets in the **Pet Show** card game (154/160).
@@ -478,11 +478,11 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   chicken/rooster `critter_table` +8 handler `critter_tap` (0x0202A4F8, called when the player in state 0x10
   is at the critter) returns unless kind-1 <= 1 (`critter_tap_kind` 0x0202A570). code/pets-kit treats pets
   as kind 1 there too. How the player triggers it is still unknown: A presses and walking into a placed
-  Chicken in the vanilla game didn't call it in the harness.
+  Chicken in the vanilla game didn't call it in the harness. Phase 9 opens its own menu instead (below).
 - **Critter sprite memory:** a critter frame may use 32 tiles; a 40-tile frame drew as garbage (see
   docs/other-games.md). Critter speed = `critter_table` +0xC (16.16; chicken 0x22000, rooster 0x30000);
   pets.json `"speed"` scales it.
-- **Saving (seen once, 2026-10-04, not a proof):** a Chicken (or Puppy) placed at home and left running,
+- **Saving (seen once, 2026-10-04, not a proof; since Phase 9 pets-kit keeps them, see above):** a Chicken (or Puppy) placed at home and left running,
   then saved (Options > Save Game) and loaded, was gone; the game did the same with the original Chicken,
   so free-running critters don't seem to be saved. Caveat: home was reached with the experimental
   `--goto 68`, not by walking there. To check on the Thor: does a chicken you let loose survive a save?
@@ -498,6 +498,36 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   Kitten drawn in orange from a new palette is shown in the game with new art files, built together
   with an `urbz_anims` mod. Code region: the copy limit (160 KB) now counts only what is copied at boot;
   the moved asset tables are zero-filled by the start-up (all of pets + furniture + assets: ~182 KB of heap).
+- **Talking to a pet (Phase 9, proofs `pets-menu`, `pets-gate`):** the game's own collision route to
+  `critter_tap` never fired for the player, so code/pets-kit checks on every tick: A pressed (keys-down at
+  `input_state`+10, bit 1), the player idle (state 0x10), a pet within 56 px (`entity_faces` player -> pet).
+  It then opens the game's question box: strings u16[5] at `dialog_text` 0x02146EB8 + screen*10 (question +
+  up to 4 options; we use 292 "What do you want to do?", 725 "Pet", 3657 "Play", 3632 "Feed", 3654 "Put in
+  Pocket"), flags at `dialog_flags` 0x02146ECC + screen*12 (+3 = 1, +4 = 0 for a question), `dialog_open`
+  0x02078530; the answer is a u32 at `dialog_result` 0x027C00D4 + screen*0x8C (1-4 = option, 0x7FFFFFFF =
+  cancel; `screen_index` 0x027C0004). The pet then walks up to you (<= 20 px, at most 3 s) and:
+  Pet = the Splicer petting (player anims 0x4E/0x4F/0x50, motive row 0x1A), Play, Feed (takes one Pet Treats,
+  object 396, from Pockets; none = a buzz and a sad pet), Put in Pocket (object back in Pockets, critter
+  flags |= 2 so the world loop frees it). Afterwards it sits by you for about 10 s.
+  Pitfall: after the box the player is left in state 0; the game's own boxes put him back in 0x10 themselves.
+  Left in 0 he can't walk, and Save Game / Quit just buzz: `menu_hit_test` asks `can_save` 0x0206F8C4
+  (player state 0x10 or game phase != 3, his action != 5, top screen in state 1, ...).
+- **Pet actions (Phase 9):** each pet has its own table of 12 actions (stand, walk, sit, lie, sleep, sniff,
+  play, eat, happy, sad, petted, scratch) rendered from the source game's animations (`urbz_import.ACTIONS`,
+  `ACTION_ANIMS`; birds use calm ones to stay within 32 tiles). The list before the critter table ('PETA':
+  {u16 object, u16 kind, u32 actions} x n, n) points at it; `pets_play(e, action)` does what
+  `critter_play_anim` does (`entity_records` by facing + `entity_script`). Missing actions fall back to stand.
+- **Behaviour (Phase 9, proof `pets-life`):** pets-kit replaces the pets' behaviour (+0x4C) with
+  `pets_behaviour`: wander with the game's own critter movement, and every few seconds pick an idle action
+  (sniff, sit, scratch, lie, play, happy); at night (22:00-07:00) sleep or lie; hunger or happiness under 25 =
+  mope (sad, sit, lie). On entering home the pets walk up to greet you.
+- **Needs (Phase 9, proof `pets-needs`):** hunger -1 every 5 game minutes, happiness -1 every 7; Feed +45
+  hunger, Pet +20 happiness, Play +30 happiness and -8 hunger. Saved with "my pets". Neglect only makes them
+  mope.
+- **Where pets are sold (Phase 9, proof `pets-shop`):** shop list 9 (the Chicken's) is the **Bayou Bazaar**
+  clerk at the Sim Quarter Farmer's Market (area 13, clerk char id 15 at (967,545)); shops are state 17 with
+  the list = clerk char id - 6; list headers at 0x02141280 + 8*i, list 9's slots at 0x021414F0. Today's stock
+  is saved with the game. Pet Treats (object 396, $10) sell there too.
 - Adding a Splicer species would mean new rows in the per-kind tables (sprites, palettes, speed, names),
   new art (2 views per animation), and teaching the splicer and pet show about it; not looked at.
 

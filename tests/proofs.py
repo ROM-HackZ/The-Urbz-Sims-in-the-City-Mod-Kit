@@ -1505,6 +1505,79 @@ def p_import_melonds():
         'build/proofs/import-melonds.png' % (100 * same)
 
 
+MELON_LOAD = [['wait', 600]] + [['press', 'START'], ['wait', 300]] * 4 + [['wait', 300], ['press', 'DOWN', 10],
+              ['wait', 60], ['press', 'A', 10], ['wait', 150], ['touch', 220, 117, 15], ['wait', 600],
+              ['press', 'B', 6], ['wait', 60]]
+
+
+def p_pets_gate():
+    """Phase 9 gate, in melonDS with real taps (what Jonathan plays on), in two sessions:
+    1. at the Farmer's Market (a save with the Puppy and treats on the Bayou Bazaar's shelf): open the shop,
+       buy both, save (Options > Save Game);
+    (DeSmuME takes that save home: the one step not done with taps, the trip across the city)
+    2. at home: Pockets, place the Puppy; walk up, A, Pet; A, Feed (uses the treats); save.
+    That last save, loaded in DeSmuME after a power-off: the Puppy is at home (critter kind 7), remembered by
+    pets-kit with its needs, the treats are gone and $70 was paid (build/proofs/pets-gate-*.png)."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_melon as M
+    if not M.available():
+        return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
+    rom = build('pets-menu', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    save = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json')))
+    # the shelf: a save at the clerk with the Puppy and treats in today's stock (stock is saved with the game)
+    p = os.path.join(work, 'stock.json')
+    json.dump(load + [['poke', '0x%08X=%s' % (SHOP_9, (struct.pack('<HI', 386, 0) + struct.pack('<HI', 396, 0)).hex())],
+                      ['wait', 20]] + save, open(p, 'w'))
+    stocked = os.path.join(work, 'stocked.sav')
+    run(VERIFY + ['play', rom, '--sav', os.path.join(KIT, 'verify', 'saves', 'pet-shop.sav'), '--script', p,
+                  '--save', os.path.join(work, 'a.dst'), '--export-sav', stocked])
+    # 1. melonDS: buy and save
+    shop = [x for x in _shop_script([386, 396]) if x[0] != 'poke']
+    shop = MELON_LOAD + shop[len(load):] + [['touch', 236, 75, 6], ['wait', 120]] + save   # leave the shop
+    out1 = os.path.join(work, 'melon1')
+    shots1 = dict(M.run(rom, shop, sav=stocked, out=out1))
+    bought = os.path.join(out1, 'game.sav')
+    # DeSmuME: the trip home, then save
+    p = os.path.join(work, 'home.json')
+    json.dump(load + _area_goto(22) + [['wait', 60]] + save, open(p, 'w'))
+    home = os.path.join(work, 'home.sav')
+    run(VERIFY + ['play', rom, '--sav', bought, '--script', p, '--save', os.path.join(work, 'b.dst'), '--export-sav', home])
+    # 2. melonDS: place, pet, feed, save
+    place = [["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90], ["touch", 131, 36, 8],
+             ["wait", 30], ["touch", 131, 36, 8], ["wait", 90], ["touch", 236, 166, 8], ["wait", 60]] + \
+        [["press", "DOWN", 12], ["wait", 20]] * 3 + [["press", "A", 6], ["wait", 20]]
+    talk = [['press', 'A', 4], ['wait', 40], ['shot', 'menu'], ['press', 'A', 4], ['wait', 150], ['shot', 'petting'],
+            ['wait', 300], ['press', 'A', 4], ['wait', 40], ['press', 'DOWN', 4], ['wait', 10], ['press', 'DOWN', 4],
+            ['wait', 10], ['press', 'A', 4], ['wait', 120], ['shot', 'feeding'], ['wait', 300]]
+    out2 = os.path.join(work, 'melon2')
+    shots2 = dict(M.run(rom, MELON_LOAD + place + talk + save, sav=home, out=out2))
+    for n, f in list(shots1.items()) + list(shots2.items()):
+        if n in ('bought', 'menu', 'petting', 'feeding'):
+            shutil.copy(f, os.path.join(OUT, 'pets-gate-%s.png' % n))
+    for n, f in shots2.items():
+        if n in ('save-slot', 'overwrite', 'saved'):
+            shutil.copy(f, os.path.join(OUT, 'pets-gate-2-%s.png' % n))
+    # DeSmuME: power on, load what melonDS saved
+    p = os.path.join(work, 'check.json')
+    json.dump(load + [['wait', 240]], open(p, 'w'))
+    out = run(VERIFY + ['ram', rom, '--sav', os.path.join(out2, 'game.sav'), '--script', p, '--frames', '30',
+                        '--read', HEAP_SCAN, '--read', '0x02141338:1', '--read', '0x0214188C:12', '--read', '0x02141124:4'])
+    vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
+    st = _pets_stats(vals[HEAP_SCAN])
+    kinds = sorted(k for _, k in critters(vals[HEAP_SCAN]) if k >= 7)
+    n = vals['0x02141338:1'][0]
+    items = [struct.unpack_from('<H', vals['0x0214188C:12'], 6 * k)[0] for k in range(min(n, 2))]
+    money = struct.unpack('<i', vals['0x02141124:4'])[0]
+    hunger, happy = st['mood0'] & 0xFF, (st['mood0'] >> 8) & 0xFF
+    ok = kinds == [7] and st['loaded'] == 1 and 386 not in items and 396 not in items and money == 850 - 70 and \
+        hunger >= 95 and happy > 80
+    return ok, 'after melonDS (buy, save) + DeSmuME (the trip home) + melonDS (place, Pet, Feed, save), loaded in ' \
+        'DeSmuME: pet critters %s, my pets %d (hunger %d, happiness %d), Pockets %s, money $%d; ' \
+        'build/proofs/pets-gate-*.png' % (kinds, st['loaded'], hunger, happy, items, money)
+
+
 def _concat(*scripts):
     p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'all.json')
     json.dump(sum((json.load(open(s)) for s in scripts), []), open(p, 'w'))
@@ -1524,7 +1597,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
-          ('melonds', p_melonds)]
+          ('melonds', p_melonds), ('pets-gate', p_pets_gate)]
 
 
 def main(argv):

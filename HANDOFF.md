@@ -1,6 +1,6 @@
-# Handoff (2026-10-05, Phase 8 done: pets, furniture art, imports)
+# Handoff (2026-10-06, Phase 9 done: pets completed)
 
-For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase7.md`.
+For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase9.md`.
 
 ## The project
 Jonathan's "dream version" of *The Urbz: Sims in the City* (DS, USA, ROM SHA1
@@ -66,9 +66,18 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   389-395); caged animals walk with an idle + hop; `"coat"` for breeds; frames must fit 32 tiles (pet_art
   shrinks). Proof `pet-walk`. Picking up with real inputs is still not found.
 
+- **Phase 9 (2026-10-06): pets completed** (plan + status: `docs/plan-phase9.md`; facts: `docs/systems.md`
+  "Pets"). code/pets-kit keeps "my pets" (saved, respawned at home), each pet has its own icon, 12 rendered
+  actions and its own behaviour (idles, sleep at night, greet, mope), hunger and happiness; A at a pet opens the
+  game's question box (Pet / Play / Feed / Put in Pocket); Pet Treats (396); pets and treats are sold by the
+  Bayou Bazaar clerk at the Sim Quarter Farmer's Market (shop list 9). Saves: `verify/saves/apartment.sav`,
+  `apartment-pets.sav`, `pet-shop.sav`. Proofs pets-persist, pets-icons, pets-menu, pets-life, pets-needs,
+  pets-shop, pets-gate (melonDS: buy, save; home; place, Pet, Feed, save; loaded: all kept).
+
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
-- Still open: buying in a shop with real taps; picking a pet up with real taps; saving placed new objects;
+- Still open: the game's own pick-up route (critter_tap; we use our menu instead); pet sounds; a Mods-page
+  pets info page; moving home with pets; saving placed new objects;
   using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
   and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
 - Later phases (PLAN.md): outfits, hair styles, characters.

@@ -291,3 +291,4 @@ screen_index       = 0x027C0004   # u32: the screen (0 top, 1 bottom) being run
 input_state        = 0x02141D70   # +10 u16 keys pressed this frame (1 A, 2 B, 0xF0 D-pad)
 pockets_list       = 0x02141338   # item list 23: {u8 count, u8 capacity, u16, slots *} slots {u16 object, u8, u8 variant} (6 bytes)
 crit_table_lit     = 0x0202AC1C   # a literal holding critter_table (moved by urbz_pets.py; code/pets finds the pet list before it)
+can_save           = 0x0206F8C4   # (): 1 if Save Game / Quit may open: player state 0x10 (or game phase != 3), action != 5, top screen state 1, ...; else menu_hit_test buzzes

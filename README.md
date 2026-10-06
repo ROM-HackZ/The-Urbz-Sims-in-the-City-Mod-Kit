@@ -261,16 +261,31 @@ New numbers: 386 and 389-511. A new object can have its own art: `"art": "art/<f
 games" below). Without either it wears the copied object's art.
 
 Two mods use this, each picked on its own in the mod manager (no in-game switch):
-- **`mods\pets`** adds pets from `pets.json` (a Puppy and a Kitten): buy them where chickens are sold,
-  place them at home and they run around; pick them up and they go back to Pockets. Their art: see
-  "Drawing a pet" below. Numbers 386 and 389-429.
+- **`mods\pets`** adds eight pets from `pets.json` (Puppy, Kitten, Bunny, Hamster, Guinea Pig, Cockatoo,
+  Macaw, Snake) and Pet Treats: buy them at the Farmer's Market, let them loose at home and look after them
+  ("Looking after pets" below). Their art: see "Drawing a pet" below. Numbers 386 and 389-429.
 - **`mods\more-furniture`** adds three pieces of furniture to the Catalog and the furniture shop
   (copies of a chair, a bed and a recliner with new names and prices, until new art exists).
   Numbers 430-511.
 
+## Looking after pets
+
+- **Buying:** the **Bayou Bazaar** stall at the Sim Quarter **Farmer's Market** sells the pets and Pet Treats
+  ($10). Walk up to the clerk, press A, double-tap what you want. What's on the shelf changes every day.
+- **Letting one loose:** Pockets, double-tap the pet, walk to a free (yellow) tile at home, A.
+- **Talking to it:** walk up to your pet, face it, press A: *Pet*, *Play*, *Feed* or *Put in Pocket*. The pet
+  comes over first. Feed uses one Pet Treats from Pockets.
+- **Its life:** pets wander, sniff, sit, scratch, lie down and play by themselves, sleep at night (22:00-07:00)
+  and come to greet you when you get home. Each has hunger and happiness: they go down slowly with the clock;
+  a hungry or lonely pet mopes (sad, sitting, lying about) until you feed it, pet it or play with it. It never
+  runs away.
+- **Keeping them:** your pets stay at home when you leave and are saved with the game (up to 12).
+  Tested in DeSmuME and melonDS. The first build after a change renders the pets' animations for a few
+  minutes; later builds reuse them.
+
 ## Drawing a pet
 
-Pets live in `mods\pets\pets.json` (Puppy and Kitten so far; add more the same way). Each starts from
+Pets live in `mods\pets\pets.json` (eight so far; add more the same way). Each starts from
 an animal of the game (`"from"`: chicken, rooster or nutria): it moves like that animal and wears its art
 until you draw your own:
 ```
@@ -323,8 +338,7 @@ angle, its size, 16 colours) every time you build. Your copies of those games st
 
 `mods\pets` already imports the Apartment Pets animals: Puppy (beagle), Kitten, Bunny, Hamster, Guinea Pig,
 Cockatoo, Macaw and Snake (`"coat"` picks another dog breed or cat coat, see `docs\other-games.md`). To use your own
-drawing instead, remove that pet's `"import"` line. In the game: buy, Pockets, place at home, turn, pick up,
-all as usual; tested in DeSmuME and melonDS.
+drawing instead, remove that pet's `"import"` line. In the game: see "Looking after pets" above.
 
 What limits how much you can add: not the ROM file (it grows as needed; DS ROMs go up to 512 MB and
 emulators load them fine), but the DS's memory while playing: keep pieces Urbz-sized, 16 colours each,

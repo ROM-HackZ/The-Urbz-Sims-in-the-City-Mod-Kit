@@ -331,6 +331,15 @@ static u8 bump(u8 v, int d)
     return (u8)(x < 0 ? 0 : x > 100 ? 100 : x);
 }
 
+/* The player gets his controls back: after the question box he is left in state 0 (the game's own boxes
+   set 0x10 again themselves, e.g. the rent sign), where he can't walk, open the menu again, save or quit. */
+static void talk_done(u8 *pl)
+{
+    if (pl && pl[0x104] != 0x10)
+        entity_set_state(pl, 0x10);
+    talk.stage = 0;
+}
+
 static void talk_tick(void)
 {
     u8 *pl = player_entity();
@@ -360,7 +369,7 @@ static void talk_tick(void)
     }
     u32 i = talk.pet;
     if (i >= n_mine || !alive(i) || !pl) {
-        talk.stage = 0;
+        talk_done(pl);
         return;
     }
     u8 *e = live[i].e;
@@ -407,7 +416,7 @@ static void talk_tick(void)
             } else {
                 play_sound(3);                      /* refused: no treats */
                 pets_play(e, A_SAD);
-                talk.timer = 200;
+                talk.timer = 120;
             }
             break;
         case OPT_POCKET:
@@ -418,11 +427,11 @@ static void talk_tick(void)
                 pets_count.picked++;
             } else
                 play_sound(3);                      /* Pockets full */
-            talk.stage = 0;
+            talk_done(pl);
             return;
         default:                                    /* cancelled */
             wander(i);
-            talk.stage = 0;
+            talk_done(pl);
             return;
         }
         return;
@@ -432,27 +441,26 @@ static void talk_tick(void)
     /* stage 2: the action plays out */
     talk.timer++;
     if (talk.choice == OPT_PET) {
-        if (talk.timer == 30)
+        if (talk.timer == 20)
             entity_anim(pl, 0x4F);
-        if (talk.timer % 30 == 0)
+        if (talk.timer % 15 == 0)
             motive_effect((s32 *)ADDR_player_motives, 0x1A, 1);   /* what petting does for you (row 26) */
-        if (talk.timer == 150)
+        if (talk.timer == 95)
             entity_anim(pl, 0x50);
-        if (talk.timer < 180)
+        if (talk.timer < 115)
             return;
-        entity_set_state(pl, pl[0x10A]);
         m->happy = bump(m->happy, 20);
     } else if (talk.choice == OPT_PLAY) {
-        if (talk.timer < 180)
+        if (talk.timer < 120)
             return;
         m->happy = bump(m->happy, 30);
         m->hunger = bump(m->hunger, -8);
-    } else if (talk.timer < 200) {
+    } else if (talk.timer < 120) {
         return;
     }
     pets_stats.actions_done++;
-    wander(i);
-    talk.stage = 0;
+    act(i, A_SIT, 300);                             /* it stays by you a little while (10 s) */
+    talk_done(pl);
 }
 
 /* ---- the game's hooks and the mod events ---------------------------------------------------------- */
