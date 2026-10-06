@@ -1261,7 +1261,7 @@ def _pocket_place(obj, steps):
 
 
 PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
-              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets')
+              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets', 'px', 'py')
 
 
 def _pets_stats(heap):
@@ -1431,6 +1431,44 @@ def p_pets_needs():
                                                                                          left, h2)
 
 
+SHOP_9 = 0x021414F0       # shop list 9's slots (Bayou Bazaar, the Farmer's Market clerk 15) in pet-shop.sav
+
+
+def _shop_script(stock):
+    """Script steps from verify/saves/pet-shop.sav (standing at the Farmer's Market's Bayou Bazaar clerk): put
+    `stock` on the shelf (list 9), step up to the clerk pressing A (the shop opens), double-tap the first
+    item once per object (each buy moves the rest up)."""
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    slots = b''.join(struct.pack('<HI', o, 0) for o in stock)
+    s = load + [['poke', '0x%08X=%s' % (SHOP_9, slots.hex())], ['wait', 10]]
+    s += [['press', 'UP', 6], ['press', 'LEFT', 6], ['wait', 10]]
+    s += [['press', 'UP', 4], ['press', 'A', 4], ['wait', 20]] * 8 + [['wait', 30], ['shot', 'shop']]
+    for _ in stock:
+        s += [['touch', 147, 58, 4], ['wait', 4], ['touch', 147, 58, 4], ['wait', 60]]
+    return s + [['shot', 'bought']]
+
+
+def p_pets_shop():
+    """Buying a pet (Phase 9): pets and Pet Treats are sold by the Bayou Bazaar clerk at the Sim Quarter
+    Farmer's Market (shop list 9 = clerk id 15 - 6, like the Chicken). From pet-shop.sav (standing at the
+    clerk), with the Puppy and treats on today's shelf: step up and press A (the shop opens), double-tap the
+    Puppy, then the treats: both in Pockets, $70 paid (build/proofs/pets-shop.png)."""
+    rom = build('pets-menu', [os.path.join(KIT, 'mods', 'pets')])[0]
+    p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'shop.json')
+    json.dump(_shop_script([386, 396]), open(p, 'w'))
+    out = run(VERIFY + ['ram', rom, '--sav', os.path.join(KIT, 'verify', 'saves', 'pet-shop.sav'), '--script', p,
+                        '--frames', '5', '--read', '0x02141338:1', '--read', '0x0214188C:12', '--read', '0x02141124:4'])
+    vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    for f in glob.glob(os.path.join(ev, '*bought.png')):
+        shutil.copy(f, os.path.join(OUT, 'pets-shop.png'))
+    n = vals['0x02141338:1'][0]
+    items = [struct.unpack_from('<H', vals['0x0214188C:12'], 6 * k)[0] for k in range(min(n, 2))]
+    money = struct.unpack('<i', vals['0x02141124:4'])[0]
+    ok = sorted(items) == [386, 396] and money == 850 - 70
+    return ok, 'Pockets: %s, money $%d (was $850); build/proofs/pets-shop.png' % (items, money)
+
+
 def p_import_melonds():
     """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
     the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
@@ -1478,7 +1516,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('pets-menu', p_pets_menu), ('pets-life', p_pets_life), ('pets-needs', p_pets_needs), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('pets-menu', p_pets_menu), ('pets-life', p_pets_life), ('pets-needs', p_pets_needs), ('pets-shop', p_pets_shop), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
