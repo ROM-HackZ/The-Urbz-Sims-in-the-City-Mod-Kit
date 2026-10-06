@@ -101,8 +101,8 @@ typedef struct { u8 *e; u8 mode, action; u16 timer, age; } live_t;
 static mypet_t mine[MAX_MINE];
 static live_t live[MAX_MINE];
 static u32 n_mine, need_spawn, greet;
-struct { u32 magic, kept, respawned, forgot, loads, loaded, acts, talks, last_pick, actions_done, a_presses, a_state, a_dx, a_dy, a_faces, mood0, n; }
-    pets_stats = { 0x53544550, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };   /* 'PETS' (tests) */
+struct { u32 magic, kept, respawned, forgot, loads, loaded, acts, talks, last_pick, actions_done, a_presses, a_state, a_dx, a_dy, a_faces, mood0, n, act_mask, greets; }
+    pets_stats = { 0x53544550, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };   /* 'PETS' (tests) */
 
 #define ENT_TYPE(e)  (*(u16 *)((e) + 8))
 #define ENT_KIND(e)  (*(u16 *)((e) + 10))
@@ -203,6 +203,7 @@ static void act(u32 i, int action, int ticks)
     live[i].age = 0;
     pets_play(e, action);
     pets_stats.acts++;
+    pets_stats.act_mask |= 1u << action;
 }
 
 static void wander(u32 i)
@@ -243,6 +244,7 @@ static void go_to_player(u32 i)
         entity_stop(e);
         entity_face(e, entity_dir_to(e, pl));
         act(i, A_HAPPY, 90);
+        pets_stats.greets++;
         return;
     }
     entity_face(e, entity_dir_to(e, pl));

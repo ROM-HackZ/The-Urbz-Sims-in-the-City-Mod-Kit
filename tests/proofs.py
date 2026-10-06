@@ -1261,7 +1261,7 @@ def _pocket_place(obj, steps):
 
 
 PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
-              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n')
+              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets')
 
 
 def _pets_stats(heap):
@@ -1362,6 +1362,75 @@ def p_pets_menu():
             st['talks'], st['last_pick'], st['actions_done'], happy, st2['last_pick'], kinds2, count2, slot2, st2['n'])
 
 
+PET_ACTIONS = ['stand', 'walk', 'sit', 'lie', 'sleep', 'sniff', 'play', 'eat', 'happy', 'sad', 'petted', 'scratch']
+
+
+def p_pets_life():
+    """A life of their own (Phase 9): code/pets-kit runs each pet: it wanders as before and now and then does
+    something of its own (sniff, sit, scratch, lie down, play...), sleeps at night, and comes to greet you
+    when you come home. From the apartment save: the Puppy placed by day, 4,000 frames: several different
+    actions; the same at 23:30: it sleeps or lies down; out to Urbania Park and back: it greets you."""
+    rom = build('pets-life', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    night = os.path.join(work, 'night.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, night, '--clock', '23:30'])
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    place = _pocket_place(386, ['DOWN'] * 3)
+
+    def stats(script, s):
+        p = os.path.join(work, 's.json')
+        json.dump(script, open(p, 'w'))
+        out = run(VERIFY + ['ram', rom, '--sav', s, '--script', p, '--frames', '30', '--read', HEAP_SCAN])
+        return _pets_stats(bytes.fromhex([l for l in out.splitlines() if ' = ' in l][0].split(' = ')[1].strip()))
+    day = stats(load + place + [['wait', 4000]], sav)
+    nite = stats(load + place + [['wait', 900]], night)
+    home = stats(load + place + _area_goto(19) + _area_goto(22) + [['wait', 300]], sav)
+    did = [a for k, a in enumerate(PET_ACTIONS) if day['act_mask'] >> k & 1]
+    slept = [a for k, a in enumerate(PET_ACTIONS) if nite['act_mask'] >> k & 1]
+    ok = len(did) >= 3 and slept and set(slept) <= {'sleep', 'lie'} and home['greets'] >= 1
+    return ok, 'by day (4,000 frames): %d actions: %s; at 23:30: %s; coming home: greeted %d time(s)' % (
+        day['acts'], ', '.join(did), ', '.join(slept) or 'nothing', home['greets'])
+
+
+def p_pets_needs():
+    """Light needs (Phase 9): hunger and happiness (0-100) go down with the game clock; a hungry or unhappy pet
+    mopes (sad, sits, lies about); Feed with Pet Treats (396) in Pockets uses one and fills it up; Feed without
+    treats is refused. Clock: tests/mods/fast-clock (a game minute per tick) from 08:00, so it stays day."""
+    fast = build('pets-needs', [os.path.join(KIT, 'mods', 'pets'), os.path.join(TESTS, 'mods', 'fast-clock')])[0]
+    rom = build('pets-menu', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    morning = os.path.join(work, 'morning.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, morning, '--clock', '08:00'])
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    place = _pocket_place(386, ['DOWN'] * 3)[:-1] + [['wait', 20]]
+    feed = [['press', 'A', 4], ['wait', 40], ['press', 'DOWN', 4], ['wait', 10], ['press', 'DOWN', 4], ['wait', 10],
+            ['press', 'A', 4], ['wait', 300]]
+    treats = [['poke', '0x0214188C=' + struct.pack('<HI', 396, 0).hex()], ['poke', '0x02141338=01'], ['wait', 10]]
+
+    def run_(r, s, script):
+        p = os.path.join(work, 's.json')
+        json.dump(script, open(p, 'w'))
+        out = run(VERIFY + ['ram', r, '--sav', s, '--script', p, '--frames', '30', '--read', HEAP_SCAN,
+                            '--read', '0x02141338:1'])
+        vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
+        return _pets_stats(vals[HEAP_SCAN]), vals['0x02141338:1'][0]
+    mood = lambda st: (st['mood0'] & 0xFF, (st['mood0'] >> 8) & 0xFF)
+    hungry, _ = run_(fast, morning, load + place + [['wait', 700]])
+    fed, left = run_(rom, sav, load + place + treats + feed)
+    no_treats, _ = run_(rom, sav, load + place + feed)
+    h0, f0 = mood(hungry)
+    mopes = [a for k, a in enumerate(PET_ACTIONS) if hungry['act_mask'] >> k & 1]
+    h1, _ = mood(fed)
+    h2, _ = mood(no_treats)
+    ok = h0 < 25 and bool(set(mopes) & {'sad', 'sit', 'lie'}) and fed['last_pick'] == 3 and h1 > 95 and left == 0 \
+        and no_treats['last_pick'] == 3 and h2 <= 80
+    return ok, 'after ~700 fast minutes from 08:00: hunger 80 -> %d, happiness 80 -> %d, it did: %s; Feed with ' \
+        'treats: hunger %d, treats left %d; Feed without treats: hunger %d (refused)' % (h0, f0, ', '.join(mopes), h1,
+                                                                                         left, h2)
+
+
 def p_import_melonds():
     """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
     the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
@@ -1409,7 +1478,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('pets-menu', p_pets_menu), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('pets-menu', p_pets_menu), ('pets-life', p_pets_life), ('pets-needs', p_pets_needs), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),
