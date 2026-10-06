@@ -463,6 +463,13 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   have, so a Puppy copied from the rooster slid along in its stand pose. `code/pets-kit` jumps both tests to
   stubs that treat every pet as kind 1. Behaviours of the other kinds (decompile): 0x020298E4 (state 0x3E),
   0x02029AB4 (0x37, random slots 0-3 on timers), 0x02029C64 (0x33-0x58, the Living Artemisia eating).
+- **Critters are not kept (proven 2026-10-06, `research/pets/persist_probe.py`):** a pet (or Chicken) let loose
+  at home is gone after leaving the area and coming back, and after save + load (it isn't in Pockets either).
+  code/pets-kit keeps "my pets" (12 x {u16 object, u8 kind, facing, s16 x, y, u8 area, hunger, happy,
+  flags}): added when placed, dropped when picked up, positions noted every second, saved in the mod save data
+  ('PET1'), and respawned with `spawn_critter` on the first tick after entering a home area or loading (the
+  load happens inside the first area entry, so `mod_on_area_enter` alone is too early). Proof `pets-persist`.
+  Pitfall: the core's save buffers are not word-aligned; a u32 store there lands on the wrong address.
 - **Picking up is also kind-limited (from the code, 2026-10-05; not yet done with real inputs):** the
   chicken/rooster `critter_table` +8 handler `critter_tap` (0x0202A4F8, called when the player in state 0x10
   is at the critter) returns unless kind-1 <= 1 (`critter_tap_kind` 0x0202A570). code/pets-kit treats pets

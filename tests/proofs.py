@@ -1245,6 +1245,55 @@ def p_pet_walk():
         ', '.join(res), I.PET_MAX_TILES, ('NO: ' + ', '.join(big)) if big else 'yes')
 
 
+def _area_goto(area, entry=0):
+    """Script steps: load an area through the game's own loader (the harness --goto, mid-script)."""
+    return [['poke', '0x027C009C=81000000'], ['poke', '0x027C00A0=00000000'],
+            ['poke', '0x027C00A4=%s' % struct.pack('<I', area).hex()], ['poke', '0x02141C28=%02x' % entry],
+            ['wait', 500]]
+
+
+def _pocket_place(obj, steps):
+    """Script steps (in the apartment save): put obj in Pockets, take it out, walk `steps`, A."""
+    return [['poke', '0x0214188C=' + struct.pack('<HI', obj, 0).hex()], ['poke', '0x02141338=01'], ['wait', 20],
+            ["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
+            ["touch", 131, 36, 8], ["wait", 30], ["touch", 131, 36, 8], ["wait", 90], ["touch", 236, 166, 8],
+            ["wait", 60]] + sum(([["press", k, 12], ["wait", 20]] for k in steps), []) + [["press", "A", 6], ["wait", 200]]
+
+
+def _pets_stats(heap):
+    k = heap.find(struct.pack('<I', 0x53544550))          # 'PETS' (code/pets-kit)
+    return struct.unpack_from('<7I', heap, k)[1:] if k >= 0 else None
+
+
+def p_pets_persist():
+    """Pets stay (Phase 9): the game forgets critters when you leave an area and doesn't save them, so a pet
+    let loose at home was lost. code/pets-kit keeps "my pets" (object, kind, place, needs) in the mod save
+    data and puts them back when you come home or load. From the apartment save: place the Puppy and the
+    Kitten; go out to Urbania Park and back (both there); save, power off, load (both there)."""
+    rom = build('pets-persist', [os.path.join(KIT, 'mods', 'pets')])[0]
+    sav0 = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    place = _pocket_place(386, ['DOWN'] * 3) + _pocket_place(389, ['RIGHT'] * 2)
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+
+    def kinds_after(script, sav):
+        p = os.path.join(work, 's.json')
+        json.dump(script, open(p, 'w'))
+        out = run(VERIFY + ['ram', rom, '--sav', sav, '--script', p, '--frames', '60', '--read', HEAP_SCAN])
+        heap = bytes.fromhex([l for l in out.splitlines() if ' = ' in l][0].split(' = ')[1].strip())
+        return sorted(k for _, k in critters(heap) if k >= 7), _pets_stats(heap)
+    placed, _ = kinds_after(load + place, sav0)
+    back, _ = kinds_after(load + place + _area_goto(19) + _area_goto(22), sav0)
+    sav = os.path.join(work, 'pets.sav')
+    s = os.path.join(work, 'save.json')
+    json.dump(load + place + json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json'))), open(s, 'w'))
+    run(VERIFY + ['play', rom, '--sav', sav0, '--script', s, '--save', os.path.join(work, 'x.dst'), '--export-sav', sav])
+    loaded, stats = kinds_after(load + [['wait', 240]], sav)
+    ok = placed == [7, 8] and back == [7, 8] and loaded == [7, 8]
+    return ok, 'pet critters: placed %s, after a trip out %s, after save + power-off + load %s (pets-kit: loaded %s, ' \
+        'respawned %s)' % (placed, back, loaded, stats[4] if stats else '?', stats[1] if stats else '?')
+
+
 def p_import_melonds():
     """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
     the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
@@ -1292,7 +1341,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),

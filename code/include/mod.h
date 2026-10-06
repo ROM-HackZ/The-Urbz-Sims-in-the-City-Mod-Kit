@@ -22,6 +22,7 @@
      void mod_on_disable(void)              switched off in the game (your hooks stop running)
      void mod_on_page(mod_page_t *page)     draw your info page (opened from the Mods page)
 
+   The save buffers are not word-aligned: copy bytes (a u32 store there writes to the wrong place).
    Your save data is kept per save slot. While a mod is off, its data is kept and written
    back unchanged, so switching off never loses it. */
 #pragma once
