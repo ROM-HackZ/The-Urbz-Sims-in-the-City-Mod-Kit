@@ -1260,9 +1260,16 @@ def _pocket_place(obj, steps):
             ["wait", 60]] + sum(([["press", k, 12], ["wait", 20]] for k in steps), []) + [["press", "A", 6], ["wait", 200]]
 
 
+PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
+              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n')
+
+
 def _pets_stats(heap):
-    k = heap.find(struct.pack('<I', 0x53544550))          # 'PETS' (code/pets-kit)
-    return struct.unpack_from('<7I', heap, k)[1:] if k >= 0 else None
+    """code/pets-kit's counters ('PETS') as a dict; mood0 = hunger | happy << 8 | mode << 16 | action << 24."""
+    k = heap.find(struct.pack('<I', 0x53544550))
+    if k < 0:
+        return None
+    return dict(zip(PETS_STATS, struct.unpack_from('<%dI' % len(PETS_STATS), heap, k + 4)))
 
 
 def p_pets_persist():
@@ -1291,7 +1298,7 @@ def p_pets_persist():
     loaded, stats = kinds_after(load + [['wait', 240]], sav)
     ok = placed == [7, 8] and back == [7, 8] and loaded == [7, 8]
     return ok, 'pet critters: placed %s, after a trip out %s, after save + power-off + load %s (pets-kit: loaded %s, ' \
-        'respawned %s)' % (placed, back, loaded, stats[4] if stats else '?', stats[1] if stats else '?')
+        'respawned %s)' % (placed, back, loaded, stats['loaded'] if stats else '?', stats['respawned'] if stats else '?')
 
 
 def p_pets_icons():
@@ -1315,6 +1322,44 @@ def p_pets_icons():
     ok = (len(set(models)) == len(models) and min(models) >= 633) if srcs else True
     return ok, 'model numbers %s%s; build/proofs/pets-icons.png' % (
         models, '' if srcs else ' (no sources.json: drawn pets keep the chicken icon)')
+
+
+def p_pets_menu():
+    """Talking to a pet (Phase 9): walk up to it and press A: the game's question box asks "What do you want
+    to do?" Pet / Play / Feed / Put in Pocket. Pet: you kneel and pet it (the game's petting animations
+    0x4E-0x50), it plays its "petted" action, it gets happier, and you stand up again. Put in Pocket: it goes
+    back to Pockets as its object and leaves "my pets". From the apartment save, the Puppy just placed in
+    front of you (build/proofs/pets-menu-*.png)."""
+    rom = build('pets-menu', [os.path.join(KIT, 'mods', 'pets')])[0]
+    sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
+    place = _pocket_place(386, ['DOWN'] * 3)[:-1] + [['wait', 20]]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    res = {}
+    for name, steps in (('pet', [['press', 'A', 4], ['wait', 40], ['shot', 'menu'], ['press', 'A', 4], ['wait', 60],
+                                 ['shot', 'petting'], ['wait', 400], ['shot', 'after']]),
+                        ('pocket', [['press', 'A', 4], ['wait', 40]] + [['press', 'DOWN', 4], ['wait', 10]] * 3 +
+                         [['press', 'A', 4], ['wait', 120]])):
+        p = os.path.join(work, name + '.json')
+        json.dump(load + place + steps, open(p, 'w'))
+        out = run(VERIFY + ['ram', rom, '--sav', sav, '--script', p, '--frames', '30', '--read', HEAP_SCAN,
+                            '--read', '0x02141338:1', '--read', '0x0214188C:6'])
+        vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
+        heap = vals[HEAP_SCAN]
+        res[name] = (_pets_stats(heap), sorted(k for _, k in critters(heap) if k >= 7), vals['0x02141338:1'][0],
+                     struct.unpack_from('<H', vals['0x0214188C:6'])[0], out.strip().splitlines()[-1].split('evidence: ')[-1])
+    st, kinds, _, _, ev = res['pet']
+    for f in glob.glob(os.path.join(ev, '*.png')):
+        for n in ('menu', 'petting', 'after'):
+            if f.endswith('_%s.png' % n):
+                shutil.copy(f, os.path.join(OUT, 'pets-menu-%s.png' % n))
+    happy = (st['mood0'] >> 8) & 0xFF
+    pet_ok = st['talks'] == 1 and st['last_pick'] == 1 and st['actions_done'] == 1 and happy > 80 and kinds == [7]
+    st2, kinds2, count2, slot2, _ = res['pocket']
+    pocket_ok = st2['last_pick'] == 4 and kinds2 == [] and count2 == 1 and slot2 == 386 and st2['n'] == 0
+    return pet_ok and pocket_ok, 'Pet: menu opened %d, picked %d, done %d, happiness 80 -> %d; Put in Pocket: ' \
+        'picked %d, pet critters left %s, Pockets %d item(s), first %d, my pets %d; build/proofs/pets-menu-*.png' % (
+            st['talks'], st['last_pick'], st['actions_done'], happy, st2['last_pick'], kinds2, count2, slot2, st2['n'])
 
 
 def p_import_melonds():
@@ -1364,7 +1409,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('pets-menu', p_pets_menu), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),

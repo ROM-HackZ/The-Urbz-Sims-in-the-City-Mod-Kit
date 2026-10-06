@@ -1,0 +1,5 @@
+{"objects": [
+  {"id": 396, "like": 323, "name": "Pet Treats", "price": 10, "page": 4,
+   "description": "Crunchy treats for your pet. Walk up to it, press A, and pick Feed.",
+   "sell": {"9": "common"}}
+]}

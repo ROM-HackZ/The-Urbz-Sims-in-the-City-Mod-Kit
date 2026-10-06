@@ -416,6 +416,38 @@ ANIMALS = {
 }
 
 
+# Pet actions (Phase 9): what pets-kit plays besides walking and standing. The order is the table index in
+# code/pets-kit (keep both in step). Each animal names a source animation per action; missing ones use stand.
+ACTIONS = ['stand', 'walk', 'sit', 'lie', 'sleep', 'sniff', 'play', 'eat', 'happy', 'sad', 'petted', 'scratch']
+LOOPING = {'stand', 'walk', 'sit', 'lie', 'sleep', 'sniff', 'sad'}     # the rest play once and hold
+ACTION_ANIMS = {
+    'dog': {'stand': 'standidle', 'walk': 'walk', 'sit': 'sitidle', 'lie': 'liedownidle', 'sleep': 'sleep',
+            'sniff': 'sniff', 'play': 'chasetailloop', 'eat': 'eat', 'happy': 'happy', 'sad': 'sad',
+            'petted': 'standpamperhead', 'scratch': 'itchfleas'},
+    'cat': {'stand': 'cat_standidle', 'walk': 'walk', 'sit': 'idlesit', 'lie': 'cat_liedownidle',
+            'sleep': 'idlelayside', 'sniff': 'catsniffhmm', 'play': 'pawscreen', 'eat': 'catdig1',
+            'happy': 'happy', 'sad': 'sad', 'petted': 'petheadstand1', 'scratch': 'cat_itch'},
+    'rabbit': {'stand': 'idle', 'walk': 'idle2', 'sit': 'idlesitup', 'lie': 'idle', 'sleep': 'idle',
+               'sniff': 'lookround', 'play': 'touch1_loop', 'eat': 'idlepreen', 'happy': 'touch2_loop',
+               'sad': 'idle', 'petted': 'touch4_loop', 'scratch': 'idlescratch'},
+    'hamster': {'stand': 'idle', 'walk': 'idleshimmy', 'sit': 'idlenose', 'lie': 'idle', 'sleep': 'idle',
+                'sniff': 'idlenose', 'play': 'idlecircle', 'eat': 'noise', 'happy': 'touch2_loop', 'sad': 'idle',
+                'petted': 'touch1_loop', 'scratch': 'idleshimmy'},
+    'guineapig': {'stand': 'idle', 'walk': 'idleshimmy', 'sit': 'idlenose', 'lie': 'idle', 'sleep': 'idle',
+                  'sniff': 'idlenose', 'play': 'idlecircle', 'eat': 'noise', 'happy': 'touch2_loop', 'sad': 'idle',
+                  'petted': 'touch1_loop', 'scratch': 'idleshimmy'},
+    'cockatoo': {'stand': 'idle_varient', 'walk': 'idlebob', 'sit': 'idlemove1', 'lie': 'idle_varient',
+                 'sleep': 'idle_varient', 'sniff': 'idlemove2', 'play': 'idlebob', 'eat': 'cleans',
+                 'happy': 'idlemove1', 'sad': 'idle_varient', 'petted': 'idle_varient', 'scratch': 'cleans'},
+    'snake2': {'stand': 'idle', 'walk': 'idlesway', 'sit': 'idle', 'lie': 'idlecoil_loop', 'sleep': 'idlecoil_loop',
+               'sniff': 'idlenoise', 'play': 'idledance', 'eat': 'idlenoise', 'happy': 'charmidle', 'sad': 'idle',
+               'petted': 'touch1_loop', 'scratch': 'idlesway'},
+}
+ACTION_ANIMS['macaw'] = ACTION_ANIMS['cockatoo']
+ACTION_FRAMES = 8                    # frames per direction for an action (sampled over the animation)
+PET_ART_VERSION = 3                  # bump to re-render every imported pet
+
+
 def pet_art(cfg, kind, folder):
     """Render an imported animal into an urbz_art pet folder: every slot and direction the starting
     animal (critter kind) has, with as many frames; a shadow under it; one 16-colour palette.
@@ -446,8 +478,20 @@ def pet_art(cfg, kind, folder):
         ref = A.frames_of(src[0][0][2][0], src[0][0][2][1], spal)[0].getbbox() if src[0][0] else None
         ppm = ((ref[3] - ref[1]) * 0.9 if ref else 24) / tall
     hop = cfg.get('hop', animal.get('hop', 0))
-    for _try in range(4):                  # shrink until every frame fits the critter's sprite memory
-        timing, frames = _pet_frames(model, info, src, spal, anims, ppm, hop, folder)
+    stamp = dict(cfg, version=PET_ART_VERSION, kind=kind, animal=animal,
+                 actions=ACTION_ANIMS.get(info['name'], {}))
+    try:
+        if json.load(open(os.path.join(folder, 'import.json'))) == stamp:
+            return folder                           # rendered already (the art is the same every build)
+    except (OSError, ValueError):
+        pass
+    acts = dict(ACTION_ANIMS.get(info['name'], {}))
+    acts.update(cfg.get('actions', {}))
+    for _try in range(6):                  # shrink until every frame fits the critter's sprite memory
+        timing, jobs = _pet_frames(model, info, src, spal, anims, ppm, hop, folder)
+        jobs += _action_frames(model, info, acts, stand, ppm, hop, folder, timing)
+        frames = list(zip([p for p, _j in jobs], _render_jobs((cfg['from'], cfg['model'], swap or None),
+                                                           [j for _p, j in jobs])))
         worst = max(_tiles(im) for _p, im in frames)
         edge = any(im[0, :, 3].any() or im[-1, :, 3].any() or im[:, 0, 3].any() or im[:, -1, 3].any()
                    for _p, im in frames)                  # cut off by the canvas
@@ -466,7 +510,64 @@ def pet_art(cfg, kind, folder):
     A.save_palette(os.path.join(folder, 'palette.png'), pal)
     json.dump(timing, open(os.path.join(folder, 'timing.json'), 'w'), indent=1)
     _pet_icon(model, stand, folder)
+    json.dump(stamp, open(os.path.join(folder, 'import.json'), 'w'))
     return folder
+
+
+def _action_frames(model, info, acts, stand, ppm, hop, folder, timing):
+    """The pet actions (ACTIONS): ACTION_FRAMES frames per direction sampled over the source animation, timed
+    to its length; timing['actions'][name] = {'ticks': per frame, 'loop': bool}."""
+    import numpy as np
+    import urbz_art as A
+    out = []
+    timing['actions'] = {}
+    for name in ACTIONS:
+        anim = acts.get(name)
+        if anim not in info['anims']:
+            anim = stand
+        nf = model.frames(anim) if anim else 1
+        n = ACTION_FRAMES if nf > 1 else 1
+        ticks = max(2, round(nf / n))              # the source runs at about 30 frames a second, like the DS
+        timing['actions'][name] = {'anim': anim, 'ticks': ticks, 'loop': name in LOOPING}
+        for d in range(A.DIRS):
+            yaw = 180 - 45 * d
+            for k in range(n):
+                up = hop * abs(np.sin(2 * np.pi * k / n)) if hop and name == 'walk' else 0.0
+                out.append((os.path.join(folder, 'actions', name, 'dir%d' % d, '%02d.png' % k),
+                            (anim, (k * nf) // n, yaw + model.front, up, ppm)))
+    return out
+
+
+_W = None                            # a render worker's model
+
+
+def _w_init(spec):
+    global _W
+    g, info = find_model(spec[0], spec[1])
+    _W = Model(g, info, spec[2])
+
+
+def _w_render(job):
+    import urbz_art as A
+    anim, f, yaw, up, ppm = job
+    parts = _W.posed(anim, f)
+    shadow = shadow_tris(parts)
+    if up:
+        for t, _x, _c in parts:
+            t[..., 1] += up
+    return rasterize(shadow + parts, view(yaw), ppm, (A.PET_CANVAS, A.PET_CANVAS), A.PET_ORIGIN)
+
+
+def _render_jobs(spec, jobs):
+    """Render pet frames (anim, frame, yaw, hop, px per metre) on every core; serially without them."""
+    import multiprocessing as mp
+    n = min(mp.cpu_count() or 1, 16)
+    if n < 2 or len(jobs) < 32:
+        _w_init(spec)
+        return [_w_render(j) for j in jobs]
+    ctx = mp.get_context('fork' if os.name != 'nt' else 'spawn')
+    with ctx.Pool(n, initializer=_w_init, initargs=(spec,)) as pool:
+        return pool.map(_w_render, jobs, chunksize=8)
 
 
 def _pet_icon(model, stand, folder):
@@ -521,15 +622,9 @@ def _pet_frames(model, info, src, spal, anims, ppm, hop, folder):
             nf = model.frames(anim) if anim else 1
             for k in range(n):
                 f = (k * nf) // n if anim else 0
-                parts = model.posed(anim, f)
-                shadow = shadow_tris(parts)
-                if hop and slot == '1-walk':      # two hops per walk cycle
-                    up = hop * abs(np.sin(2 * np.pi * k / n))
-                    for t, _x, _c in parts:
-                        t[..., 1] += up
-                im = rasterize(shadow + parts, view(yaw + model.front), ppm,
-                               (A.PET_CANVAS, A.PET_CANVAS), A.PET_ORIGIN)
-                frames.append((os.path.join(folder, slot, 'dir%d' % d, '%02d.png' % k), im))
+                up = hop * abs(np.sin(2 * np.pi * k / n)) if hop and slot == '1-walk' else 0.0  # two hops a cycle
+                frames.append((os.path.join(folder, slot, 'dir%d' % d, '%02d.png' % k),
+                               (anim, f, yaw + model.front, up, ppm)))
     return timing, frames
 
 

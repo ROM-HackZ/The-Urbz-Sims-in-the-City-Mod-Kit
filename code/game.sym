@@ -276,4 +276,18 @@ critter_stop_kind  = 0x0202A760   # same when it stops (stand anim only for the 
 critter_tap        = 0x0202A4F8   # critter_table +8 for the chicken/rooster: the player at it (state 0x10) -> pick up (state 0x12)
 critter_tap_kind   = 0x0202A570   # "ldrh r2,[r5,#0xA]; ldr r1,=0xFFFF" then kind-1 <= 1: only kinds 1-2 can be picked up
 critter_facing_map = 0x020C22B4   # u8[8]: facing -> direction 0-4 (0 1 2 3 4 3 2 1)
+# --- Phase 9: pets (docs/systems.md "Pets")
+entity_records     = 0x02003254   # (e, record): an animation's facing record {gfx, layout, palette, param} (critter_play_anim)
+entity_stop        = 0x02001D00   # (e): stop moving
+entity_go          = 0x02001D18   # (e): move forward (facing, speed +0x14)
+entity_dir_to      = 0x020018A4   # int (a, b): the direction from a to b, for entity_face
+entity_faces       = 0x020013A8   # int (a, b): b lies in the direction a faces (no distance check)
+entity_flag_clear  = 0x02000EB0   # (e, bits): e+0xC &= ~bits; bit 1 = alive (cleared: the entity goes)
+dialog_open        = 0x02078530   # (): opens the top-screen question box (state 2) from dialog_text
+dialog_text        = 0x02146EB8   # u16[5] per screen (x10 bytes): question string, then up to 4 option strings
+dialog_flags       = 0x02146ECC   # u8[12] per screen: +3 flags, +4 mode (0 = question, 1 = message)
+dialog_result      = 0x027C00D4   # u32 per screen (x0x8C): option picked 1-4, 0x7FFFFFFF = cancelled (B)
+screen_index       = 0x027C0004   # u32: the screen (0 top, 1 bottom) being run
+input_state        = 0x02141D70   # +10 u16 keys pressed this frame (1 A, 2 B, 0xF0 D-pad)
+pockets_list       = 0x02141338   # item list 23: {u8 count, u8 capacity, u16, slots *} slots {u16 object, u8, u8 variant} (6 bytes)
 crit_table_lit     = 0x0202AC1C   # a literal holding critter_table (moved by urbz_pets.py; code/pets finds the pet list before it)

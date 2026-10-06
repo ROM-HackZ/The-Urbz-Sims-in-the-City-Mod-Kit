@@ -272,7 +272,47 @@ def build_pet_art(adir, kind, new_asset):
         out.append(done[slot])
     from urbz_palette import to555
     pdata = b''.join(struct.pack('<H', to555(c)) for c in pal)
-    return {'slots': out, 'palette': new_asset(pdata)}
+    acts = _pet_actions(adir, timing, pal, extra, head, src, new_asset)
+    return {'slots': out, 'palette': new_asset(pdata), 'actions': acts}
+
+
+def _pet_actions(adir, timing, pal, extra, head, src, new_asset):
+    """actions/<name>/dir0-4 (urbz_import.ACTIONS) -> [(5 x 16-byte records, script game id)] in ACTIONS
+    order, or None when the folder has no actions."""
+    import urbz_composite as C
+    from PIL import Image
+    from urbzcomp import pack_chunk
+    from urbz_anims import frame_data, script_bytes, CHUNK_FLAGS
+    from urbz_import import ACTIONS
+    if not os.path.isdir(os.path.join(adir, 'actions')):
+        return None
+    first = next(r for r, _ in src if r)
+    out = []
+    for name in ACTIONS:
+        t = timing.get('actions', {}).get(name, {'ticks': 4, 'loop': True})
+        records = bytearray()
+        n = 1
+        for d in range(DIRS):
+            fdir = os.path.join(adir, 'actions', name, 'dir%d' % d)
+            pngs = sorted(x for x in os.listdir(fdir) if x.endswith('.png')) if os.path.isdir(fdir) else []
+            if not pngs:
+                raise ValueError('%s: no frames' % fdir)
+            gfx, entries = bytearray(), []
+            for f in pngs:
+                e, content = frame_data(Image.open(os.path.join(fdir, f)), pal, extra, PET_CANVAS, PET_ORIGIN)
+                e.index, e.chunk_off = len(entries), len(gfx)
+                gfx += pack_chunk(CHUNK_FLAGS, content)
+                while len(gfx) % 4:
+                    gfx += b'\0'
+                entries.append(e)
+            lay = C.Layout(bytes([max(e.w for e in entries), max(e.h for e in entries)]) + head[2:],
+                           entries, 0, len(extra) // 6)
+            records += struct.pack('<4I', new_asset(bytes(gfx)), new_asset(C.build_layout(lay)), first[d][2],
+                                   first[d][3])
+            n = len(pngs)
+        spec = [[k, t['ticks']] for k in range(n)] + ['loop' if t['loop'] else 'hold']
+        out.append((bytes(records), new_asset(script_bytes(spec))))
+    return out
 
 
 # ------------------------------------------------------------------ furniture (objects.json "art")

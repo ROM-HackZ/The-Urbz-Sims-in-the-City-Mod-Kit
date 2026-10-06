@@ -1,0 +1,14 @@
+{
+ "relocs": [
+  220
+ ],
+ "symbols": {
+  "mod_on_tick": 0,
+  "spike": 236
+ },
+ "bss": 0,
+ "sources": {
+  "main.c": "31220bcfc21ea41bdf3f3d8fcac86e62f9e15321",
+  "hooks.txt": "23f9f177dc993dc7ea7eb51567f4d8ed54ad592c"
+ }
+}

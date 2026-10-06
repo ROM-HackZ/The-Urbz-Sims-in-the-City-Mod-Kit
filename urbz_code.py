@@ -32,6 +32,11 @@ HEAP_COMFORT = 128 * 1024       # warn above this (see docs/systems.md, heap bud
 KIT = os.path.dirname(os.path.abspath(__file__))
 CORE_DIR = os.path.join(KIT, 'code', 'core')
 # Mod table (code/include/mod.h): at CODE_BASE whenever the core is built in.
+def has_events(m):
+    """An event function may sit at offset 0 of the mod's code: test for None, not for truth."""
+    return any(v is not None for v in m.get('events') or [])
+
+
 EVENT_NAMES = ['mod_on_boot', 'mod_on_tick', 'mod_on_minute', 'mod_on_area_enter', 'mod_on_save',
                'mod_on_load', 'mod_on_enable', 'mod_on_disable', 'mod_on_page']
 TABLE_MAGIC = 0x43444F4D        # 'MODC'
@@ -448,7 +453,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
     for m in mods:
         m.setdefault('meta', {'toggle': False, 'default': True, 'version': '', 'save_bytes': 0})
         m.setdefault('events', [None] * len(EVENT_NAMES))
-    use_core = core is not None and any(m['meta']['toggle'] or any(m['events']) for m in mods)
+    use_core = core is not None and any(m['meta']['toggle'] or has_events(m) for m in mods)
     switchable = [m for m in mods if use_core and m['meta']['toggle']]
     if len(switchable) > MAX_SWITCHES:
         report.append('warning: %d switchable mods; the switch record keeps %d (the rest always '
@@ -654,7 +659,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
             name = m['name'].encode('ascii', 'replace')[:15]
             ver = meta.get('version', '').encode('ascii', 'replace')[:7]
             sw = m in switchable
-            flags = (MODF_TOGGLE if sw else 0) | (MODF_EVENTS if any(m['events']) else 0) | \
+            flags = (MODF_TOGGLE if sw else 0) | (MODF_EVENTS if has_events(m) else 0) | \
                 (MODF_DEFAULT_ON if meta['default'] else 0) | (MODF_HIDDEN if meta.get('hidden') else 0)
             on = 1 if (not sw or meta['default']) else 0
             pl = patches[id(m)]
