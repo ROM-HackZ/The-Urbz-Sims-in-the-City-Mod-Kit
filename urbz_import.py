@@ -465,7 +465,24 @@ def pet_art(cfg, kind, folder):
         im.save(path)
     A.save_palette(os.path.join(folder, 'palette.png'), pal)
     json.dump(timing, open(os.path.join(folder, 'timing.json'), 'w'), indent=1)
+    _pet_icon(model, stand, folder)
     return folder
+
+
+def _pet_icon(model, stand, folder):
+    """The pet's Pockets / Catalog icon: standing, three-quarter view, filling the 32x32 icon canvas."""
+    import numpy as np
+    from PIL import Image
+    import urbz_art as A
+    parts = model.posed(stand, 0)
+    ys = np.concatenate([t[..., 1].ravel() for t, _x, _c in parts])
+    pts = np.concatenate([t[..., :3].reshape(-1, 3) for t, _x, _c in parts])
+    size = max(float(ys.max()), float(np.ptp(pts[:, 0])), float(np.ptp(pts[:, 2])), 0.05)
+    icon = rasterize(parts, view(-30 + model.front), 26.0 / size, (A.ICON_CANVAS, A.ICON_CANVAS), (16, 28))
+    icon = np.array(_place(Image.fromarray(icon), (2, 2, 30, 30)))
+    ipal, (iim,) = _fit_palette([icon])
+    iim.save(os.path.join(folder, 'icon.png'))
+    A.save_palette(os.path.join(folder, 'icon-palette.png'), ipal)
 
 
 # A critter's frame may use 32 tiles (8x8) of sprite memory: seen in the game, a 24-tile Puppy draws

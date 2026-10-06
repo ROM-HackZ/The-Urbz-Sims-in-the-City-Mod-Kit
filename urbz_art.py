@@ -386,16 +386,24 @@ def build_object_art(adir, like, new_asset):
     away, toward = out['view-away'], out['view-toward']
     records = b''.join(struct.pack('<4I', g, l, 0, recs[d][3]) for d, (g, l) in
                        enumerate((away, away, away, toward, toward)))
-    icon = None
-    if os.path.exists(os.path.join(adir, 'icon.png')):
-        ic = icon_record(like)
-        ipal_path = os.path.join(adir, 'icon-palette.png')
-        ipal = load_palette(ipal_path) if os.path.exists(ipal_path) else pal
-        lay0 = C.parse_layout(asset(ic[1] - 1))
-        g, l = _sheet([os.path.join(adir, 'icon.png')], ipal, lay0.head, lay0.entries[0].extra,
-                      ICON_CANVAS, ICON_ORIGIN, new_asset)
-        icon = struct.pack('<4I', g, l, new_asset(b''.join(struct.pack('<H', to555(c)) for c in ipal)), ic[3])
-    return {'records': records, 'palette': pal_id, 'icon': icon}
+    return {'records': records, 'palette': pal_id, 'icon': build_icon(adir, like, new_asset, pal)}
+
+
+def build_icon(adir, like, new_asset, pal=None):
+    """icon.png (+ icon-palette.png) in an art folder -> a 16-byte icon record (Pockets, Catalog, shops) laid
+    out like object `like`'s icon, or None without icon.png."""
+    import urbz_composite as C
+    from urbz_anims import asset
+    from urbz_palette import to555
+    if not os.path.exists(os.path.join(adir, 'icon.png')):
+        return None
+    ic = icon_record(like)
+    ipal_path = os.path.join(adir, 'icon-palette.png')
+    ipal = load_palette(ipal_path) if os.path.exists(ipal_path) else pal
+    lay0 = C.parse_layout(asset(ic[1] - 1))
+    g, l = _sheet([os.path.join(adir, 'icon.png')], ipal, lay0.head, lay0.entries[0].extra,
+                  ICON_CANVAS, ICON_ORIGIN, new_asset)
+    return struct.pack('<4I', g, l, new_asset(b''.join(struct.pack('<H', to555(c)) for c in ipal)), ic[3])
 
 
 def main(argv):

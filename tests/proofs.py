@@ -1294,6 +1294,29 @@ def p_pets_persist():
         'respawned %s)' % (placed, back, loaded, stats[4] if stats else '?', stats[1] if stats else '?')
 
 
+def p_pets_icons():
+    """Each pet has its own icon (Phase 9): the builder renders it with the pet's art and gives the pet object
+    a new model number (633+) in the moved icon table. Pockets with all the pets: build/proofs/pets-icons.png."""
+    rom = build('pets-icons', [os.path.join(KIT, 'mods', 'pets')])[0]
+    pets = json.load(open(os.path.join(KIT, 'mods', 'pets', 'pets.json')))['pets']
+    text = struct.unpack('<I', ram(rom, 1, '0x02014130:4')['0x02014130:4'])[0]
+    reads = ['0x%08X:4' % (text + 0x14 * p['object']) for p in pets]
+    r = ram(rom, 1, *reads)
+    models = [struct.unpack('<I', r[k])[0] for k in reads]
+    slots = b''.join(struct.pack('<HI', p['object'], 0) for p in pets[:8])
+    sc = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'pk.json')
+    json.dump([['poke', '0x0214188C=' + slots.hex()], ['poke', '0x02141338=%02x' % min(8, len(pets))], ['wait', 30],
+               ["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90], ["shot", "pockets"]], open(sc, 'w'))
+    out = run(VERIFY + ['ram', rom, '--city', '--frames', '1', '--script', sc])
+    ev = out.strip().splitlines()[-1].split('evidence: ')[-1]
+    for f in glob.glob(os.path.join(ev, '*pockets.png')):
+        shutil.copy(f, os.path.join(OUT, 'pets-icons.png'))
+    srcs = _sources('aptpets')
+    ok = (len(set(models)) == len(models) and min(models) >= 633) if srcs else True
+    return ok, 'model numbers %s%s; build/proofs/pets-icons.png' % (
+        models, '' if srcs else ' (no sources.json: drawn pets keep the chicken icon)')
+
+
 def p_import_melonds():
     """The imported armchair in melonDS (what Jonathan plays on), with real taps: a game saved at home with
     the chair in Pockets (made in DeSmuME) is loaded in melonDS; Pockets, double-tap the chair, three steps,
@@ -1341,7 +1364,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('needs-decay', p_needs_decay), ('action-effect', p_action_effect), ('lz77', p_lz77_repack),
           ('npc-schedule', p_npc_schedule_hook), ('save-edit', p_save_edit), ('lobby-goto', p_lobby_goto), ('text-accents', p_text_accents),
           ('grow-neighbour', p_grow_neighbour_pair), ('catalog-price', p_catalog_price),
-          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
+          ('png-sheets', p_png_sheets_roundtrip), ('rom-grow', p_rom_grow), ('import-render', p_import_render), ('import-furniture', p_import_furniture), ('import-pet', p_import_pet), ('pet-walk', p_pet_walk), ('pets-persist', p_pets_persist), ('pets-icons', p_pets_icons), ('import-melonds', p_import_melonds), ('object-row', p_object_row),
           ('toggle-call', p_toggle_call), ('toggle-data', p_toggle_data),
           ('save-block', p_save_block), ('switch-persist', p_switch_persist),
           ('mods-page', p_mods_page), ('npc-life-days', p_npc_life_days),

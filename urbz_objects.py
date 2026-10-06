@@ -216,6 +216,17 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
             raise ObjectsError('mod "%s": object %d: art: %s' % (mod, i, ex))
         rows['variant'][i] = bytearray(struct.pack('<5I', *[0xFD] * 5))
 
+    icon_only = {}                              # entries with just an icon ("_icon": an art folder): pets
+    for mod, e in entries:
+        if e.get('_icon') and e['id'] not in art:
+            if nxt[0] is None:
+                raise ObjectsError('object %d has an icon, but the builder gave no asset numbers' % e['id'])
+            from urbz_art import build_icon
+            try:
+                icon_only[e['id']] = build_icon(e['_icon'], e['like'], new_asset)
+            except (OSError, ValueError, KeyError) as ex:
+                raise ObjectsError('mod "%s": object %d: icon: %s' % (mod, e['id'], ex))
+
     like = list(range(LAST + 1))                # what each object counts as for the game's checks
     for _, e in entries:
         if e['id'] >= N_GAME:
@@ -238,7 +249,8 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         struct.pack_into('<I', blob, row, len(blob))
         relocs.append(row)
         blob += a['records']
-    icons = [(i, a['icon']) for i, a in sorted(art.items()) if a['icon']]
+    icons = sorted([(i, a['icon']) for i, a in art.items() if a['icon']] +
+                   [(i, rec) for i, rec in icon_only.items() if rec])
     if icons:                                   # the icon table moves and grows: new model numbers 633+
         base = UI_SPRITES - ARM9_BASE
         while len(blob) % 4:

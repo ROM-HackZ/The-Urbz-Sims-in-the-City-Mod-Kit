@@ -470,6 +470,10 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   ('PET1'), and respawned with `spawn_critter` on the first tick after entering a home area or loading (the
   load happens inside the first area entry, so `mod_on_area_enter` alone is too early). Proof `pets-persist`.
   Pitfall: the core's save buffers are not word-aligned; a u32 store there lands on the wrong address.
+- **Pet icons (2026-10-06, proof `pets-icons`):** `urbz_import.pet_art` renders `icon.png` (standing,
+  three-quarter view); `urbz_pets` hands the folder to `urbz_objects` (`_icon`), which builds the record with
+  `urbz_art.build_icon` (laid out like the Chicken's icon) and gives the pet object a new model number 633+
+  in the moved icon table (the model only picks the icon: pet objects never stay placed).
 - **Picking up is also kind-limited (from the code, 2026-10-05; not yet done with real inputs):** the
   chicken/rooster `critter_table` +8 handler `critter_tap` (0x0202A4F8, called when the player in state 0x10
   is at the critter) returns unless kind-1 <= 1 (`critter_tap_kind` 0x0202A570). code/pets-kit treats pets

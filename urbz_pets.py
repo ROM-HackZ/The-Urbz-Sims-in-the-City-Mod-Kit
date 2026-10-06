@@ -142,6 +142,8 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
             struct.pack_into('<I', pals[kind], 0, art[kind]['palette'])
         pairs.append((pet['object'], kind))
         e = {'id': pet['object'], 'like': PET_OBJECT_LIKE, 'name': pet['name'], 'page': pet.get('page', 4)}
+        if os.path.exists(os.path.join(folder, 'icon.png')):
+            e['_icon'] = folder                        # its own Pockets / Catalog icon (urbz_objects)
         for k in ('description', 'price', 'sell'):
             if k in pet:
                 e[k] = pet[k]
