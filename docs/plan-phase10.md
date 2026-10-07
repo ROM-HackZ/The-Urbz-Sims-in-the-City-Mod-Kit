@@ -167,3 +167,30 @@ saves, `docs/plan-phase10.md`, PLAN, HANDOFF), commit, sync to the PC, Jonathan 
 - **Townspeople in Urbania Park depend on the hour:** handled by the fallback "a regular adopted it" line.
 - **Save space:** quest about 16 bytes plus beds 0; well within the budget.
 - **Text box length:** keep messages under about 3 lines (check the box in melonDS).
+
+## Status (2026-10-06): done
+
+All steps proven; the gate `pets-gate2` passes in melonDS (5 sessions with real taps: buy at the stall, feed day 1,
+feed day 2, Take Home, at home basket + Puppy at night + the Pets page; loaded after: kept).
+
+| Step | What | Proof |
+|---|---|---|
+| 1 | Beds and cages (397-401, like the Dawg House 58); pets sleep on their own bed at night | `pets-beds` |
+| 2 | Pets move with you to a new home | `pets-move` |
+| 3 | Options > Mods > Pets: one line per pet (doing, food/fun), then the strays | `pets-page` |
+| 4 | The strays quest: intro, shy, trust over two days, Take Home, a townsperson adopts the other | `strays-appear`, `strays-trust` |
+| 4 | Pet Treats, Dog Basket, Cat Bed at Drifter Woods' stall in Urbania Park (list 18) | `pets-stall` |
+| 5 | melonDS gate | `pets-gate2` |
+
+Changes from the plan:
+- The early shop is **Drifter Woods' stall** (gifts, list 18, by the Brownstones), not the Second Looks Thrift
+  Emporium: that one is an auction. Cheaper early beds: Dog Basket $35, Cat Bed $30.
+- The strays come up to you when you stand still (instead of only "unless you stand still for 2 s"), so A works
+  without lining up; while untrusted they back away when you move.
+- Messages are one-answer question boxes ("OK"): the game's plain message box didn't come up from mod code.
+- Pets lie on the **front half** of their bed: further in, they're drawn behind it (the draw order of objects
+  and critters isn't understood yet).
+- Found on the way: placed-object art drew wrong tiles when a small sprite cell came before a bigger one (fixed
+  for all imported furniture); builds were slow (9 min) from re-compressing every pet frame (now cached: 25 s).
+- No `strays.sav`: `urbania.sav` already starts with the strays in the park.
+- A townsperson standing next to you gets your A press first (the game talks to them); step aside.

@@ -21,8 +21,8 @@ pets.json:
             front half of a bed drawn on one floor tile; further back it would be drawn behind the bed).
   stray     true: one of the two strays of the Urbania Park quest (code/pets-kit/strays.inc).
 
-A top-level "text" object holds the messages code/pets-kit shows (the strays quest, docs/plan-phase10.md):
-every key in TEXT_KEYS; @1 / @2 are filled in by the game (a pet's or a person's name).
+A top-level "text" object may change the messages code/pets-kit shows (the strays quest, docs/plan-phase10.md):
+keys TEXT_KEYS (defaults DEFAULT_TEXT); @1 / @2 are filled in by the game (a pet's or a person's name).
 
 The builder (urbz_build.py) calls pets_mod(): each pet gets a critter kind (7, 8, ...). The game's three
 critter tables (behaviour, art, palette) are copied with room for the new kinds into a hidden generated
@@ -46,6 +46,18 @@ MAX_PETS = 24
 TEXT_KEYS = ['strays_intro', 'stray_wary', 'stray_friendly', 'no_treats', 'fed_first', 'fed_today', 'trusts',
              'take_home', 'adopted', 'other_adopted', 'leave', 'ok']
 NAME_LEN = 12
+DEFAULT_TEXT = {'strays_intro': 'A stray puppy and a stray kitten are hiding in the park. They look hungry and scared.',
+                'stray_wary': 'The stray @1 watches you nervously.',
+                'stray_friendly': 'The stray @1 wags up to you.',
+                'no_treats': 'It sniffs your hand. Pet Treats would win it over: Drifter Woods sells them, by the Brownstones.',
+                'fed_first': 'The @1 gobbles up the treat. Come back tomorrow!',
+                'fed_today': 'The @1 is full for today. Come back tomorrow.',
+                'trusts': 'The @1 trusts you now! You can take it home.',
+                'take_home': 'Take Home',
+                'adopted': "You adopted the @1! It's in your Pockets: let it loose at home.",
+                'other_adopted': '@1 adopted the stray @2. It found a home too!',
+                'leave': 'Leave',
+                'ok': 'OK'}
 
 
 class PetsError(Exception):
@@ -102,8 +114,8 @@ def mod_pets(mod_dirs):
 
 
 def mod_text(mod_dirs):
-    """{key: text} from the "text" of every pets.json (later mods win); every key in TEXT_KEYS."""
-    text = {}
+    """{key: text} from the "text" of every pets.json (later mods win) over DEFAULT_TEXT."""
+    text = dict(DEFAULT_TEXT)
     for md in mod_dirs:
         p = os.path.join(md, 'pets.json')
         if os.path.exists(p):

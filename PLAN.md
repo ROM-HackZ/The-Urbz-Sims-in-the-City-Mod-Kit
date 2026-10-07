@@ -196,6 +196,8 @@ you, a Pets page on the Mods page, and, because pets are only sold in the Sim Qu
 quest: two strays in Urbania Park, win one's trust over two days and take it home; a townsperson adopts the
 other. Pet things are sold at Drifter Woods' stall in Urbania Park.
 
+**Status (2026-10-06): done**, gate `pets-gate2` passes in melonDS (details: docs/plan-phase10.md "Status").
+
 ## Working in the cloud
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).
