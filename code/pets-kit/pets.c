@@ -36,9 +36,11 @@ enum { T_STRAYS_INTRO, T_STRAY_WARY, T_STRAY_FRIENDLY, T_NO_TREATS, T_FED_FIRST,
        T_TAKE_HOME, T_ADOPTED, T_OTHER_ADOPTED, T_LEAVE, T_OK, N_TEXT };
 
 #define G(name, type) GAME_FN(ADDR_##name, type)
+#define ENT_TYPE_(e) (*(u16 *)((e) + 8))
 #define entity_records   G(entity_records, void (*)(void *e, const void *record))
 #define entity_script    G(entity_set_script, void (*)(void *e, unsigned script, int start))
 #define entity_stop      G(entity_stop, void (*)(void *e))
+#define entity_mirror    G(entity_set_mirror, void (*)(void *e, int n))
 #define entity_go        G(entity_go, void (*)(void *e))
 #define entity_dir_to    G(entity_dir_to, int (*)(void *a, void *b))
 #define entity_face      G(entity_face, void (*)(void *e, int dir))
@@ -93,10 +95,30 @@ unsigned pets_object_of(unsigned kind)
     return p ? p->object : 0;
 }
 
+/* What each pet entity is playing (to redraw it facing a new way). */
+#define N_PLAYING 16
+static struct { u8 *e; u8 action; } playing[N_PLAYING];
+
+static int playing_slot(u8 *e)
+{
+    int free = -1;
+    for (int k = 0; k < N_PLAYING; k++) {
+        if (playing[k].e == e)
+            return k;
+        if (free < 0 && (!playing[k].e || ENT_TYPE_(playing[k].e) != 9))
+            free = k;
+    }
+    return free < 0 ? 0 : free;
+}
+
 /* Play one of a pet's actions (its own table; drawn pets without one: the game's stand/walk slots). */
 static void pets_play(u8 *e, int action)
 {
     const pet_t *p = pet_of_kind(*(u16 *)(e + 10));
+    int k = playing_slot(e);
+    playing[k].e = e;
+    playing[k].action = (u8)action;
+    entity_mirror(e, 4);                         /* facings 5-8 are the mirrored pictures */
     if (!p || !p->actions) {
         critter_anim(e, action == A_WALK ? 1 : 0);
         return;
@@ -106,6 +128,26 @@ static void pets_play(u8 *e, int action)
     u8 dir = ((const u8 *)ADDR_critter_facing_map)[e[0x12] & 7];
     entity_records(e, records + 16 * dir);
     entity_script(e, script, 0);
+}
+
+/* Turn a pet and draw its current action facing the new way. entity_face alone only changes the facing:
+   the picture and its left/right mirror stayed as they were, so pets we steer walked backwards. */
+static void pet_face(u8 *e, int dir)
+{
+    if (e[0x12] == (u8)dir)
+        return;
+    entity_face(e, dir);
+    entity_mirror(e, 4);
+    const pet_t *p = pet_of_kind(*(u16 *)(e + 10));
+    int k = playing_slot(e);
+    if (playing[k].e != e)
+        return;
+    if (!p || !p->actions) {
+        critter_anim(e, playing[k].action == A_WALK ? 1 : 0);
+        return;
+    }
+    const u8 *records = (const u8 *)p->actions[2 * playing[k].action];
+    entity_records(e, records + 16 * ((const u8 *)ADDR_critter_facing_map)[e[0x12] & 7]);
 }
 
 /* ---- my pets: the pets placed at home, kept in the save ------------------------------------------ */
@@ -284,7 +326,7 @@ static void bed_tick(u32 i)
     int dx = ENT_X(be) + sx - ENT_X(e), dy = ENT_Y(be) + sy - ENT_Y(e);
     int d2 = dx * dx + dy * dy;
     if (d2 > 6 * 6 && live[i].timer) {
-        entity_face(e, entity_dir_to(e, be));
+        pet_face(e, entity_dir_to(e, be));
         entity_go(e);
         return;
     }
@@ -293,6 +335,7 @@ static void bed_tick(u32 i)
         *(s32 *)(e + 0x18) = *(s32 *)(be + 0x18) + (sx << 16);
         *(s32 *)(e + 0x1C) = *(s32 *)(be + 0x1C) + (sy << 16);
         e[0x12] = 4;                               /* facing you */
+        entity_mirror(e, 4);
         pets_stats.in_bed++;
         act(i, a == A_SLEEP ? A_BEDSLEEP : A_BEDLIE, a == A_SLEEP ? 900 + rnd(900) : 300 + rnd(300));
         live[i].bed = be;
@@ -339,12 +382,12 @@ static void go_to_player(u32 i)
     int dx = ENT_X(pl) - ENT_X(e), dy = ENT_Y(pl) - ENT_Y(e);
     if (dx * dx + dy * dy < 24 * 24 || !live[i].timer) {
         entity_stop(e);
-        entity_face(e, entity_dir_to(e, pl));
+        pet_face(e, entity_dir_to(e, pl));
         act(i, A_HAPPY, 90);
         pets_stats.greets++;
         return;
     }
-    entity_face(e, entity_dir_to(e, pl));
+    pet_face(e, entity_dir_to(e, pl));
     entity_go(e);
 }
 
@@ -521,7 +564,7 @@ static void talk_open(int who, u8 *e, u8 *pl)
 {
     static const u16 mine_opts[] = { 725, 3657, 3632, 3654 };   /* Pet, Play, Feed, Put in Pocket */
     entity_stop(e);
-    entity_face(e, entity_dir_to(e, pl));
+    pet_face(e, entity_dir_to(e, pl));
     entity_face(pl, entity_dir_to(pl, e));
     pets_play(e, A_STAND);
     talk.who = who;
@@ -564,16 +607,30 @@ static void talk_tick(void)
         }
         if (pl[0x104] != 0x10)
             return;
-        for (u32 i = 0; i < n_mine; i++)
-            if (alive(i) && live[i].mode != M_TALK && near_and_facing(pl, live[i].e)) {
-                talk_open((int)i, live[i].e, pl);
-                return;
+        /* The pet you mean: one you face within reach, the nearest of those; else a stray at your feet. Two
+           pets side by side: the first found used to win, so A at one could talk to the other. */
+        int best = -1, best_d = 0x7FFFFFFF, best_faced = 0;
+        u8 *best_e = 0;
+        for (int w = 0; w < (int)n_mine + 2; w++) {
+            int k = w - (int)n_mine;
+            u8 *e = w < (int)n_mine ? (alive((u32)w) && live[w].mode != M_TALK ? live[w].e : 0)
+                                     : (stray_here(k) ? stray_live[k].e : 0);
+            if (!e)
+                continue;
+            int d = dist2(pl, e), faced = near_and_facing(pl, e);
+            if (!faced && !(k >= 0 && d < 40 * 40))
+                continue;
+            if (faced > best_faced || (faced == best_faced && d < best_d)) {
+                best = w < (int)n_mine ? w : STRAY0 + k;
+                best_d = d;
+                best_faced = faced;
+                best_e = e;
             }
-        for (int k = 0; k < 2; k++)                /* strays: close by is enough (they sit at your feet) */
-            if (stray_here(k) && (near_and_facing(pl, stray_live[k].e) || dist2(pl, stray_live[k].e) < 40 * 40)) {
-                talk_open(STRAY0 + k, stray_live[k].e, pl);
-                return;
-            }
+        }
+        if (best >= 0) {
+            entity_stop(pl);                       /* (a moving player slid along while petting) */
+            talk_open(best, best_e, pl);
+        }
         return;
     }
     int stray = talk.who >= STRAY0 ? talk.who - STRAY0 : -1;
@@ -584,6 +641,8 @@ static void talk_tick(void)
         return;
     }
     mypet_t *m = stray < 0 ? &mine[talk.who] : 0;
+    if (talk.stage >= 2)
+        entity_stop(pl);                           /* the player stays put while the pet comes and acts */
     if (talk.stage == 1) {                          /* waiting for the question box */
         u32 r = *(volatile u32 *)(ADDR_dialog_result + 0x8C * SCREEN);
         if (!r)
@@ -599,13 +658,13 @@ static void talk_tick(void)
     }
     if (talk.stage == 3) {                          /* coming up to you */
         int dx = ENT_X(pl) - ENT_X(e), dy = ENT_Y(pl) - ENT_Y(e);
-        if (dx * dx + dy * dy > 20 * 20 && ++talk.timer < 90) {
-            entity_face(e, entity_dir_to(e, pl));
+        if (dx * dx + dy * dy > 28 * 28 && ++talk.timer < 90) {   /* (closer, it pushed you along) */
+            pet_face(e, entity_dir_to(e, pl));
             entity_go(e);
             return;
         }
         entity_stop(e);
-        entity_face(e, entity_dir_to(e, pl));
+        pet_face(e, entity_dir_to(e, pl));
         entity_face(pl, entity_dir_to(pl, e));
         talk.stage = 2;
         talk.timer = 0;

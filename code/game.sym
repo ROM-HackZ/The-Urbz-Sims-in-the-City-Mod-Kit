@@ -108,6 +108,8 @@ item_lists         = 0x02141280   # 24 x {u8 count, u8 cap, u16, slot *}; slots 
 pockets_list       = 0x02141338   # item list 23 (game_state+0x154), 8 slots: shop buys land here
 shop_defs          = 0x020C76E8   # 24 x {u8 cap, u8 n, u8 keep, u8, u16 *items}; item 0x183 = random pick
 shop_pick          = 0x0203C53C   # (state, list): random object by rarity mask (60/30/10%)
+game_rand          = 0x0207A118   # int (n): 0..n inclusive, from the Mersenne Twister rand_u32 0x02079E08
+rand_left          = 0x02146EFC   # s32: numbers left before the twister refills (pointer at 0x02146F10); tests poke it to vary rolls
 restock_shop       = 0x0203CA30   # (state, list)
 restock_all        = 0x0203D370   # lists 0-20; new game and each new day
 list_add           = 0x0203D0CC   # int (list *, object, u8, u8 variant)
@@ -229,6 +231,7 @@ npc_anim_lists     = 0x0211CDF4   # u8 *[id]: {u8 anim, ...} x 12 bytes; 0x6B si
 player_body_setup  = 0x0208327C   # (e, look): fills drawing slots 0-3 (+0xCC, 12 bytes: +1 palette row, +8 anim table) from the look, index e+0xC7
 load_look_palette  = 0x020833E0   # (look, row_a, row_b): builds the player's 2 palette rows from a look into OBJ rows a (skin/hair) and b (clothes)
 entity_set_frames  = 0x02003130   # (e, anim, facing record): picks the facing's records (player: facing from player_facing_table[e+0x12])
+entity_set_mirror  = 0x020032D4   # (e, n): mirror the sprite when e+0x12 (facing) > n (+0x8C bit 28); the game calls it with 4 after turning an entity (entity_face doesn't)
 entity_set_script  = 0x02002B68   # (e, frame script, start): the animation's frame sequence (+0xA0)
 player_gfx_refresh = 0x020374B8   # the player's graphics update: body setup, frames, script when e+0x106 & 0x14
 player_facing_table = 0x020C22B4  # s8 per direction (0x020C22C8 when e+0xC bit 29 is set)

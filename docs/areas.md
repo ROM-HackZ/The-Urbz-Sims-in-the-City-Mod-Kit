@@ -114,7 +114,7 @@ I = inferred (read from the decompile, not exercised).
   e.g. after the strays' box: the byte at 0x02141C24 is 1 until then.)
   `verify/saves/out-of-jail.sav`: urbania.sav with $2,000 (0x02141124), needs topped up (0x02141204, 8 x
   0x64000000) and Drifter Woods' shelf (list 18: header 0x02141310, slots 0x021416A0) = his own 373, 376, 371 +
-  396, 396, 397, 398,
+  396, 397, 398 (one Pet Treats: two looked like a bug; the stall restocks at midnight),
   saved through the menu with the vanilla ROM (so the strays' box still comes up with a pets build).
   `verify/saves/pet-shop.sav`: from apartment.sav, standing at the Bayou Bazaar clerk (char id 15, Sim Quarter
   Farmer's Market, area 13; loads at (995,598)), $850; list 9's shelf (slots at 0x021414F0) poked to Puppy 386,

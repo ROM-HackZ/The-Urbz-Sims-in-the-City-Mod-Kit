@@ -1951,9 +1951,10 @@ def p_game_intact():
     the game's is removed or changed, only added to.
     - Static, from the generated tables: the game's 386 objects (all 7 moved tables), its 7 critter kinds and
       its 8,311 strings are byte for byte the game's; shop lists only gain stock slots (still "pick at random").
-    - In the game: after midnight the shops that sell new things stock more (Drifter Woods 3 -> 6, the Bayou
-      Bazaar 4 -> 8, the furniture shop 3 -> 6) and their own goods are still among them over a week; a Chicken
-      bought before still turns into a walking chicken."""
+    - In the game: after midnight the shops that sell new things stock more (Drifter Woods 3 -> up to 6, the
+      Bayou Bazaar 4 -> up to 8, the furniture shop 3 -> up to 6), never the same thing twice on a shelf (the
+      game's own pick added a second copy once it ran out of goods; that slot now stays empty), and their own
+      goods are still among them over a week; a Chicken bought before still turns into a walking chicken."""
     import urbz_objects as O, urbz_pets as PT
     rom = build('all-mods', [os.path.join(KIT, 'mods', m) for m in PLAYER_MODS])[0]
     arm9 = O.game_arm9(PROJ)
@@ -1996,26 +1997,36 @@ def p_game_intact():
     sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
     late = os.path.join(work, 'late.sav')
     run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, late, '--clock', '23:55'])
+    heads = [('0x%08X:8' % (0x02141280 + 8 * L)) for L in seen]
+    vals, _ = _ram_run(rom, late, _load() + [['wait', 60]], *heads)
+    slots = {L: struct.unpack('<BBHI', vals['0x%08X:8' % (0x02141280 + 8 * L)])[3] for L in seen}
+    doubles, goods, week18 = [], {}, []
     for day in range(7):
-        script = _load() + [['poke', '0x0214112C=%s' % struct.pack('<h', 3 + day).hex()], ['wait', 900]]
-        reads = [('0x%08X:8' % (0x02141280 + 8 * L)) for L in seen]
-        vals, _ = _ram_run(rom, late, script, *reads)
+        script = _load() + [['poke', '0x0214112C=%s' % struct.pack('<h', 3 + day).hex()],
+                            ['poke', '0x02146EFC=%s' % struct.pack('<i', 1 + 5 * day).hex()],
+                            ['wait', 900]]   # (the random numbers moved on a bit each day: the same start rolls the same)
+        vals, _ = _ram_run(rom, late, script, *(heads + ['0x%08X:48' % slots[L] for L in seen]))
         for L in seen:
             n, cap, _, ptr = struct.unpack('<BBHI', vals['0x%08X:8' % (0x02141280 + 8 * L)])
             counts.setdefault(L, set()).add(n)
             seen[L].add(ptr)
-    # the shelves' contents: one more run reading the slots
-    vals, _ = _ram_run(rom, late, _load() + [['wait', 900]],
-                       *['0x%08X:48' % next(iter(seen[L])) for L in seen])
-    goods = {L: [struct.unpack_from('<H', vals['0x%08X:48' % next(iter(seen[L]))], 6 * k)[0] for k in range(8)] for L in seen}
+            items = [struct.unpack_from('<H', vals['0x%08X:48' % slots[L]], 6 * k)[0] for k in range(n)]
+            if len(set(items)) < len(items):
+                doubles.append('day %d list %d: %s' % (day, L, items))
+            if day == 6:
+                goods[L] = items
+            if L == 18:
+                week18.append(items)
     r = ram(rom, 10, '0x02141338:4', HEAP_SCAN, pokes=['0x02141338=02', '0x02141892=e1000000'],
             script=place_script(), start=['--city', '--goto', '68'])
     chicken = 1 in [k for _, k in critters(r[HEAP_SCAN])]
     old_goods = {L: [o for o in goods[L] if o < O.N_GAME] for L in goods}
-    ok = not bad and chicken and all(old_goods[L] for L in goods) and max(counts[18]) == 6 and max(counts[9]) == 8
-    return ok, 'differences: %s; shelf sizes after midnight: %s; game goods on them: %s; new goods: %s; chicken ' \
-        'placed: %s' % (bad or 'none', {L: sorted(c) for L, c in counts.items()}, old_goods,
-                        {L: [o for o in goods[L] if O.N_GAME <= o < 388 or 388 < o < 512] for L in goods}, chicken)
+    ok = not bad and chicken and all(old_goods[L] for L in goods) and max(counts[18]) > 3 and max(counts[9]) > 4 \
+        and not doubles
+    return ok, 'differences: %s; shelf sizes after midnight: %s; the same thing twice on a shelf: %s; game goods ' \
+        'on them (day 7): %s; new goods: %s; Drifter Woods each day: %s; chicken placed: %s' % (
+            bad or 'none', {L: sorted(c) for L, c in counts.items()}, doubles or 'never', old_goods,
+            {L: [o for o in goods[L] if o >= O.N_GAME] for L in goods}, week18, chicken)
 
 
 def _concat(*scripts):

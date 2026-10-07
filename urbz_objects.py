@@ -48,6 +48,9 @@ UI_SPRITE_REFS = (0x0204E7B0, 0x0204ED20)  # the only two words in the game that
 SHOP_PICK_COUNT = 0x0203C6AC               # literal: objects shop_pick looks at (386)
 SHOP_DEFS, N_SHOPS = 0x020C76E8, 21        # {u8 capacity, u8 n, u8 keep, pad, u16 *items} per shop list
 PICK_RANDOM = 387                          # a shop_defs item: "pick one at random" (by the sell masks)
+# shop_pick: once every rarity tier has nothing left that isn't already on the shelf, the game adds its last
+# try anyway (a second copy). This branch goes to the end instead, so that slot stays empty.
+SHOP_PICK_GIVE_UP = 0x0203C5A8, 0x0A000034, 0x0A00003C   # beq 0x0203C680 (add it) -> beq 0x0203C6A0 (return)
 CATALOG_LOOPS = (0x0201C6E8, 0x0201C920)   # "cmp rN, #0x118": the Catalog only looks at objects 0-279
 RARITY = {'common': 1, 'uncommon': 2, 'rare': 3}        # info word (shop_pick reads +4, +8, +0xC)
 FIELDS = {'model': ('t', 0), 'description': ('t', 1), 'name': ('t', 2), 'page': ('t', 3),
@@ -289,6 +292,10 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         lines.append('u8 0x%08X %d' % (SHOP_DEFS + 8 * shop + 1, n1))
         lines.append('u32 0x%08X @shop_items_%d' % (SHOP_DEFS + 8 * shop + 4, shop))
         shelves.append('list %d: %d -> %d a day' % (shop, n0, n1))
+    if shelves:                                 # more slots than goods: no doubles, an empty slot instead
+        a, old, new = SHOP_PICK_GIVE_UP
+        assert struct.unpack_from('<I', arm9, a - ARM9_BASE)[0] == old, 'unexpected shop_pick at %08x' % a
+        lines.append('u32 0x%08X 0x%08X' % (a, new))
     n4 = (n + 3) & ~3                           # an ARM immediate (rows past n are never on a page)
     for a in CATALOG_LOOPS:
         w = struct.unpack_from('<I', arm9, a - ARM9_BASE)[0]
@@ -314,7 +321,7 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     return [out_dir, os.path.join(KIT, 'code', 'objects')], 'objects: %d new (%s), %d changed; tables moved (%d rows)%s' % (
         len(new), ', '.join(map(str, new)) or '-', len(entries) - len(new), n,
         ('; own art: %s' % ', '.join(map(str, sorted(art))) if art else '') +
-        ('; bigger shelves: %s' % ', '.join(shelves) if shelves else ''))
+        ('; bigger shelves: %s, no doubles' % ', '.join(shelves) if shelves else ''))
 
 
 def main(argv):

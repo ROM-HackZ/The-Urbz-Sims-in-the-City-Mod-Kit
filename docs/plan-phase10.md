@@ -194,3 +194,15 @@ Changes from the plan:
   for all imported furniture); builds were slow (9 min) from re-compressing every pet frame (now cached: 25 s).
 - No `strays.sav`: `urbania.sav` already starts with the strays in the park.
 - A townsperson standing next to you gets your A press first (the game talks to them); step aside.
+
+## Bug fixes (2026-10-07, after Jonathan played)
+- **Pets walked backwards:** steering turned them without the game's left/right mirror bit
+  (`entity_set_mirror` 0x020032D4), so a pet heading right was drawn facing left. `pet_face` fixes it for
+  every pet we steer (strays, coming to you, going to bed); seen in research/pets/facing_probe.py.
+- **A at one pet opened the other** when two stood close: now the faced one within reach, the nearest of
+  those (research/pets/pick_probe.py: LEFT/RIGHT pick the stray on that side).
+- **The player slid along the street while petting:** he's stopped when the box opens and kept still while
+  the pet comes and acts; the pet stops a little further away (28 px) so it doesn't push him.
+- **Two Pet Treats at the stall:** the test save stocked two on purpose (one per feeding day); it now has one.
+  The game's own restock could also put the same thing on a shelf twice (more often with our bigger shelves):
+  the objects mod makes that slot stay empty instead (`game-intact` checks a week of shelves).

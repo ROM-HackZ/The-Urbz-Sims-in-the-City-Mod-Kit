@@ -213,7 +213,7 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
    - `verify\saves\urbania.sav`: just out of jail in Urbania Park, no home yet, $200: the strays are in the
      park (from a build with `pets`).
    - `verify\saves\out-of-jail.sav`: the same with $2,000, rested, and Drifter Woods' stall (left of the
-     Brownstone steps) stocked with his usual flowers, rose and comic plus 2 Pet Treats, a Dog Basket and a Cat
+     Brownstone steps) stocked with his usual flowers, rose and comic plus Pet Treats, a Dog Basket and a Cat
      Bed: for trying the pets quickly.
    - `verify\saves\pet-shop.sav`: standing at the Bayou Bazaar clerk (Farmer's Market) with $850; today's
      shelf has the Puppy, Kitten, Bunny and Pet Treats (press A at the clerk). Home is the Small Brownstone.

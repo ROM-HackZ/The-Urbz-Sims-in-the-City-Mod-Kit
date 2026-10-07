@@ -263,12 +263,12 @@ void strays_behaviour(u8 *e)
             return;
         }
         if (dist2(e, pl) > 28 * 28) {
-            entity_face(e, entity_dir_to(e, pl));
+            pet_face(e, entity_dir_to(e, pl));
             entity_go(e);
             return;
         }
         entity_stop(e);
-        entity_face(e, entity_dir_to(e, pl));
+        pet_face(e, entity_dir_to(e, pl));
         stray_after(k);                          /* sits in front of you, looking up */
         stray_live[k].timer = 360;
         return;
@@ -281,7 +281,7 @@ void strays_behaviour(u8 *e)
     case S_HOME: {
         int dx = hx - ENT_X(e), dy = hy - ENT_Y(e);
         if (dx * dx + dy * dy > 30 * 30 && --stray_live[k].timer) {
-            entity_face(e, dir8(dx, dy));
+            pet_face(e, dir8(dx, dy));
             entity_go(e);
             return;
         }
@@ -310,19 +310,19 @@ void strays_behaviour(u8 *e)
             if (!stray_live[k].moving)
                 pets_play(e, A_WALK);
             stray_live[k].moving = 1;
-            entity_face(e, entity_dir_to(e, p));
+            pet_face(e, entity_dir_to(e, p));
             entity_go(e);
         } else {
             if (stray_live[k].moving)
                 pets_play(e, A_STAND);
             stray_live[k].moving = 0;
             entity_stop(e);
-            entity_face(e, entity_dir_to(e, p));
+            pet_face(e, entity_dir_to(e, p));
         }
         return;
     }
     case S_LEAVE:                                /* trots off out of the park */
-        entity_face(e, 7);
+        pet_face(e, 7);
         entity_go(e);
         if (!stray_live[k].timer || !--stray_live[k].timer)
             stray_remove(k);
@@ -334,14 +334,14 @@ void strays_behaviour(u8 *e)
         stray_live[k].mode = S_HOME;
         stray_live[k].timer = 240;
         pets_play(e, A_WALK);
-        entity_face(e, dir8(dx, dy));
+        pet_face(e, dir8(dx, dy));
         return;
     }
     if (!pl)
         return;
     int d = dist2(e, pl);
     if (!strays[k].trust && player_still < 10 && d < 64 * 64) {   /* shy: backs away while you move */
-        entity_face(e, dir8(ENT_X(e) - ENT_X(pl), ENT_Y(e) - ENT_Y(pl)));
+        pet_face(e, dir8(ENT_X(e) - ENT_X(pl), ENT_Y(e) - ENT_Y(pl)));
         pets_play(e, A_WALK);
         stray_live[k].mode = S_FLEE;
         stray_live[k].timer = 20;
@@ -404,7 +404,7 @@ static void strays_tick(u8 *pl)
             path_cancel(p);
             entity_anim(p, 4);
             entity_face(p, entity_dir_to(p, e));
-            entity_face(e, entity_dir_to(e, p));
+            pet_face(e, entity_dir_to(e, p));
             set_action(p, 2);                    /* back to their own wandering */
             adopted_by(k, p, id);
         }

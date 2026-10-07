@@ -517,6 +517,16 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   `ACTION_ANIMS`; birds use calm ones to stay within 32 tiles). The list before the critter table ('PETA':
   {u16 object, u16 kind, u32 actions} x n, n) points at it; `pets_play(e, action)` does what
   `critter_play_anim` does (`entity_records` by facing + `entity_script`). Missing actions fall back to stand.
+- **Turning a pet (2026-10-07, research/pets/facing_probe.py):** `entity_face` only changes the facing byte
+  (+0x12). The picture is chosen when the records are set, and the left/right mirror is a separate bit
+  (+0x8C bit 28) set by `entity_set_mirror(e, 4)` (0x020032D4: mirrored when the facing is above 4); the game
+  calls it after every turn, and our steering didn't, so steered pets (strays, pets coming to you or going
+  to bed) walked and sat the wrong way round. `pet_face` in pets-kit turns, mirrors and redraws the current
+  action; `pets_play` mirrors too.
+- **Which pet A talks to (2026-10-07, research/pets/pick_probe.py):** the pet you face within reach, the
+  nearest of those, else a stray within 40 px (before: the first in the list, so with two side by side A at
+  one could open the other). The player is stopped when the box opens and kept still while the pet comes up
+  and is petted (he used to slide along the street), and the pet stops 28 px away (it was 20 and pushed him).
 - **Behaviour (Phase 9, proof `pets-life`):** pets-kit replaces the pets' behaviour (+0x4C) with
   `pets_behaviour`: wander with the game's own critter movement, and every few seconds pick an idle action
   (sniff, sit, scratch, lie, play, happy); at night (22:00-07:00) sleep or lie; hunger or happiness under 25 =
@@ -542,6 +552,12 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   at random by the sell masks; e.g. Drifter Woods (18) 3, the Bayou Bazaar (9) 4, the furniture shop (4) 3).
   When mods add objects to a list, urbz_objects raises its n (up to double, at most the capacity 8) with a
   longer items array in the generated mod, so the game's own goods still show up about as often.
+  No doubles: `shop_pick` 0x0203C53C tries a rarity tier 50 times for something not yet on the shelf, then
+  the tier below; when even the common tier is used up it added its last try anyway, a second copy (two
+  Pet Treats, two of item 370). With bigger shelves that happened most days, so the generated mod also turns
+  that branch (0x0203C5A8) into "give up": the slot stays empty. `game-intact` checks a week of shelves.
+  Random numbers (`game_rand` 0x0207A118) come from a Mersenne Twister; the same save and script roll the
+  same every run, so the proof pokes `rand_left` 0x02146EFC differently each day to see different stock.
   `game-intact` also checks byte for byte that the game's 386 objects, 7 critter kinds and 8,311 strings are
   untouched with every player mod on, and that a Chicken still becomes a chicken.
 - **Imported icons (2026-10-07):** an icon is drawn as big as fits the box (4,5)-(28,27) of its 32x32 square
