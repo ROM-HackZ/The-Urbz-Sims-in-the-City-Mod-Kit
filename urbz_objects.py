@@ -46,6 +46,8 @@ FIRST_NEW, LAST = 386, 511
 UI_SPRITES, UI_ROWS = 0x020CB134, 632      # icon records by model number; model 632 = "not sold"
 UI_SPRITE_REFS = (0x0204E7B0, 0x0204ED20)  # the only two words in the game that hold its address
 SHOP_PICK_COUNT = 0x0203C6AC               # literal: objects shop_pick looks at (386)
+SHOP_DEFS, N_SHOPS = 0x020C76E8, 21        # {u8 capacity, u8 n, u8 keep, pad, u16 *items} per shop list
+PICK_RANDOM = 387                          # a shop_defs item: "pick one at random" (by the sell masks)
 CATALOG_LOOPS = (0x0201C6E8, 0x0201C920)   # "cmp rN, #0x118": the Catalog only looks at objects 0-279
 RARITY = {'common': 1, 'uncommon': 2, 'rare': 3}        # info word (shop_pick reads +4, +8, +0xC)
 FIELDS = {'model': ('t', 0), 'description': ('t', 1), 'name': ('t', 2), 'page': ('t', 3),
@@ -234,6 +236,7 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     # Own palettes for code/objects: {u16 object, u16 0, u32 palette id x 4} ..., u32 count, 'OPAL', then 'NEWO'.
     opal = b''.join(struct.pack('<HH4I', i, 0, *[a['palette']] * 4) for i, a in sorted(art.items()))
     blob = bytearray(opal + struct.pack('<I', len(art)) + b'OPAL')
+    shelves = []
     blob += b'NEWO' + struct.pack('<%dH' % (LAST + 1), *like)  # code/objects finds it before obj_text
     syms = {}
     relocs = []
@@ -266,6 +269,26 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     for addr, name, off in table_refs(arm9):
         lines.append('u32 0x%08X @obj_%s+0x%X' % (addr, name, off))
     lines.append('u32 0x%08X %d' % (SHOP_PICK_COUNT, n))
+    # Shelves: a shop that sells new objects stocks more each day (up to double, at most its capacity),
+    # so the game's own goods turn up about as often as before instead of being crowded out.
+    new_sellers = {}
+    for mod, e in entries:
+        if e['id'] >= N_GAME:
+            for shop in e.get('sell', {}):
+                new_sellers[int(shop)] = new_sellers.get(int(shop), 0) + 1
+    for shop, k in sorted(new_sellers.items()):
+        cap, n0, keep, _, ptr = struct.unpack_from('<BBBBI', arm9, SHOP_DEFS + 8 * shop - ARM9_BASE)
+        n1 = min(cap, n0 + min(k, n0))
+        if n1 <= n0:
+            continue
+        items = list(struct.unpack_from('<%dH' % n0, arm9, ptr - ARM9_BASE)) + [PICK_RANDOM] * (n1 - n0)
+        while len(blob) % 4:
+            blob.append(0)
+        syms['shop_items_%d' % shop] = len(blob)
+        blob += struct.pack('<%dH' % n1, *items)
+        lines.append('u8 0x%08X %d' % (SHOP_DEFS + 8 * shop + 1, n1))
+        lines.append('u32 0x%08X @shop_items_%d' % (SHOP_DEFS + 8 * shop + 4, shop))
+        shelves.append('list %d: %d -> %d a day' % (shop, n0, n1))
     n4 = (n + 3) & ~3                           # an ARM immediate (rows past n are never on a page)
     for a in CATALOG_LOOPS:
         w = struct.unpack_from('<I', arm9, a - ARM9_BASE)[0]
@@ -290,7 +313,8 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     new = sorted(e['id'] for _, e in entries if e['id'] >= N_GAME)
     return [out_dir, os.path.join(KIT, 'code', 'objects')], 'objects: %d new (%s), %d changed; tables moved (%d rows)%s' % (
         len(new), ', '.join(map(str, new)) or '-', len(entries) - len(new), n,
-        '; own art: %s' % ', '.join(map(str, sorted(art))) if art else '')
+        ('; own art: %s' % ', '.join(map(str, sorted(art))) if art else '') +
+        ('; bigger shelves: %s' % ', '.join(shelves) if shelves else ''))
 
 
 def main(argv):

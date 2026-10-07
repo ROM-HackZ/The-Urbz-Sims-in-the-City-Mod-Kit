@@ -1943,6 +1943,81 @@ def p_max_needs():
     return ok, 'switched on: needs %s; switched off: %s' % (full, low)
 
 
+PLAYER_MODS = ('npc-life', 'pets', 'more-furniture', 'max-needs')
+
+
+def p_game_intact():
+    """The game stays itself with every player mod on (npc-life, pets, more-furniture, max-needs): nothing of
+    the game's is removed or changed, only added to.
+    - Static, from the generated tables: the game's 386 objects (all 7 moved tables), its 7 critter kinds and
+      its 8,311 strings are byte for byte the game's; shop lists only gain stock slots (still "pick at random").
+    - In the game: after midnight the shops that sell new things stock more (Drifter Woods 3 -> 6, the Bayou
+      Bazaar 4 -> 8, the furniture shop 3 -> 6) and their own goods are still among them over a week; a Chicken
+      bought before still turns into a walking chicken."""
+    import urbz_objects as O, urbz_pets as PT
+    rom = build('all-mods', [os.path.join(KIT, 'mods', m) for m in PLAYER_MODS])[0]
+    arm9 = O.game_arm9(PROJ)
+    bad = []
+    gen = os.path.join(KIT, 'build')
+    blob = open(os.path.join(gen, 'new-objects', 'code', 'build', 'patch.bin'), 'rb').read()
+    syms = json.load(open(os.path.join(gen, 'new-objects', 'code', 'build', 'patch.json')))['symbols']
+    for name, addr, stride, count in O.TABLES:
+        a, b = arm9[addr - O.ARM9_BASE:addr - O.ARM9_BASE + stride * count], blob[syms['obj_' + name]:][:stride * count]
+        if a != b:
+            rows = [i for i in range(count) if a[i * stride:(i + 1) * stride] != b[i * stride:(i + 1) * stride]]
+            bad.append('objects %s rows %s' % (name, rows[:8]))
+    shelves = {}
+    for shop in range(O.N_SHOPS):
+        if 'shop_items_%d' % shop in syms:
+            cap, n0, _, _, ptr = struct.unpack_from('<BBBBI', arm9, O.SHOP_DEFS + 8 * shop - O.ARM9_BASE)
+            items = struct.unpack_from('<%dH' % n0, blob, syms['shop_items_%d' % shop])
+            orig = struct.unpack_from('<%dH' % n0, arm9, ptr - O.ARM9_BASE)
+            if items != orig:
+                bad.append('shop %d items changed' % shop)
+            shelves[shop] = n0
+    pblob = open(os.path.join(gen, 'new-pets', 'code', 'build', 'patch.bin'), 'rb').read()
+    psyms = json.load(open(os.path.join(gen, 'new-pets', 'code', 'build', 'patch.json')))['symbols']
+    for name, addr, size in (('crit_table', PT.CRIT_TABLE, PT.ROW), ('crit_anims', PT.CRIT_ANIMS, PT.ANIM_ROW),
+                             ('crit_palettes', PT.CRIT_PALETTES, 4)):
+        if arm9[addr - O.ARM9_BASE:addr - O.ARM9_BASE + size * PT.N_KINDS] != pblob[psyms[name]:psyms[name] + size * PT.N_KINDS]:
+            bad.append('critter table %s' % name)
+    from urbz_text import project_strings, read_tsv
+    n_game = len(project_strings(PROJ))
+    for md in [os.path.join(KIT, 'mods', m) for m in PLAYER_MODS] + [os.path.join(gen, g) for g in ('new-pets', 'new-objects')]:
+        tsv = os.path.join(md, 'text', 'strings.tsv')
+        if os.path.exists(tsv):
+            old = sorted(k for k in read_tsv(tsv) if k < n_game)
+            if old:
+                bad.append('%s changes strings %s' % (os.path.basename(md), old[:8]))
+    # In the game: a week of restocks from the apartment save (clock set to just before midnight each run)
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    seen = {4: set(), 9: set(), 18: set()}
+    counts = {}
+    sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    late = os.path.join(work, 'late.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, late, '--clock', '23:55'])
+    for day in range(7):
+        script = _load() + [['poke', '0x0214112C=%s' % struct.pack('<h', 3 + day).hex()], ['wait', 900]]
+        reads = [('0x%08X:8' % (0x02141280 + 8 * L)) for L in seen]
+        vals, _ = _ram_run(rom, late, script, *reads)
+        for L in seen:
+            n, cap, _, ptr = struct.unpack('<BBHI', vals['0x%08X:8' % (0x02141280 + 8 * L)])
+            counts.setdefault(L, set()).add(n)
+            seen[L].add(ptr)
+    # the shelves' contents: one more run reading the slots
+    vals, _ = _ram_run(rom, late, _load() + [['wait', 900]],
+                       *['0x%08X:48' % next(iter(seen[L])) for L in seen])
+    goods = {L: [struct.unpack_from('<H', vals['0x%08X:48' % next(iter(seen[L]))], 6 * k)[0] for k in range(8)] for L in seen}
+    r = ram(rom, 10, '0x02141338:4', HEAP_SCAN, pokes=['0x02141338=02', '0x02141892=e1000000'],
+            script=place_script(), start=['--city', '--goto', '68'])
+    chicken = 1 in [k for _, k in critters(r[HEAP_SCAN])]
+    old_goods = {L: [o for o in goods[L] if o < O.N_GAME] for L in goods}
+    ok = not bad and chicken and all(old_goods[L] for L in goods) and max(counts[18]) == 6 and max(counts[9]) == 8
+    return ok, 'differences: %s; shelf sizes after midnight: %s; game goods on them: %s; new goods: %s; chicken ' \
+        'placed: %s' % (bad or 'none', {L: sorted(c) for L, c in counts.items()}, old_goods,
+                        {L: [o for o in goods[L] if O.N_GAME <= o < 388 or 388 < o < 512] for L in goods}, chicken)
+
+
 def _concat(*scripts):
     p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'all.json')
     json.dump(sum((json.load(open(s)) for s in scripts), []), open(p, 'w'))
@@ -1965,7 +2040,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('max-needs', p_max_needs)]
+          ('max-needs', p_max_needs), ('game-intact', p_game_intact)]
 
 
 def main(argv):
