@@ -317,6 +317,8 @@ u32 core_load(u32 a, u32 b, u32 c, u32 d)
     core.loaded = 1;
     core.loads++;
     core.loaded_bytes = 0;
+    const u8 *objs = 0;                                  /* the stash of objects an earlier build didn't know */
+    int objs_n = 0;
     if (p + 10 <= end && get32(p) == BLOCK_MAGIC && p[4] == 1) {
         u8 *q = p + 6;
         while (q + 4 <= end) {
@@ -330,6 +332,12 @@ u32 core_load(u32 a, u32 b, u32 c, u32 d)
             if (q + 6 > end || q + 6 + get16(q + 4) > end)
                 break;                                   /* damaged: ignore the rest */
             u32 n = get16(q + 4);
+            if (hash == OBJS_HASH) {
+                objs = q + 6;
+                objs_n = n;
+                q += 6 + n;
+                continue;
+            }
             int i;
             for (i = 0; i < t->count; i++)
                 if (t->rows[i].hash == hash)
@@ -342,6 +350,10 @@ u32 core_load(u32 a, u32 b, u32 c, u32 d)
             q += 6 + n;
         }
     }
+    int stash_n;                                         /* objects this build does not have: aside (objguard.c) */
+    const u8 *stash = objects_guard(objs, objs_n, &stash_n);
+    if (stash_n)
+        carry_add(OBJS_HASH, stash, stash_n);
     for (int i = 0; i < t->count; i++) {
         mod_row_t *r = &t->rows[i];
         if (r->on && r->ev[EV_LOAD] && !(got & (1u << i)))

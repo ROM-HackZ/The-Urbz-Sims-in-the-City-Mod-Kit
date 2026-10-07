@@ -35,7 +35,6 @@
   "take_home": "Take Home",
   "adopted": "You adopted the @1! It's in your Pockets: let it loose at home.",
   "other_adopted": "@1 adopted the stray @2. It found a home too!",
-  "leave": "Leave",
-  "ok": "OK"
+  "leave": "Leave"
  }
 }

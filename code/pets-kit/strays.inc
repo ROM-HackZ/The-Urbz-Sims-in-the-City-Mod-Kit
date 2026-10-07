@@ -133,19 +133,19 @@ static int stray_feed(int k)
     stray_t *s = &strays[k];
     u16 today = (u16)game_time.day;
     if (s->flags & SF_FED && s->fed_day == today) {
-        say(T_FED_TODAY, stray_name(k), 0);
+        say(T_FED_TODAY, stray_pet(k)->object, stray_name(k), 0);
         return 0;
     }
     if (!pockets_take(TREATS)) {
         play_sound(3);
-        say(T_NO_TREATS, stray_name(k), 0);
+        say(T_NO_TREATS, TREATS, stray_name(k), 0);
         return 0;
     }
     if (s->trust < 2)
         s->trust++;
     s->flags |= SF_FED;
     s->fed_day = today;
-    say(s->trust >= 2 ? T_TRUSTS : T_FED_FIRST, stray_name(k), 0);
+    say(s->trust >= 2 ? T_TRUSTS : T_FED_FIRST, stray_pet(k)->object, stray_name(k), 0);
     pets_stats.stray_fed++;
     return 1;
 }
@@ -164,7 +164,7 @@ static void stray_take(int k)
     stray_remove(k);
     strays[k].flags |= SF_GONE;
     strays[k].adopter = THE_PLAYER;
-    say(T_ADOPTED, stray_name(k), 0);
+    say(T_ADOPTED, stray_pet(k)->object, stray_name(k), 0);
     pets_stats.quest = 2;
     adopt_start(1 - k);
 }
@@ -177,7 +177,7 @@ static void adopted_by(int o, u8 *person, int id)
     strays[o].flags |= SF_GONE;
     strays[o].adopter = (u8)id;
     pets_stats.adopter = (u32)id;
-    say(T_OTHER_ADOPTED, nm, stray_name(o));
+    say(T_OTHER_ADOPTED, stray_pet(o)->object, nm, stray_name(o));
     if (stray_alive(o)) {
         pets_play(stray_live[o].e, A_HAPPY);
         stray_live[o].mode = person ? S_FOLLOW : S_LEAVE;
@@ -241,6 +241,7 @@ static int person_alive(u8 *p, int id)
 /* ---- the strays' behaviour (entity +0x4C) ------------------------------------------------------------- */
 void strays_behaviour(u8 *e)
 {
+    sort_like_people(e);
     int k = stray_live[0].e == e ? 0 : stray_live[1].e == e ? 1 : -1;
     if (k < 0) {
         critter_update(e);
@@ -369,7 +370,7 @@ static void strays_spawn(void)
     }
     if (!strays_intro && stray_pet(0) && !((strays[0].flags & strays[1].flags) & SF_GONE)) {
         strays_intro = 1;
-        say(T_STRAYS_INTRO, 0, 0);
+        say(T_STRAYS_INTRO, stray_pet(0)->object, 0, 0);
         pets_stats.quest = 1;
     }
 }

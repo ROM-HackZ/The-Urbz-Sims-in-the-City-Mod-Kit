@@ -231,6 +231,7 @@ npc_anim_lists     = 0x0211CDF4   # u8 *[id]: {u8 anim, ...} x 12 bytes; 0x6B si
 player_body_setup  = 0x0208327C   # (e, look): fills drawing slots 0-3 (+0xCC, 12 bytes: +1 palette row, +8 anim table) from the look, index e+0xC7
 load_look_palette  = 0x020833E0   # (look, row_a, row_b): builds the player's 2 palette rows from a look into OBJ rows a (skin/hair) and b (clothes)
 entity_set_frames  = 0x02003130   # (e, anim, facing record): picks the facing's records (player: facing from player_facing_table[e+0x12])
+entity_sort_bounds = 0x02001314   # (e): e+0x60..0x66 = where it stands for the draw sort (+0x5C callback of people, objects use their footprint; the game's critters have none: bounds 0)
 entity_set_mirror  = 0x020032D4   # (e, n): mirror the sprite when e+0x12 (facing) > n (+0x8C bit 28); the game calls it with 4 after turning an entity (entity_face doesn't)
 entity_set_script  = 0x02002B68   # (e, frame script, start): the animation's frame sequence (+0xA0)
 player_gfx_refresh = 0x020374B8   # the player's graphics update: body setup, frames, script when e+0x106 & 0x14
@@ -264,6 +265,8 @@ critter_pick_kind  = 0x0202A2D8   # critter_pickup: "cmp r0(kind), #5" after the
 critter_pick_done  = 0x0202A2FC   # "cmp r5, #1": r5 = list_add result (1 = in Pockets, the critter goes)
 critter_pick_nutria = 0x0202A2E0  # the Dancing Nutria case (object 236)
 obj_text_lit       = 0x02014130   # a literal holding object_text_table (moved by urbz_objects.py)
+shop_pick_count_lit = 0x0203C6AC  # literal: how many object numbers exist (386; urbz_objects raises it)
+placed_store_ptr   = 0x021418BC   # u8 *: placed objects of all areas (game_state+0x138+0x664): u16 total, 160 x 10-byte records {u16 object, ...} from +2, per area (82) u8 first @+0x642+4a, u8 count @+0x643+4a; read by 0x0203D5F8
 obj_class_lit      = 0x02008BE8   # a literal holding the class table (moved by urbz_objects.py)
 pockets_ptr        = 0x02141274   # game_state+0x154: -> Pockets (item list 23)
 object_shapes      = 0x020E6954   # u32 per placeable object (0-252): footprint data
@@ -286,9 +289,14 @@ entity_go          = 0x02001D18   # (e): move forward (facing, speed +0x14)
 entity_dir_to      = 0x020018A4   # int (a, b): the direction from a to b, for entity_face
 entity_faces       = 0x020013A8   # int (a, b): b lies in the direction a faces (no distance check)
 entity_flag_clear  = 0x02000EB0   # (e, bits): e+0xC &= ~bits; bit 1 = alive (cleared: the entity goes)
+person_touch       = 0x02071CE0   # (person, other): a townsperson's touch callback; the player facing them (state 0x10) + A starts a chat
+person_touch_lit   = 0x02072914   # the literal the game installs person_touch from
+screen_state       = 0x027C009C   # u32 per screen (x0x8C), & ~0x80: what the screen shows (1 = the city, 2 = a box)
+ui_sprite_new      = 0x0204EBF4   # u8 *(ui, icon, palette, layer): a UI sprite; a message box's icon = (0xF1, icon model, 0xF, 0) at dialog_flags+8
+message_box        = 0x0203A084   # (icon model, string): the game's plain message box (sets @1 to the player's name)
 dialog_open        = 0x02078530   # (): opens the top-screen question box (state 2) from dialog_text
 dialog_text        = 0x02146EB8   # u16[5] per screen (x10 bytes): question string, then up to 4 option strings
-dialog_flags       = 0x02146ECC   # u8[12] per screen: +3 flags, +4 mode (0 = question, 1 = message)
+dialog_flags       = 0x02146ECC   # u8[12] per screen: +0 lines drawn, +3 flags, +4 1 = no highlight, +8 u8 * the box's icon sprite (plain messages)
 dialog_result      = 0x027C00D4   # u32 per screen (x0x8C): option picked 1-4, 0x7FFFFFFF = cancelled (B)
 screen_index       = 0x027C0004   # u32: the screen (0 top, 1 bottom) being run
 input_state        = 0x02141D70   # +10 u16 keys pressed this frame (1 A, 2 B, 0xF0 D-pad)

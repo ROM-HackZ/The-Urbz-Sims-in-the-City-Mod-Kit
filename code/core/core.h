@@ -13,8 +13,12 @@ typedef struct {
     u32 carry_len;             /* bytes in the carry buffer */
     u32 saved_bytes, loaded_bytes;   /* size of the mod block in the last save / load */
     u32 page_ready, page_taps;       /* Mods page set up; taps handled on it */
+    u32 obj_stashed, obj_restored;   /* objects this build doesn't know, kept aside / put back (objguard.c) */
+    u32 obj_dropped, obj_lost;       /* unknown shop stock dropped; stash full */
 } core_state_t;
 
 extern core_state_t core;
 void core_set(int index, int on);
 void core_page_init(void);
+const u8 *objects_guard(const u8 *old, int n, int *len);
+#define OBJS_HASH 0x534A424FU          /* 'OBJS': the carried stash of unknown objects */

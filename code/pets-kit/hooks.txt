@@ -10,3 +10,5 @@ u32 critter_stop_kind+4   @pets_stop_stub
 # Picking up: the game lets the player pick up kinds 1-2 only; pets too.
 u32 critter_tap_kind      0xE51FF004
 u32 critter_tap_kind+4    @pets_tap_stub
+# A townsperson's touch callback (A = chat): a pet you face that is nearer gets the A instead.
+u32 person_touch_lit      @pets_person_touch

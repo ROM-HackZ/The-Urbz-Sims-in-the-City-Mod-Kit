@@ -90,9 +90,8 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
-- Still open: the object/critter draw order (pets lie on the front half of their beds); the game's plain
-  message box from mod code; the game's own pick-up route (critter_tap); saving placed new objects;
-  using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
+- Pet rough edges done 2026-10-07 (draw order, plain message boxes, saves without the mod, A near a townsperson: docs/plan-phase10.md).
+- Still open: using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
   and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
 - Later phases (PLAN.md): outfits, hair styles, characters.
 

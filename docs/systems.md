@@ -527,6 +527,10 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   nearest of those, else a stray within 40 px (before: the first in the list, so with two side by side A at
   one could open the other). The player is stopped when the box opens and kept still while the pet comes up
   and is petted (he used to slide along the street), and the pet stops 28 px away (it was 20 and pushed him).
+  Townspeople start a chat from their touch callback `person_touch` 0x02071CE0 (installed from the literal at
+  0x02072914): the player in state 0x10, facing them, A pressed. pets-kit points that literal at its own
+  `pets_person_touch`: when a pet you face is nearer than the person, the A is left for the pet (a stray next
+  to Gramma Hattie's spot used to be out of reach while she stood there).
 - **Behaviour (Phase 9, proof `pets-life`):** pets-kit replaces the pets' behaviour (+0x4C) with
   `pets_behaviour`: wander with the game's own critter movement, and every few seconds pick an idle action
   (sniff, sit, scratch, lie, play, happy); at night (22:00-07:00) sleep or lie; hunger or happiness under 25 =
@@ -542,11 +546,16 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   Bird Cage; imported from Apartment Pets, `like` 58 = the Dawg House: decorative, a big enough sprite) and
   pets.json `"bed"`. At night (and sometimes for a rest) a pet looks through `object_list_head` for a placed
   bed of its type no other pet has taken (placed for real: node+0x32 = 1 and a position; while you carry an
-  object to place it the list also holds a preview node), walks there and plays `bedsleep` / `bedlie`. Drawing:
-  a pet whose picture reaches well into the bed is drawn behind it (the object/critter draw order isn't
-  understood: not by position y, not by the sprite's top or bottom; a see-through cell made no difference),
-  so it stands 20 px in front of the bed's position + 30 px right, and its bed pictures are drawn 10 px higher
-  (pets.json `"bed_spot"` [30, 10]): it lies on the bed's front half.
+  object to place it the list also holds a preview node), walks there and plays `bedsleep` / `bedlie` at the
+  bed's position + pets.json `"bed_spot"` (default [30, 4]: the middle of a one-tile bed).
+- **Draw order (2026-10-07):** each frame the world loop (0x02003xxx) insertion-sorts the entities it draws by a
+  place at e+0x60..0x66 (s16 x4: a point (u, v, u, v), or an object's footprint (u0, v1, u1, v0) on the floor
+  grid; `FUN_020b0a10` turns a screen position into u, v). Earlier in the list = drawn over. A point inside an
+  object's footprint goes over it; one overlapping it from behind goes under. Flags at e+0xC: 0x40000 = sorted
+  this way, 0x80000 = flat on the floor (a puddle: everyone goes over it), 0x100000 = goes over others. The
+  place is filled each frame by the entity's +0x5C callback `entity_sort_bounds` 0x02001314 (people have it,
+  objects have their own); **the game's critters have none**, so their place stayed 0 and list order decided:
+  a pet in its bed was drawn behind it. pets-kit gives its pets and strays that callback.
 - **Shelves don't crowd out the game's goods (2026-10-07, proof `game-intact`):** a shop list stocks `n`
   random picks a day (`shop_defs` 0x020C76E8: {u8 capacity, u8 n, u8 keep, pad, u16 *items}, item 387 = pick
   at random by the sell masks; e.g. Drifter Woods (18) 3, the Bayou Bazaar (9) 4, the furniture shop (4) 3).
@@ -571,10 +580,14 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
 - **The Pets page (proof `pets-page`):** pets-kit is a visible mod now (`"title": "Pets"`, not switchable); the
   core shows a non-switchable mod with a page as just its page. Lines: "Puppy: in bed, 72/80" (food/fun), then
   the strays.
-- **Messages:** a plain message box (text[0] only, flags +3 = 0, as "Game Paused") never came up when opened
-  from mod code, so pets-kit's messages are questions with one answer, "OK" (`box_question`); the answer
-  (dialog_result) closes them. Not before 300 ticks after entering an area (under the load pop-up a box never
-  shows). @1/@2 are filled with `dialog_arg` 0x02033B78 (text, slot): 64-byte buffers at 0x02140EA0 +
+- **Messages:** the game's plain message box = `message_box(icon, string)` 0x0203A084: text[0] = the string,
+  and a UI sprite `ui_sprite_new(0xF1, icon model, 0xF, 0)` 0x0204EBF4 stored at dialog_flags+8 (the box's
+  icon); then `dialog_open`. Without that icon the box never came up (why the first messages were one-answer
+  questions). The world stands still while it's open; A closes it and the game clears dialog_flags (+8 = 0:
+  how pets-kit knows). pets-kit shows the pet's own icon (the object text table's first word = icon model)
+  and fills @1/@2 itself (message_box would set @1 to the player's name). Not before 300 ticks after
+  entering an area (under the load pop-up a box never shows). @1/@2 are filled with `dialog_arg` 0x02033B78
+  (text, slot): 64-byte buffers at 0x02140EA0 +
   screen*0x100 + slot*0x40 (the rent sign's "@1 for a $@2 deposit").
 - **The strays quest (proofs `strays-appear`, `strays-trust`; code/pets-kit/strays.inc):** while goal m0g5
   ("Find a Place to Live", 0x02141940 + 5*0xC) is active, the two pets marked `"stray"` (Puppy, Kitten) are
@@ -650,8 +663,16 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   prices and texts; the moved text table is in the code region; object 390, a copy of the Country Class
   Chair (136), put in Pockets is placed at home and drawn like the original (an entity with id 390 and a
   sprite). Found on the way: `object_anims` starts at 0x020F34E0 (not +4); copied one field off, new
-  objects drew nothing (386) or garbled sprites (389+). Open: saving and loading a placed new object, and
-  what a save holding new objects does without the mod; using a copied chair (sitting).
+  objects drew nothing (386) or garbled sprites (389+). Saving and loading placed new objects works (proof
+  `pets-gate2`: the basket is still there). A save holding new objects in a build without the mod that adds
+  them used to load to a black screen; see "Saves and missing mods". Open: using a copied chair (sitting).
+- **Saves and missing mods (2026-10-07, proof `save-without-mod`, code/core/objguard.c):** placed objects
+  live in a store at `placed_store_ptr` *0x021418BC (u16 total, 160 records of 10 bytes {u16 object, ...},
+  per area (82) u8 first @+0x642+4a, u8 count @+0x643+4a; read by 0x0203D5F8 after the 24 item lists).
+  Right after a load the mod core takes out anything this build doesn't know (number >= the object count, or
+  a new row no mod defined) from the store and the item lists and keeps it in the mod block as "OBJS"; a
+  later load with the mod puts it all back. Unknown shop stock is just dropped. The original game (no mod
+  core at all) still can't load such a save.
 - **Object art (2026-10-04, read from the data, rendered with urbz_composite):** `object_models[obj]` points
   at 5 records `{gfx gid, layout gid, 0, 0}` (one per facing; facings 1/7 use the front view, 3/5 the back
   view, mirrored for the others). Chair 136: front 0x706/0x707 (one ~56x48 frame), back 0x708/0x709; bed

@@ -187,8 +187,10 @@ Changes from the plan:
   Emporium: that one is an auction. Cheaper early beds: Dog Basket $35, Cat Bed $30.
 - The strays come up to you when you stand still (instead of only "unless you stand still for 2 s"), so A works
   without lining up; while untrusted they back away when you move.
-- Messages are one-answer question boxes ("OK"): the game's plain message box didn't come up from mod code.
-- Pets lie on the **front half** of their bed: further in, they're drawn behind it (the draw order of objects
+- Messages were one-answer question boxes ("OK") at first; since 2026-10-07 they are the game's plain message
+  box with the pet's icon (it needs an icon sprite to come up).
+- Pets lay on the **front half** of their bed at first (further in they were drawn behind it); since
+  2026-10-07 they lie in the middle (pets get the game's draw-sort callback). Was: (the draw order of objects
   and critters isn't understood yet).
 - Found on the way: placed-object art drew wrong tiles when a small sprite cell came before a bigger one (fixed
   for all imported furniture); builds were slow (9 min) from re-compressing every pet frame (now cached: 25 s).
@@ -206,3 +208,15 @@ Changes from the plan:
 - **Two Pet Treats at the stall:** the test save stocked two on purpose (one per feeding day); it now has one.
   The game's own restock could also put the same thing on a shelf twice (more often with our bigger shelves):
   the objects mod makes that slot stay empty instead (`game-intact` checks a week of shelves).
+
+## Rough edges (2026-10-07)
+- **Pets in their beds:** the game's critters never got a place in the draw sort (no `entity_sort_bounds`
+  callback), so a pet in the middle of its bed went behind it. pets-kit gives pets that callback; they now lie
+  in the middle of the bed (bed_spot [30, 4]) and also go behind furniture they walk behind.
+- **Messages:** the game's plain message box with the pet's icon instead of a one-answer question.
+- **Saves without the mod:** a save with a placed Dog Basket loaded in a build without the pets mod went to a
+  black screen. The mod core now sets unknown things aside and puts them back when the mod returns (proof
+  `save-without-mod`). With the mod, placed beds were already saved fine (`pets-gate2`).
+- **A townsperson next to a pet took the A press:** a pet you face that is nearer than the person now gets it
+  (pets-kit wraps the people's touch callback).
+- **The game's pick-up route for critters:** not needed; the A menu's Put in Pocket does that for pets.

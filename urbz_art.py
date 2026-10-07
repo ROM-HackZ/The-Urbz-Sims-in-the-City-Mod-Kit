@@ -222,9 +222,8 @@ def preview(mod, name):
 
 # ------------------------------------------------------------------ for the builder (urbz_pets.py)
 
-def build_pet_art(adir, kind, new_asset, bed_spot=(30, 10)):
-    """A pet's art folder -> new art files. new_asset(bytes) returns the file's game id. bed_spot: where on
-    its bed it lies, from the bed's position (the bed actions).
+def build_pet_art(adir, kind, new_asset):
+    """A pet's art folder -> new art files. new_asset(bytes) returns the file's game id.
     Returns {'slots': [(records bytes (5 x 16) or None, script game id)] x 5, 'palette': game id}; a slot
     with None keeps the starting animal's records."""
     import urbz_composite as C
@@ -273,20 +272,17 @@ def build_pet_art(adir, kind, new_asset, bed_spot=(30, 10)):
         out.append(done[slot])
     from urbz_palette import to555
     pdata = b''.join(struct.pack('<H', to555(c)) for c in pal)
-    acts = _pet_actions(adir, timing, pal, extra, head, src, new_asset, bed_spot)
+    acts = _pet_actions(adir, timing, pal, extra, head, src, new_asset)
     return {'slots': out, 'palette': new_asset(pdata), 'actions': acts}
 
 
-# Actions on a bed (Phase 10). A pet whose picture reaches well into its bed is drawn behind the bed (the
-# game's draw order for objects isn't understood yet), so a pet on its bed stands at the bed's front
-# (code/pets-kit: the bed's position + (bed_spot x, BED_FRONT)) and its sleep / lie pictures are drawn a
-# little higher, onto the bed's front half (bed_spot y). Seen: lifted 10 px it lies on the basket; 20 px is
-# behind it.
+# Actions on a bed (Phase 10). The pet lies at the bed's position + pets.json "bed_spot" and code/pets-kit
+# marks it "in front" in the game's draw sort while it does (without that, the bed's footprint won and a pet in
+# the middle of its bed was drawn behind it). The pictures are the plain sleep / lie ones.
 BED_ACTIONS = [('bedsleep', 'sleep'), ('bedlie', 'lie')]
-BED_FRONT = 20                      # px in front of the bed's position (code/pets-kit BED_FRONT)
 
 
-def _pet_actions(adir, timing, pal, extra, head, src, new_asset, bed_spot=(30, 10)):
+def _pet_actions(adir, timing, pal, extra, head, src, new_asset):
     """actions/<name>/dir0-4 (urbz_import.ACTIONS) -> [(5 x 16-byte records, script game id)] in ACTIONS
     order then BED_ACTIONS, or None when the folder has no actions."""
     import urbz_composite as C
@@ -298,9 +294,8 @@ def _pet_actions(adir, timing, pal, extra, head, src, new_asset, bed_spot=(30, 1
         return None
     first = next(r for r, _ in src if r)
     out = []
-    bed_origin = (PET_ORIGIN[0], PET_ORIGIN[1] + BED_FRONT - bed_spot[1])
     for name, folder in [(a, a) for a in ACTIONS] + BED_ACTIONS:
-        origin = PET_ORIGIN if name == folder else bed_origin
+        origin = PET_ORIGIN
         t = timing.get('actions', {}).get(folder, {'ticks': 4, 'loop': True})
         records = bytearray()
         n = 1

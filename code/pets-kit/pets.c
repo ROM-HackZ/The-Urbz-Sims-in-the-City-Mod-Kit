@@ -33,13 +33,15 @@ typedef struct { u16 object, kind; const u32 *actions; u16 bed; u8 flags, pad; c
                  u16 pad2; } pet_t;            /* flags bit 0: a stray; spot: where it lies on its bed */
 /* The messages (urbz_pets.TEXT_KEYS, same order). */
 enum { T_STRAYS_INTRO, T_STRAY_WARY, T_STRAY_FRIENDLY, T_NO_TREATS, T_FED_FIRST, T_FED_TODAY, T_TRUSTS,
-       T_TAKE_HOME, T_ADOPTED, T_OTHER_ADOPTED, T_LEAVE, T_OK, N_TEXT };
+       T_TAKE_HOME, T_ADOPTED, T_OTHER_ADOPTED, T_LEAVE, N_TEXT };
 
 #define G(name, type) GAME_FN(ADDR_##name, type)
 #define ENT_TYPE_(e) (*(u16 *)((e) + 8))
 #define entity_records   G(entity_records, void (*)(void *e, const void *record))
 #define entity_script    G(entity_set_script, void (*)(void *e, unsigned script, int start))
 #define entity_stop      G(entity_stop, void (*)(void *e))
+#define person_touch     G(person_touch, void (*)(void *person, void *pl))
+#define ui_sprite_new    G(ui_sprite_new, u8 *(*)(int ui, int icon, int palette, int layer))
 #define entity_mirror    G(entity_set_mirror, void (*)(void *e, int n))
 #define entity_go        G(entity_go, void (*)(void *e))
 #define entity_dir_to    G(entity_dir_to, int (*)(void *a, void *b))
@@ -93,6 +95,16 @@ unsigned pets_object_of(unsigned kind)
 {
     const pet_t *p = pet_of_kind(kind);
     return p ? p->object : 0;
+}
+
+/* The draw sort (2026-10-07): each entity has a place for it at e+0x60..0x66 (a point, or an object's
+   footprint), filled by its +0x5C callback `entity_sort_bounds`. The game's critters have no callback, so
+   their place stayed 0 and list order decided: a pet in its bed went behind the bed. Our pets get the
+   callback; one standing inside a bed's footprint is then drawn over it, one behind it behind it. */
+static void sort_like_people(u8 *e)
+{
+    if (!*(u32 *)(e + 0x5C))
+        *(u32 *)(e + 0x5C) = ADDR_entity_sort_bounds;
 }
 
 /* What each pet entity is playing (to redraw it facing a new way). */
@@ -168,7 +180,8 @@ static mypet_t mine[MAX_MINE];
 static live_t live[MAX_MINE];
 static u32 n_mine, need_spawn, greet;
 struct { u32 magic, kept, respawned, forgot, loads, loaded, acts, talks, last_pick, actions_done, a_presses, a_state, a_dx, a_dy, a_faces, mood0, n, act_mask, greets, px, py,
-           to_bed, in_bed, bed0, moved, quest, trust, adopter, stray_n, pet0, msgs, stray_fed, adopt_walk, page_lines; }
+           to_bed, in_bed, bed0, moved, quest, trust, adopter, stray_n, pet0, msgs, stray_fed, adopt_walk, page_lines,
+           person_skips; }
     pets_stats = { 0x53544550 };                 /* 'PETS' (tests read it) */
 
 #define ENT_TYPE(e)  (*(u16 *)((e) + 8))
@@ -283,8 +296,6 @@ static void wander(u32 i)
 
 /* ---- beds: a pet sleeps in its own bed or cage (pets.json "bed") ----------------------------------- */
 
-#define BED_FRONT 20   /* a pet on its bed stands this far in front of the bed's position; its bed actions are
-                          drawn higher, onto the bed (urbz_art.BED_FRONT, pets.json "bed_spot") */
 
 /* A placed bed of this pet's type that no other pet has taken (0 = none). */
 static u8 *find_bed(u32 i)
@@ -322,7 +333,7 @@ static void bed_tick(u32 i)
 {
     u8 *e = live[i].e, *be = live[i].bed;
     const pet_t *p = pet_of_kind(mine[i].kind);
-    int sx = p ? p->spot_x : 0, sy = BED_FRONT;    /* in front of the bed; its bed pictures are drawn up on it */
+    int sx = p ? p->spot_x : 0, sy = p ? p->spot_y : 0;   /* on the bed (pets.json "bed_spot") */
     int dx = ENT_X(be) + sx - ENT_X(e), dy = ENT_Y(be) + sy - ENT_Y(e);
     int d2 = dx * dx + dy * dy;
     if (d2 > 6 * 6 && live[i].timer) {
@@ -393,6 +404,7 @@ static void go_to_player(u32 i)
 
 void pets_behaviour(u8 *e)
 {
+    sort_like_people(e);
     int i = mine_of(e);
     if (i < 0 || live[i].mode == M_WANDER) {
         critter_update(e);                         /* the game's own wandering (walk / stand) */
@@ -454,10 +466,30 @@ static void box_question(int question, const u16 *opts, int n)
     dialog_open();
 }
 
+/* A plain message box, as the game makes them (message_box 0x0203A084, minus its @1 = the player's name):
+   the text, and an icon sprite at dialog_flags+8 (without the icon the box never came up). */
+static void box_message(int msg, int icon)
+{
+    u32 scr = SCREEN;
+    u16 *text = (u16 *)(ADDR_dialog_text + 10 * scr);
+    text[0] = (u16)msg;
+    for (int k = 1; k < 5; k++)
+        text[k] = 0;
+    *(volatile u32 *)(ADDR_dialog_result + 0x8C * scr) = 0;
+    *(u8 **)(ADDR_dialog_flags + 12 * scr + 8) = ui_sprite_new(0xF1, icon, 0xF, 0);
+    dialog_open();
+}
+
+/* The Pockets / Catalog icon of an object (the object text table's first word). */
+static int object_icon(unsigned obj)
+{
+    return (int)*(const u32 *)(*(const u8 **)ADDR_obj_text_lit + 0x14 * obj);
+}
+
 /* Messages wait their turn: one box at a time, only while you walk about. */
 #define MAX_MSG 4
-static struct { u16 text; char a1[16], a2[16]; } msgs[MAX_MSG];
-static u32 n_msgs, msg_open, area_ticks;      /* area_ticks: since the area was entered */
+static struct { u16 text, icon; char a1[16], a2[16]; } msgs[MAX_MSG];
+static u32 n_msgs, msg_open, msg_screen, area_ticks;      /* area_ticks: since the area was entered */
 
 static void copy_name(char *dst, const char *src)
 {
@@ -469,12 +501,13 @@ static void copy_name(char *dst, const char *src)
     dst[k] = 0;
 }
 
-static void say(int t, const char *a1, const char *a2)
+static void say(int t, unsigned obj, const char *a1, const char *a2)
 {
     int id = text_id(t);
     if (!id || n_msgs >= MAX_MSG)
         return;
     msgs[n_msgs].text = (u16)id;
+    msgs[n_msgs].icon = (u16)object_icon(obj);
     copy_name(msgs[n_msgs].a1, a1);
     copy_name(msgs[n_msgs].a2, a2);
     n_msgs++;
@@ -484,8 +517,9 @@ static int talk_busy(void);
 
 static void msg_tick(u8 *pl)
 {
-    if (msg_open) {                                /* wait for OK (or B), then give the player back */
-        if (!*(volatile u32 *)(ADDR_dialog_result + 0x8C * SCREEN) && ++msg_open < 30 * 120)
+    if (msg_open) {                                /* until A closes it (the game clears the box's icon), then
+                                                      give the player back (the world stands still meanwhile) */
+        if (*(volatile u32 *)(ADDR_dialog_flags + 12 * msg_screen + 8) && ++msg_open < 30 * 120)
             return;
         msg_open = 0;
         if (pl && pl[0x104] != 0x10)
@@ -494,11 +528,9 @@ static void msg_tick(u8 *pl)
     }
     if (!n_msgs || !pl || pl[0x104] != 0x10 || talk_busy() || area_ticks < 300)
         return;                                    /* (a box opened under the load pop-up never shows) */
-    /* The game's plain message box doesn't come up when opened like this, so messages are questions with
-       one answer, "OK". */
-    u16 ok = (u16)text_id(T_OK);
     box_args(msgs[0].a1, msgs[0].a2);
-    box_question(msgs[0].text, &ok, 1);
+    box_message(msgs[0].text, msgs[0].icon);
+    msg_screen = SCREEN;
     for (u32 k = 0; k + 1 < n_msgs; k++)
         msgs[k] = msgs[k + 1];
     n_msgs--;
@@ -592,6 +624,49 @@ static int near_and_facing(u8 *pl, u8 *e)
     return dx * dx + dy * dy <= 56 * 56 && entity_faces(pl, e);
 }
 
+/* The pet you mean: one you face within reach, the nearest of those; else a stray at your feet (two pets
+   side by side: the first found used to win, so A at one could talk to the other). -1 = none; *d2: its
+   squared distance. */
+static int pick_pet(u8 *pl, u8 **pe, int *d2)
+{
+    int best = -1, best_d = 0x7FFFFFFF, best_faced = 0;
+    *pe = 0;
+    for (int w = 0; w < (int)n_mine + 2; w++) {
+        int k = w - (int)n_mine;
+        u8 *e = w < (int)n_mine ? (alive((u32)w) && live[w].mode != M_TALK ? live[w].e : 0)
+                                 : (stray_here(k) ? stray_live[k].e : 0);
+        if (!e)
+            continue;
+        int d = dist2(pl, e), faced = near_and_facing(pl, e);
+        if (!faced && !(k >= 0 && d < 40 * 40))
+            continue;
+        if (faced > best_faced || (faced == best_faced && d < best_d)) {
+            best = w < (int)n_mine ? w : STRAY0 + k;
+            best_d = d;
+            best_faced = faced;
+            *pe = e;
+        }
+    }
+    if (d2)
+        *d2 = best_d;
+    return best;
+}
+
+/* A townsperson's touch callback (the game's person_touch 0x02071CE0, through its literal): with A pressed it
+   starts a chat. When a pet you face is nearer than they are, the A is the pet's (talk_tick opens its menu);
+   a stray by Gramma Hattie's spot used to be unreachable while she stood there. */
+void pets_person_touch(u8 *person, u8 *pl)
+{
+    u8 *e;
+    int d;
+    if (pl && pl[0x104] == 0x10 && (KEYS_DOWN & 1) && !n_msgs && !msg_open && talk.stage == 0 &&
+        pick_pet(pl, &e, &d) >= 0 && d < dist2(pl, person)) {
+        pets_stats.person_skips++;
+        return;
+    }
+    person_touch(person, pl);
+}
+
 static void talk_tick(void)
 {
     u8 *pl = player_entity();
@@ -607,26 +682,8 @@ static void talk_tick(void)
         }
         if (pl[0x104] != 0x10)
             return;
-        /* The pet you mean: one you face within reach, the nearest of those; else a stray at your feet. Two
-           pets side by side: the first found used to win, so A at one could talk to the other. */
-        int best = -1, best_d = 0x7FFFFFFF, best_faced = 0;
-        u8 *best_e = 0;
-        for (int w = 0; w < (int)n_mine + 2; w++) {
-            int k = w - (int)n_mine;
-            u8 *e = w < (int)n_mine ? (alive((u32)w) && live[w].mode != M_TALK ? live[w].e : 0)
-                                     : (stray_here(k) ? stray_live[k].e : 0);
-            if (!e)
-                continue;
-            int d = dist2(pl, e), faced = near_and_facing(pl, e);
-            if (!faced && !(k >= 0 && d < 40 * 40))
-                continue;
-            if (faced > best_faced || (faced == best_faced && d < best_d)) {
-                best = w < (int)n_mine ? w : STRAY0 + k;
-                best_d = d;
-                best_faced = faced;
-                best_e = e;
-            }
-        }
+        u8 *best_e;
+        int best = pick_pet(pl, &best_e, 0);
         if (best >= 0) {
             entity_stop(pl);                       /* (a moving player slid along while petting) */
             talk_open(best, best_e, pl);

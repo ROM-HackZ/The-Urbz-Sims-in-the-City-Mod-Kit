@@ -1104,8 +1104,9 @@ def p_rom_grow():
     melon = ''
     import urbz_melon
     if urbz_melon.available():
-        melon = subprocess.run([sys.executable, os.path.join(KIT, 'verify', 'urbz_melon.py'), 'boot', rom],
-                               capture_output=True, text=True).stdout
+        r = subprocess.run([sys.executable, os.path.join(KIT, 'verify', 'urbz_melon.py'), 'boot', rom],
+                           capture_output=True, text=True)
+        melon = r.stdout or 'failed: ' + ' '.join(r.stderr.split())[-200:]
     melon_ok = 'boot: OK' in melon or not urbz_melon.available()
     return ok and size_ok and melon_ok, 'ROM %.1f MB used, header chip size %d MB; melonDS: %s; %s' % (
         used / 2 ** 20, (128 << h[0x14]) >> 10, (melon.strip().splitlines() or ['not installed'])[-1][:60], detail)
@@ -1265,7 +1266,8 @@ def _pocket_place(obj, steps):
 
 PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
               'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets', 'px', 'py',
-              'to_bed', 'in_bed', 'bed0', 'moved', 'quest', 'trust', 'adopter', 'stray_n', 'pet0', 'msgs', 'stray_fed', 'adopt_walk', 'page_lines')
+              'to_bed', 'in_bed', 'bed0', 'moved', 'quest', 'trust', 'adopter', 'stray_n', 'pet0', 'msgs', 'stray_fed', 'adopt_walk', 'page_lines',
+              'person_skips')
 
 
 def _pets_stats(heap):
@@ -1626,10 +1628,11 @@ def _world(mem):
 
 def p_pets_beds():
     """Beds (Phase 10): Dog Basket, Cat Bed, Rabbit Hutch, Small Pet House, Bird Cage (imported from Apartment
-    Pets, objects 397-401). At night a pet walks to its own bed and sleeps on it (the bedsleep action, drawn
-    onto the bed's front half). From the apartment save at 23:30: a Dog Basket and two Puppies: one sleeps
-    in the basket, the other (no second basket) on the floor; the Kitten and its Cat Bed the same
-    (build/proofs/pets-beds-*.png)."""
+    Pets, objects 397-401). At night a pet walks to its own bed and sleeps in the middle of it (bed_spot
+    [30, 4]), drawn over it (pets get the game's draw-sort callback, 2026-10-07). From the apartment save at
+    23:30: a Dog Basket and two Puppies: one sleeps in the basket, the other (no second basket) on the floor;
+    the Kitten and its Cat Bed the same (build/proofs/pets-beds-*.png)."""
+    import urbz_pets as PT
     rom = build('pets-beds', [os.path.join(KIT, 'mods', 'pets')])[0]
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     night = os.path.join(work, 'night.sav')
@@ -1647,7 +1650,7 @@ def p_pets_beds():
         bx, by, px, py = st['bed0'] & 0xFFFF, st['bed0'] >> 16, st['pet0'] & 0xFFFF, st['pet0'] >> 16
         action = PET_ACTIONS[st['mood0'] >> 24] if st['mood0'] >> 24 < len(PET_ACTIONS) else '?'
         res.append((pet, st['n'], st['to_bed'], st['in_bed'], (px - bx, py - by), action))
-    ok = all(n >= 1 and to >= 1 and inb == 1 and off == (30, 20) and a == 'bedsleep' for _, n, to, inb, off, a in res) \
+    ok = all(n >= 1 and to >= 1 and inb == 1 and off == tuple(PT.DEFAULT_BED_SPOT) and a == 'bedsleep' for _, n, to, inb, off, a in res) \
         and res[0][1] == 2
     return ok, '; '.join('%d: my pets %d, went to bed %d, in bed %d, at the bed %+d %+d, %s' % (
         pet, n, to, inb, off[0], off[1], a) for pet, n, to, inb, off, a in res) + '; build/proofs/pets-beds-*.png'
@@ -1876,25 +1879,26 @@ def p_pets_gate2():
     s1 = melon(s0, buy, 'buy')
     # DeSmuME: across the park, next to the Puppy
     near = _player_poke(rom, s1, load + [['wait', 100]],
-                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+                        lambda es: [(x + 18, y) for _, t, k, x, y in es if t == 9 and k == 7][0])
     s1b = desmume(s1, load + [near, ['wait', 60]], 'near')
     # 2. melonDS: stand still, A, Feed, OK
     close = [['press', 'B', 4], ['wait', 100], ['press', 'B', 4], ['wait', 100]]   # a box (B = cancel; harmless)
-    s2 = melon(s1b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu1'], ['press', 'A', 4],
+    face = [['press', 'LEFT', 2]]       # towards the Puppy (put 18 px left of you): A goes to the pet you face
+    s2 = melon(s1b, face + [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu1'], ['press', 'A', 4],
                      ['wait', 700], ['shot', 'fed1']] + close, 'day1')
     # DeSmuME: the next day, next to the Puppy again
     near = _player_poke(rom, s2, load + [['wait', 100]],
-                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+                        lambda es: [(x + 18, y) for _, t, k, x, y in es if t == 9 and k == 7][0])
     s2b = desmume(s2, load + [['poke', '0x0214112C=0900'], near, ['wait', 60]], 'nextday')
     # 3. melonDS: Feed (trust)
-    s3a = melon(s2b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['press', 'DOWN', 4], ['wait', 10],
+    s3a = melon(s2b, face + [['wait', 300], ['press', 'A', 4], ['wait', 120], ['press', 'DOWN', 4], ['wait', 10],
                       ['press', 'A', 4], ['wait', 700], ['shot', 'trusts']] + close, 'day2')
     # DeSmuME: next to the Puppy again (a townsperson close by gets your A instead: the game talks first)
     near = _player_poke(rom, s3a, load + [['wait', 100]],
-                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+                        lambda es: [(x + 18, y) for _, t, k, x, y in es if t == 9 and k == 7][0])
     s3b = desmume(s3a, load + [near, ['wait', 60]], 'again')
     # 4. melonDS: Take Home; the Kitten's new owner
-    s3 = melon(s3b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu3'], ['press', 'DOWN', 4],
+    s3 = melon(s3b, face + [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu3'], ['press', 'DOWN', 4],
                      ['wait', 10], ['press', 'DOWN', 4], ['wait', 10], ['press', 'A', 4], ['wait', 300],
                      ['shot', 'adopted'], ['press', 'B', 4], ['wait', 700], ['shot', 'kitten']] + close +
                [['wait', 200]], 'take')
@@ -1941,6 +1945,59 @@ def p_max_needs():
     low = [v >> 24 for v in struct.unpack('<8i', off['0x02141204:32'])]
     ok = full == [100] * 8 and low and min(low) < 100
     return ok, 'switched on: needs %s; switched off: %s' % (full, low)
+
+
+def p_save_without_mod():
+    """A save holding things a mod added (a placed Dog Basket and Cat Bed, Pet Treats in Pockets), loaded by a
+    build without that mod (npc-life only): the screen used to go black. The core now sets those things aside
+    when it reads the save (code/core/objguard.c, kept in the mod block as "OBJS"); saved there and loaded
+    again with the mod, they're all back where they were."""
+    rom_with = build('save-with', [os.path.join(KIT, 'mods', m) for m in ('npc-life', 'pets')])[0]
+    rom_without = build('save-without', [os.path.join(KIT, 'mods', 'npc-life')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    load = _load()
+    save = json.load(open(SAVEGAME))
+
+    def place(steps):
+        return [["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90], ["touch", 131, 36, 8],
+                ["wait", 30], ["touch", 131, 36, 8], ["wait", 90], ["touch", 236, 166, 8], ["wait", 60]] + \
+            sum(([["press", k, 12], ["wait", 20]] for k in steps), []) + [["press", "A", 6], ["wait", 200]]
+
+    def play(rom, sav, script, name):
+        p = os.path.join(work, name + '.json')
+        json.dump(script + save, open(p, 'w'))
+        out = os.path.join(work, name + '.sav')
+        run(VERIFY + ['play', rom, '--sav', sav, '--script', p, '--save', os.path.join(work, name + '.dst'),
+                      '--export-sav', out])
+        return out
+
+    def look(rom, sav, shot):
+        vals, ev = _ram_run(rom, sav, load + [['wait', 600], ['shot', shot]], WORLD)
+        mem = vals[WORLD]
+        rd = lambda a, n: mem[a - 0x02100000:a - 0x02100000 + n]
+        node, objs = struct.unpack('<I', rd(0x0214490C, 4))[0], []
+        while node and 0x02100000 <= node < 0x02200000 and len(objs) < 400:
+            objs.append(struct.unpack('<H', rd(node + 8, 2))[0])
+            node = struct.unpack('<I', rd(node, 4))[0]
+        pockets = [struct.unpack_from('<H', rd(0x0214188C, 48), 6 * k)[0] for k in range(min(rd(0x02141338, 1)[0], 8))]
+        k = vals[HEAP_SCAN].find(struct.pack('<I', 0x45524F43))
+        f = struct.unpack_from('<21I', vals[HEAP_SCAN], k) if k >= 0 else (0,) * 21
+        _shot(ev, shot, 'save-without-mod-%s.png' % shot)
+        return sorted(o for o in objs if o >= 386), pockets, len(objs), f[17], f[18]
+
+    pokes = [['poke', '0x02141338=03'],
+             ['poke', '0x0214188C=' + struct.pack('<HIHIHI', 397, 0, 398, 0, 396, 0).hex()]]
+    made = play(rom_with, os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
+                load + pokes + [['wait', 30]] + place(['RIGHT'] * 2) + place(['DOWN'] * 3), 'made')
+    a = look(rom_with, made, 'with')
+    b = look(rom_without, made, 'without')
+    resaved = play(rom_without, made, load + [['wait', 300]], 'resaved')
+    c = look(rom_with, resaved, 'back')
+    ok = a[:2] == ([397, 398], [396]) and b[:2] == ([], []) and b[2] > 0 and b[3] == 3 and \
+        c[:2] == ([397, 398], [396]) and c[4] == 3
+    return ok, 'with the mod: new things placed %s, Pockets %s; without it: placed %s (objects in the room %d), ' \
+        'Pockets %s, set aside %d; saved there, loaded with the mod again: placed %s, Pockets %s (put back %d); ' \
+        'build/proofs/save-without-mod-*.png' % (a[0], a[1], b[0], b[2], b[1], b[3], c[0], c[1], c[4])
 
 
 PLAYER_MODS = ('npc-life', 'pets', 'more-furniture', 'max-needs')
@@ -2051,7 +2108,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('max-needs', p_max_needs), ('game-intact', p_game_intact)]
+          ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

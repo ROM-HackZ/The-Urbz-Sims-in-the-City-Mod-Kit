@@ -190,6 +190,11 @@ the mod is switched off), `mod_on_enable` / `mod_on_disable`, and `mod_on_page` 
 opened from the Mods page). `u32 ADDR @name` in hooks.txt writes the address of something in the
 mod (e.g. to point a game table at your own).
 
+**Leaving a mod out of a build:** a save keeps what mods added (a placed Dog Basket, Pet Treats in Pockets).
+Loaded in a build without that mod, those things are set aside (not shown, kept in the save) and come back
+when you build with the mod again. This needs the mod core, which is in any build with a switchable mod or
+NPC Life; the original game can't load such a save.
+
 ## Mod manager (window)
 
 `manager.bat` (or `python mod_manager.py`) shows every mod with a tick box, its version and

@@ -17,8 +17,8 @@ pets.json:
             height (pixels standing), anims, hop. Missing source game = the drawings / starting art.
   speed     walking speed as a multiple of the starting animal's (0.5 = half; default 1).
   bed       the object number of its bed or cage (an objects.json entry): it sleeps there at night.
-  bed_spot  [dx, dy]: where on the bed it lies, in pixels from the bed's position (default [30, 10]: the
-            front half of a bed drawn on one floor tile; further back it would be drawn behind the bed).
+  bed_spot  [dx, dy]: where on the bed it lies (its feet), in pixels from the bed's position (default
+            DEFAULT_BED_SPOT: the middle of a bed on one floor tile).
   stray     true: one of the two strays of the Urbania Park quest (code/pets-kit/strays.inc).
 
 A top-level "text" object may change the messages code/pets-kit shows (the strays quest, docs/plan-phase10.md):
@@ -33,6 +33,8 @@ table sits the list {object, kind} that code/pets-kit reads (magic 'PETM'). docs
 """
 import json, os, struct
 
+DEFAULT_BED_SPOT = [30, 4]           # pets.json "bed_spot": a one-tile bed's middle, from its position
+
 KIT = os.path.dirname(os.path.abspath(__file__))
 ARM9_BASE = 0x02000000
 MAIN_END = 0x02121AC0
@@ -44,7 +46,7 @@ PET_OBJECT_LIKE = 225                      # pet objects copy the Chicken's (pla
 MAX_PETS = 24
 # The messages code/pets-kit shows, in its order (enum T_* in code/pets-kit/pets.c).
 TEXT_KEYS = ['strays_intro', 'stray_wary', 'stray_friendly', 'no_treats', 'fed_first', 'fed_today', 'trusts',
-             'take_home', 'adopted', 'other_adopted', 'leave', 'ok']
+             'take_home', 'adopted', 'other_adopted', 'leave']
 NAME_LEN = 12
 DEFAULT_TEXT = {'strays_intro': 'A stray puppy and a stray kitten are hiding in the park. They look hungry and scared.',
                 'stray_wary': 'The stray @1 watches you nervously.',
@@ -56,8 +58,7 @@ DEFAULT_TEXT = {'strays_intro': 'A stray puppy and a stray kitten are hiding in 
                 'take_home': 'Take Home',
                 'adopted': "You adopted the @1! It's in your Pockets: let it loose at home.",
                 'other_adopted': '@1 adopted the stray @2. It found a home too!',
-                'leave': 'Leave',
-                'ok': 'OK'}
+                'leave': 'Leave'}
 
 
 class PetsError(Exception):
@@ -180,14 +181,14 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset, first_string=None):
         if os.path.exists(os.path.join(folder, 'timing.json')):
             from urbz_art import build_pet_art
             try:
-                art[kind] = build_pet_art(folder, src, new_asset, tuple(pet.get('bed_spot', [30, 10])))
+                art[kind] = build_pet_art(folder, src, new_asset)
             except (OSError, ValueError, KeyError) as e:
                 raise PetsError('mod "%s": pet %s: art: %s' % (mod, pet['name'], e))
             struct.pack_into('<I', pals[kind], 0, art[kind]['palette'])
         bed = pet.get('bed', 0)
         if not isinstance(bed, int) or bed < 0:
             raise PetsError('mod "%s": pet %s: "bed" must be an object number' % (mod, pet['name']))
-        spot = pet.get('bed_spot', [30, 10])
+        spot = pet.get('bed_spot', DEFAULT_BED_SPOT)
         if not (isinstance(spot, list) and len(spot) == 2 and all(isinstance(v, int) and -128 <= v < 128 for v in spot)):
             raise PetsError('mod "%s": pet %s: "bed_spot" must be [dx, dy] (pixels)' % (mod, pet['name']))
         pairs.append((pet['object'], kind, bed, pet['name'], 1 if pet.get('stray') else 0, spot))
