@@ -212,6 +212,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
      Guinea Pig, Cockatoo, Macaw, Snake; needs a build with `pets`).
    - `verify\saves\urbania.sav`: just out of jail in Urbania Park, no home yet, $200: the strays are in the
      park (from a build with `pets`).
+   - `verify\saves\out-of-jail.sav`: the same with $2,000, rested, and Drifter Woods' stall (left of the
+     Brownstone steps) stocked with 2 Pet Treats, a Dog Basket and a Cat Bed: for trying the pets quickly.
    - `verify\saves\pet-shop.sav`: standing at the Bayou Bazaar clerk (Farmer's Market) with $850; today's
      shelf has the Puppy, Kitten, Bunny and Pet Treats (press A at the clerk). Home is the Small Brownstone.
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
