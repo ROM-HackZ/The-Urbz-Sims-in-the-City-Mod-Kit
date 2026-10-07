@@ -1,4 +1,4 @@
-# Handoff (2026-10-06, Phase 10 done: strays quest, pet beds, moving, Pets page)
+# Handoff (2026-10-07, Phase 10 done + pet bug fixes)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase10.md`.
 
@@ -82,6 +82,11 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   compressed chunks cached in build/cache/chunks (pet builds 9 min -> 25 s), mod.json `"title"`. Save
   `verify/saves/urbania.sav`. Proofs pets-beds, pets-move, pets-page, pets-stall, strays-appear, strays-trust,
   pets-gate2 (melonDS).
+- **Pet bug fixes (2026-10-07, after Jonathan played):** steered pets walked backwards (the game's mirror bit,
+  `entity_set_mirror` 0x020032D4, wasn't set: `pet_face`); A at one of two close pets opened the other (now the
+  faced, nearest one); the player slid along while petting (kept still now); shop shelves no longer get the
+  same thing twice (urbz_objects patches `shop_pick`'s give-up branch). Probes research/pets/facing_probe.py,
+  pick_probe.py, pet_probe.py; `game-intact` checks a week of shelves. 62/62 proofs.
 
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
