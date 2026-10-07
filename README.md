@@ -213,7 +213,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
    - `verify\saves\urbania.sav`: just out of jail in Urbania Park, no home yet, $200: the strays are in the
      park (from a build with `pets`).
    - `verify\saves\out-of-jail.sav`: the same with $2,000, rested, and Drifter Woods' stall (left of the
-     Brownstone steps) stocked with 2 Pet Treats, a Dog Basket and a Cat Bed: for trying the pets quickly.
+     Brownstone steps) stocked with his usual flowers, rose and comic plus 2 Pet Treats, a Dog Basket and a Cat
+     Bed: for trying the pets quickly.
    - `verify\saves\pet-shop.sav`: standing at the Bayou Bazaar clerk (Farmer's Market) with $850; today's
      shelf has the Puppy, Kitten, Bunny and Pet Treats (press A at the clerk). Home is the Small Brownstone.
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
@@ -221,6 +222,11 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
 4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. The kit's copy uses arrows = D-pad,
    X = A, Z = B, S = X, A = Y, Q = L, W = R, Enter = Start, Backspace = Select, Tab = fast forward (hold),
    F11 = full screen; the mouse is the stylus on the bottom screen.
+
+## Max Needs (testing aid)
+
+**`mods\max-needs`** keeps your Sim's needs full (never hungry, tired or passing out) while it is ON. Switch
+it in the game: Options > Mods > Max Needs. It starts ON; turn it off to play normally.
 
 ## NPC Life
 

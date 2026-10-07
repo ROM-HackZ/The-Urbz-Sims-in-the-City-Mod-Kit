@@ -356,6 +356,34 @@ def _place(img, bbox_target):
     return out
 
 
+ICON_BOX = (4, 5, 28, 27)            # where an icon's picture goes in its 32x32 square (the shop/Pockets slots)
+
+
+def _fit_icon(model, cam):
+    """The model drawn as big as fits ICON_BOX (wide pieces too: a dog basket), bottom-centred."""
+    import numpy as np
+    from PIL import Image
+    import urbz_art as A
+    hp = max(model.height(), 0.05)
+    scale = 22.0 / hp
+    w, h = ICON_BOX[2] - ICON_BOX[0], ICON_BOX[3] - ICON_BOX[1]
+    for _ in range(3):                              # measure, then rescale to fit both ways
+        icon = rasterize(model.posed(), cam, scale, (64, 64), (32, 48))
+        b = Image.fromarray(icon).getbbox()
+        if not b:
+            break
+        f = min(w / (b[2] - b[0]), h / (b[3] - b[1]))
+        if 0.97 <= f <= 1.0:
+            break
+        scale *= f * 0.99
+    big = Image.fromarray(rasterize(model.posed(), cam, scale, (64, 64), (32, 48)))
+    b = big.getbbox() or (0, 0, 1, 1)
+    out = Image.new('RGBA', (A.ICON_CANVAS, A.ICON_CANVAS), (0, 0, 0, 0))
+    cx = (ICON_BOX[0] + ICON_BOX[2]) // 2
+    out.paste(big.crop(b), (cx - (b[2] - b[0]) // 2, ICON_BOX[3] - (b[3] - b[1])))
+    return np.array(out)
+
+
 def object_art(cfg, like, folder):
     """Render an imported model into an urbz_art furniture folder (view-away/-toward, icon, palettes).
     cfg = {"from": game, "model": name, "scale": 1.0, "textures": {"old": "new"} (Full Fat games),
@@ -378,10 +406,7 @@ def object_art(cfg, like, folder):
     for (name, _), im in zip(views, imgs):
         im.save(os.path.join(folder, name + '.png'))
     A.save_palette(os.path.join(folder, 'palette.png'), pal)
-    hp = max(model.height(), 0.05)
-    icon = rasterize(model.posed(), view(-45 + model.front), min(26.0 / (hp * 0.9), 40.0 / hp) / 1.0,
-                     (A.ICON_CANVAS, A.ICON_CANVAS), (16, 28))
-    icon = np.array(_place(Image.fromarray(icon), (2, 2, 30, 30)))
+    icon = _fit_icon(model, view(-45 + model.front))
     ipal, (iim,) = _fit_palette([icon])
     iim.save(os.path.join(folder, 'icon.png'))
     A.save_palette(os.path.join(folder, 'icon-palette.png'), ipal)

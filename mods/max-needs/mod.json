@@ -1,0 +1,9 @@
+{
+  "name": "max-needs",
+  "title": "Max Needs",
+  "version": "1.0",
+  "author": "Urbz kit",
+  "description": "Testing aid: while it is ON (Options > Mods), your Sim's needs stay full, so you never get hungry, tired or pass out.",
+  "toggle": true,
+  "default": true
+}

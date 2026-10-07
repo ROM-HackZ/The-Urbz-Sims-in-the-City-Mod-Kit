@@ -26,6 +26,7 @@ mods/*
 !mods/npc-life/
 !mods/pets/
 !mods/more-furniture/
+!mods/max-needs/
 mods/npc-life/sim/orig_tables.h
 tests/mods/*/code/build/
 verify/melonds/

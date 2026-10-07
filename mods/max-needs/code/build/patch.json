@@ -1,0 +1,14 @@
+{
+ "relocs": [
+  56
+ ],
+ "symbols": {
+  "max_needs": 60,
+  "mod_on_tick": 0
+ },
+ "bss": 0,
+ "sources": {
+  "main.c": "16646a463cbca8d18eeb89eda0bfea231eab54b4",
+  "hooks.txt": "317ec6cc34fcab02325df26183b0f7a00b139d0f"
+ }
+}

@@ -1930,6 +1930,19 @@ def p_pets_gate2():
             vals['0x02141338:1'][0], struct.unpack('<i', vals['0x02141124:4'])[0])
 
 
+def p_max_needs():
+    """Max Needs (a testing aid, mods/max-needs): while it is on, the player's 8 needs stay at 100; switched off
+    on the Mods page (CORE switch poke), they are left as they were (lower). From the apartment save, 3,000 frames each."""
+    rom = build('max-needs', [os.path.join(KIT, 'mods', 'max-needs')])[0]
+    start = ['--from', 'apartment']                 # needs don't drop in the city save's tutorial
+    on = ram(rom, 3000, '0x02141204:32', start=start)['0x02141204:32']
+    full = [v >> 24 for v in struct.unpack('<8i', on)]
+    off = ram(rom, 3000, '0x02141204:32', pokes=[core_request(rom, 0, 0)], start=start)
+    low = [v >> 24 for v in struct.unpack('<8i', off['0x02141204:32'])]
+    ok = full == [100] * 8 and low and min(low) < 100
+    return ok, 'switched on: needs %s; switched off: %s' % (full, low)
+
+
 def _concat(*scripts):
     p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'all.json')
     json.dump(sum((json.load(open(s)) for s in scripts), []), open(p, 'w'))
@@ -1951,7 +1964,8 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
-          ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2)]
+          ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
+          ('max-needs', p_max_needs)]
 
 
 def main(argv):

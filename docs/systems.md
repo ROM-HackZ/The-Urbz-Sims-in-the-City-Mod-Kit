@@ -537,6 +537,8 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   understood: not by position y, not by the sprite's top or bottom; a see-through cell made no difference),
   so it stands 20 px in front of the bed's position + 30 px right, and its bed pictures are drawn 10 px higher
   (pets.json `"bed_spot"` [30, 10]): it lies on the bed's front half.
+- **Imported icons (2026-10-07):** an icon is drawn as big as fits the box (4,5)-(28,27) of its 32x32 square
+  (`urbz_import._fit_icon`); scaled by height alone, wide pieces (the Dog Basket) spilled over the shop slots.
 - **Placed object art must list its cells biggest first (fixed 2026-10-06):** a sheet where a 16x16 cell came
   after an 8x8 one drew the wrong tiles for every later cell (detached legs on the hutch; a test grid showed
   it); the game's own sheets always go 32 -> 16 -> 8, so `urbz_anims.frame_data` sorts them that way now.
