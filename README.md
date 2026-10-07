@@ -179,8 +179,10 @@ the cartridge's save memory (for every save) straight away. Set it up in the mod
   "toggle": true,        can be switched in the game (default for code mods)
   "default": true,       starts on
   "conflicts": ["x"],    can't be built together with mod x
-  "save_bytes": 64 }     most save space it uses per slot
+  "save_bytes": 64,      most save space it uses per slot
+  "title": "My Mod" }    the name shown on the Mods page (default: name; the save data stays under name)
 ```
+A mod with `"toggle": false` and an info page shows up on the Mods page as just its page (like Pets).
 A C mod can also use **events** (no hooks.txt line needed, just define the function; see
 `code\include\mod.h`): `mod_on_tick`, `mod_on_minute(n)`, `mod_on_area_enter(area)`,
 `mod_on_save(buf, max)` / `mod_on_load(buf, len)` (its own data in each save slot, kept even while
@@ -208,6 +210,8 @@ mod from a zip file (it refuses zips with ROMs, saves or programs in them).
      unpack; talk to Detective Dan to finish the tower chapter.
    - `verify\saves\apartment-pets.sav`: the same, with all eight pets in Pockets (Puppy, Kitten, Bunny, Hamster,
      Guinea Pig, Cockatoo, Macaw, Snake; needs a build with `pets`).
+   - `verify\saves\urbania.sav`: just out of jail in Urbania Park, no home yet, $200: the strays are in the
+     park (from a build with `pets`).
    - `verify\saves\pet-shop.sav`: standing at the Bayou Bazaar clerk (Farmer's Market) with $850; today's
      shelf has the Puppy, Kitten, Bunny and Pet Treats (press A at the clerk). Home is the Small Brownstone.
    - `verify\saves\lobby.sav`: Tower Lobby, first goal done. `verify\saves\city.sav`: the very start.
@@ -272,16 +276,24 @@ Two mods use this, each picked on its own in the mod manager (no in-game switch)
 
 ## Looking after pets
 
-- **Buying:** the **Bayou Bazaar** stall at the Sim Quarter **Farmer's Market** sells the pets and Pet Treats
-  ($10). Walk up to the clerk, press A, double-tap what you want. What's on the shelf changes every day.
+- **Your first pet: the strays.** Once you're out of jail, a stray puppy and a stray kitten hang about in the
+  middle of **Urbania Park**. They're shy: stand still near one and it comes up to you; press A: Feed (one
+  Pet Treats) or Leave. Feed it on two different days and it trusts you: "Take Home" puts it in Pockets. Then
+  someone in the park comes over and adopts the other one, and it trots off with them.
+- **Buying:** **Drifter Woods' stall** in Urbania Park (by the Brownstones) sells Pet Treats ($10), the Dog
+  Basket ($35) and the Cat Bed ($30). Later, the **Bayou Bazaar** stall at the Sim Quarter **Farmer's Market**
+  sells all the pets, treats and every bed or cage. Walk up to the clerk, press A, double-tap what you want.
+  What's on the shelf changes every day.
 - **Letting one loose:** Pockets, double-tap the pet, walk to a free (yellow) tile at home, A.
 - **Talking to it:** walk up to your pet, face it, press A: *Pet*, *Play*, *Feed* or *Put in Pocket*. The pet
   comes over first. Feed uses one Pet Treats from Pockets.
 - **Its life:** pets wander, sniff, sit, scratch, lie down and play by themselves, sleep at night (22:00-07:00)
-  and come to greet you when you get home. Each has hunger and happiness: they go down slowly with the clock;
+  and come to greet you when you get home. With its own bed or cage placed at home (Dog Basket, Cat Bed,
+  Rabbit Hutch, Small Pet House for a hamster or guinea pig, Bird Cage) it goes there to sleep; one bed each. Each has hunger and happiness: they go down slowly with the clock;
   a hungry or lonely pet mopes (sad, sitting, lying about) until you feed it, pet it or play with it. It never
   runs away.
-- **Keeping them:** your pets stay at home when you leave and are saved with the game (up to 12).
+- **Keeping them:** your pets stay at home when you leave and are saved with the game (up to 12). When you
+  move house they come along. **Options > Mods > Pets** shows each pet's mood and the strays.
   Tested in DeSmuME and melonDS. The first build after a change renders the pets' animations for a few
   minutes; later builds reuse them.
 

@@ -1,1 +1,1 @@
-{"name": "pets-kit", "description": "Kit: pets from pets.json turn into critters and back", "toggle": false, "hidden": true, "save_bytes": 152}
+{"name": "pets-kit", "title": "Pets", "description": "Kit: pets from pets.json: critters, my pets, beds, the strays quest, the Pets page", "toggle": false, "hidden": false, "save_bytes": 200}

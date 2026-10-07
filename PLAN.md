@@ -189,6 +189,13 @@ taps from buying to saving and loading.
 **Status (2026-10-06): done**, gate `pets-gate` passes in melonDS (details: docs/plan-phase9.md "Status"). Not
 done: pet beds, sounds, a Mods-page pets page.
 
+## Phase 10: Pets, the rest (plan: docs/plan-phase10.md)
+
+Jonathan (2026-10-06): "lets tackle the rest" (sounds not needed). Beds and cages pets sleep in, pets move with
+you, a Pets page on the Mods page, and, because pets are only sold in the Sim Quarter which opens late, a starter
+quest: two strays in Urbania Park, win one's trust over two days and take it home; a townsperson adopts the
+other. Pet things are sold at Drifter Woods' stall in Urbania Park.
+
 ## Working in the cloud
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).

@@ -16,6 +16,13 @@ pets.json:
             {"from": "aptpets", "model": "dog", "coat": "beagle"}; options: coat (dog breeds / cat coats),
             height (pixels standing), anims, hop. Missing source game = the drawings / starting art.
   speed     walking speed as a multiple of the starting animal's (0.5 = half; default 1).
+  bed       the object number of its bed or cage (an objects.json entry): it sleeps there at night.
+  bed_spot  [dx, dy]: where on the bed it lies, in pixels from the bed's position (default [30, 10]: the
+            front half of a bed drawn on one floor tile; further back it would be drawn behind the bed).
+  stray     true: one of the two strays of the Urbania Park quest (code/pets-kit/strays.inc).
+
+A top-level "text" object holds the messages code/pets-kit shows (the strays quest, docs/plan-phase10.md):
+every key in TEXT_KEYS; @1 / @2 are filled in by the game (a pet's or a person's name).
 
 The builder (urbz_build.py) calls pets_mod(): each pet gets a critter kind (7, 8, ...). The game's three
 critter tables (behaviour, art, palette) are copied with room for the new kinds into a hidden generated
@@ -35,6 +42,10 @@ ROW, ANIM_ROW = 0x14, 0x28
 FROM = {'chicken': 1, 'rooster': 2, 'nutria': 5}
 PET_OBJECT_LIKE = 225                      # pet objects copy the Chicken's (placing, picking up)
 MAX_PETS = 24
+# The messages code/pets-kit shows, in its order (enum T_* in code/pets-kit/pets.c).
+TEXT_KEYS = ['strays_intro', 'stray_wary', 'stray_friendly', 'no_treats', 'fed_first', 'fed_today', 'trusts',
+             'take_home', 'adopted', 'other_adopted', 'leave', 'ok']
+NAME_LEN = 12
 
 
 class PetsError(Exception):
@@ -90,11 +101,32 @@ def mod_pets(mod_dirs):
     return out
 
 
-def pets_mod(proj, mod_dirs, out_dir, first_asset):
+def mod_text(mod_dirs):
+    """{key: text} from the "text" of every pets.json (later mods win); every key in TEXT_KEYS."""
+    text = {}
+    for md in mod_dirs:
+        p = os.path.join(md, 'pets.json')
+        if os.path.exists(p):
+            t = json.load(open(p, encoding='utf-8')).get('text', {})
+            unknown = sorted(set(t) - set(TEXT_KEYS))
+            if unknown:
+                raise PetsError('mod "%s": pets.json text: unknown key(s) %s (known: %s)' % (
+                    os.path.basename(os.path.normpath(md)), ', '.join(unknown), ', '.join(TEXT_KEYS)))
+            text.update(t)
+    missing = [k for k in TEXT_KEYS if not text.get(k)]
+    if missing:
+        raise PetsError('pets.json "text" needs: %s' % ', '.join(missing))
+    return text
+
+
+def pets_mod(proj, mod_dirs, out_dir, first_asset, first_string=None):
     """Write the generated mod. New art files (from the pets' art folders) are numbered from first_asset
     (the builder's next free number). Returns (mod dirs to add, object entries for urbz_objects, report
     line), or ([], [], None) when no mod has pets.json."""
     pets = mod_pets(mod_dirs)
+    tsv = os.path.join(out_dir, 'text', 'strings.tsv')
+    if os.path.exists(tsv):
+        os.remove(tsv)
     adir = os.path.join(out_dir, 'assets')
     if os.path.isdir(adir):
         for f in os.listdir(adir):
@@ -136,11 +168,17 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
         if os.path.exists(os.path.join(folder, 'timing.json')):
             from urbz_art import build_pet_art
             try:
-                art[kind] = build_pet_art(folder, src, new_asset)
+                art[kind] = build_pet_art(folder, src, new_asset, tuple(pet.get('bed_spot', [30, 10])))
             except (OSError, ValueError, KeyError) as e:
                 raise PetsError('mod "%s": pet %s: art: %s' % (mod, pet['name'], e))
             struct.pack_into('<I', pals[kind], 0, art[kind]['palette'])
-        pairs.append((pet['object'], kind))
+        bed = pet.get('bed', 0)
+        if not isinstance(bed, int) or bed < 0:
+            raise PetsError('mod "%s": pet %s: "bed" must be an object number' % (mod, pet['name']))
+        spot = pet.get('bed_spot', [30, 10])
+        if not (isinstance(spot, list) and len(spot) == 2 and all(isinstance(v, int) and -128 <= v < 128 for v in spot)):
+            raise PetsError('mod "%s": pet %s: "bed_spot" must be [dx, dy] (pixels)' % (mod, pet['name']))
+        pairs.append((pet['object'], kind, bed, pet['name'], 1 if pet.get('stray') else 0, spot))
         e = {'id': pet['object'], 'like': PET_OBJECT_LIKE, 'name': pet['name'], 'page': pet.get('page', 4)}
         if os.path.exists(os.path.join(folder, 'icon.png')):
             e['_icon'] = folder                        # its own Pockets / Catalog icon (urbz_objects)
@@ -151,13 +189,27 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
         names.append('%s (kind %d, from %s%s)' % (pet['name'], kind, pet['from'],
                                                   ', own art' if kind in art else ''))
 
-    # The pet list code/pets-kit reads just before crit_table: 'PETA', {u16 object, u16 kind, u32 actions} x n,
-    # u32 n. actions -> N_ACTIONS x {u32 records (5 x 16 bytes), u32 frame script} (0 = no actions: drawn pets).
-    blob = bytearray(b'PETA')
+    # What code/pets-kit reads just before crit_table:
+    #   'PETT', u16 text[len(TEXT_KEYS)] (string numbers, padded to 4), u32 len(TEXT_KEYS),
+    #   'PETB', {u16 object, u16 kind, u32 actions, u16 bed, u8 flags (1 = a stray), u8 0, char name[12],
+    #            s8 bed_spot x, y, u16 0} x n, u32 n.
+    # actions -> N_ACTIONS x {u32 records (5 x 16 bytes), u32 frame script} (0 = no actions: drawn pets).
+    text, strings = mod_text(mod_dirs), []
+    sid = first_string() if first_string else 8311
+    for k in TEXT_KEYS:
+        strings.append((sid, text[k]))
+        sid += 1
+    blob = bytearray(b'PETT')
+    for n, _ in strings:
+        blob += struct.pack('<H', n)
+    while len(blob) % 4:
+        blob.append(0)
+    blob += struct.pack('<I', len(strings)) + b'PETB'
     act_refs = []
-    for o, k in pairs:
+    for o, k, bed, name, flags, spot in pairs:
         act_refs.append(len(blob) + 4)
-        blob += struct.pack('<HHI', o, k, 0)
+        blob += struct.pack('<HHIHBB', o, k, 0, bed, flags, 0) + \
+            name.encode('latin-1', 'replace')[:NAME_LEN - 1].ljust(NAME_LEN, b'\0') + struct.pack('<bbH', spot[0], spot[1], 0)
     blob += struct.pack('<I', len(pairs))
     syms = {'crit_table': len(blob)}
     blob += b''.join(table)
@@ -173,7 +225,7 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
                 struct.pack_into('<II', blob, row, len(blob), script)
                 relocs.append(row)
                 blob += records
-    for (o, k), ref in zip(pairs, act_refs):          # the action tables (Phase 9)
+    for (o, k, _, _, _, _), ref in zip(pairs, act_refs):   # the action tables (Phase 9)
         acts = art.get(k, {}).get('actions')
         if not acts:
             continue
@@ -192,6 +244,9 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset):
     cdir = os.path.join(out_dir, 'code')
     os.makedirs(os.path.join(cdir, 'build'), exist_ok=True)
     open(os.path.join(cdir, 'hooks.txt'), 'w').write('\n'.join(lines) + '\n')
+    os.makedirs(os.path.dirname(tsv), exist_ok=True)
+    esc = lambda t: t.replace('\\', '\\\\').replace('\n', '\\n').replace('\t', '\\t')
+    open(tsv, 'w', encoding='utf-8').write(''.join('%d\t%s\n' % (n, esc(t)) for n, t in strings))
     open(os.path.join(cdir, 'build', 'patch.bin'), 'wb').write(bytes(blob))
     json.dump({'relocs': relocs, 'symbols': syms, 'bss': 0, 'sources': {}},
               open(os.path.join(cdir, 'build', 'patch.json'), 'w'))

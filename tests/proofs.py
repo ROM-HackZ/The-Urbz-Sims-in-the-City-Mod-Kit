@@ -1264,7 +1264,8 @@ def _pocket_place(obj, steps):
 
 
 PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
-              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets', 'px', 'py')
+              'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets', 'px', 'py',
+              'to_bed', 'in_bed', 'bed0', 'moved', 'quest', 'trust', 'adopter', 'stray_n', 'pet0', 'msgs', 'stray_fed', 'adopt_walk', 'page_lines')
 
 
 def _pets_stats(heap):
@@ -1365,7 +1366,8 @@ def p_pets_menu():
             st['talks'], st['last_pick'], st['actions_done'], happy, st2['last_pick'], kinds2, count2, slot2, st2['n'])
 
 
-PET_ACTIONS = ['stand', 'walk', 'sit', 'lie', 'sleep', 'sniff', 'play', 'eat', 'happy', 'sad', 'petted', 'scratch']
+PET_ACTIONS = ['stand', 'walk', 'sit', 'lie', 'sleep', 'sniff', 'play', 'eat', 'happy', 'sad', 'petted', 'scratch',
+               'bedsleep', 'bedlie']
 
 
 def p_pets_life():
@@ -1581,6 +1583,353 @@ def p_pets_gate():
         'build/proofs/pets-gate-*.png' % (kinds, st['loaded'], hunger, happy, items, money)
 
 
+# ---- Phase 10: beds, moving home, the Pets page, the strays quest (docs/plan-phase10.md) ----------------------
+LOAD_SCRIPT = os.path.join(KIT, 'verify', 'scripts', 'loadgame.json')
+
+
+def _load():
+    return json.load(open(LOAD_SCRIPT)) + [['press', 'B', 6], ['wait', 60]]
+
+
+def _ram_run(rom, sav, script, *reads):
+    """{read: bytes} and the evidence folder, after a script from a save (DeSmuME)."""
+    p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 's.json')
+    json.dump(script, open(p, 'w'))
+    cmd = VERIFY + ['ram', rom, '--sav', sav, '--script', p, '--frames', '1']
+    for r in (HEAP_SCAN,) + reads:
+        cmd += ['--read', r]
+    out = run(cmd)
+    vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
+    return vals, out.strip().splitlines()[-1].split('evidence: ')[-1]
+
+
+def _shot(ev, name, out_name):
+    f = glob.glob(os.path.join(ev, '*_%s.png' % name))
+    if f:
+        shutil.copy(f[0], os.path.join(OUT, out_name))
+
+
+WORLD = '0x02100000:0x100000'                 # the entity pool and more, to walk the world's entity list
+
+
+def _world(mem):
+    """[(address, type, id, x, y)] of the world's entities (entity_lists context 0) in a WORLD dump."""
+    rd = lambda a, n: mem[a - 0x02100000:a - 0x02100000 + n]
+    e, out = struct.unpack('<I', rd(0x02121AF0, 4))[0], []
+    while e and 0x02100000 <= e < 0x02200000 and len(out) < 400:
+        t, k = struct.unpack('<HH', rd(e + 8, 4))
+        x, y = struct.unpack('<ii', rd(e + 0x18, 8))
+        out.append((e, t, k, x >> 16, y >> 16))
+        e = struct.unpack('<I', rd(e, 4))[0]
+    return out
+
+
+def p_pets_beds():
+    """Beds (Phase 10): Dog Basket, Cat Bed, Rabbit Hutch, Small Pet House, Bird Cage (imported from Apartment
+    Pets, objects 397-401). At night a pet walks to its own bed and sleeps on it (the bedsleep action, drawn
+    onto the bed's front half). From the apartment save at 23:30: a Dog Basket and two Puppies: one sleeps
+    in the basket, the other (no second basket) on the floor; the Kitten and its Cat Bed the same
+    (build/proofs/pets-beds-*.png)."""
+    rom = build('pets-beds', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    night = os.path.join(work, 'night.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
+         night, '--clock', '23:30'])
+    res = []
+    for pet, bed, second in ((386, 397, True), (389, 398, False)):
+        script = _load() + _pocket_place(bed, ['RIGHT'] * 2) + _pocket_place(pet, ['DOWN'] * 3)
+        if second:
+            script += _pocket_place(pet, ['DOWN'] * 2)
+        script += [['wait', 900], ['shot', 'bed']]
+        vals, ev = _ram_run(rom, night, script)
+        st = _pets_stats(vals[HEAP_SCAN])
+        _shot(ev, 'bed', 'pets-beds-%d.png' % pet)
+        bx, by, px, py = st['bed0'] & 0xFFFF, st['bed0'] >> 16, st['pet0'] & 0xFFFF, st['pet0'] >> 16
+        action = PET_ACTIONS[st['mood0'] >> 24] if st['mood0'] >> 24 < len(PET_ACTIONS) else '?'
+        res.append((pet, st['n'], st['to_bed'], st['in_bed'], (px - bx, py - by), action))
+    ok = all(n >= 1 and to >= 1 and inb == 1 and off == (30, 20) and a == 'bedsleep' for _, n, to, inb, off, a in res) \
+        and res[0][1] == 2
+    return ok, '; '.join('%d: my pets %d, went to bed %d, in bed %d, at the bed %+d %+d, %s' % (
+        pet, n, to, inb, off[0], off[1], a) for pet, n, to, inb, off, a in res) + '; build/proofs/pets-beds-*.png'
+
+
+def p_pets_move():
+    """Moving house (Phase 10): from the apartment save (the Small Brownstone, area 22) with the Puppy let loose
+    at home, rent the Large Brownstone at its sign in Urbania Park (lot 2). Going home now means area 23:
+    the Puppy is there (pets-kit moved it), not in 22; and after save + power-off + load too."""
+    rom = build('pets-move', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    rent = [['wait', 60], ['press', 'DOWN', 20], ['wait', 10], ['press', 'A', 6], ['wait', 90], ['shot', 'sign'],
+            ['press', 'A', 6], ['wait', 240], ['press', 'A', 6], ['wait', 240], ['press', 'A', 6], ['wait', 300],
+            ['press', 'B', 6], ['wait', 200]]
+    script = _load() + _pocket_place(386, ['DOWN'] * 3) + [['poke', '0x02141124=f4010000']] + \
+        _area_goto(19, 1) + rent + _area_goto(23) + [['wait', 300], ['shot', 'new-home']]
+    p = os.path.join(work, 'move.json')
+    save = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json')))
+    json.dump(script + save, open(p, 'w'))
+    moved = os.path.join(work, 'moved.sav')
+    run(VERIFY + ['play', rom, '--sav', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'), '--script', p,
+                  '--save', os.path.join(work, 'm.dst'), '--export-sav', moved])
+    ev = sorted(glob.glob(os.path.join(KIT, 'verify', 'evidence', '*-play')))[-1]
+    for n in ('sign', 'new-home'):
+        _shot(ev, n, 'pets-move-%s.png' % n)
+    vals, _ = _ram_run(rom, os.path.join(KIT, 'verify', 'saves', 'apartment.sav'), script + [['wait', 30]],
+                       '0x02141230:1')
+    st, lot = _pets_stats(vals[HEAP_SCAN]), vals['0x02141230:1'][0]
+    there = sorted(k for _, k in critters(vals[HEAP_SCAN]) if k >= 7)
+    vals2, _ = _ram_run(rom, moved, _load() + [['wait', 300]], '0x02141230:1')
+    st2 = _pets_stats(vals2[HEAP_SCAN])
+    after = sorted(k for _, k in critters(vals2[HEAP_SCAN]) if k >= 7)
+    old = _ram_run(rom, moved, _load() + _area_goto(22) + [['wait', 300]])[0]
+    left = sorted(k for _, k in critters(old[HEAP_SCAN]) if k >= 7)
+    ok = lot == 2 and st['moved'] >= 1 and there == [7] and after == [7] and st2['loaded'] == 1 and left == []
+    return ok, 'home lot %d; in the new home (23): pet critters %s (pets-kit moved %d); after save + load: %s ' \
+        '(my pets %d); in the old home (22): %s; build/proofs/pets-move-*.png' % (
+            lot, there, st['moved'], after, st2['loaded'], left)
+
+
+def p_pets_page():
+    """The Pets page (Phase 10): Options > Mods shows "Pets" (pets-kit, always on: just its page); its page lists
+    my pets with what they are doing, food and fun. From the apartment save with the Puppy let loose, real
+    touches (build/proofs/pets-page-*.png)."""
+    rom = build('pets-page', [os.path.join(KIT, 'mods', 'pets')])[0]
+    sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+    taps = [['wait', 200], ['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 60], ['shot', 'mods'],
+            ['touch', 64, 28, 8], ['wait', 60], ['shot', 'info']]
+    vals, ev = _ram_run(rom, sav, _load() + _pocket_place(386, ['DOWN'] * 3) + taps, '0x02144CEC:4')
+    ui = struct.unpack('<I', vals['0x02144CEC:4'])[0]
+    menu = _ram_run(rom, sav, _load() + _pocket_place(386, ['DOWN'] * 3) + taps, '0x%08X:12' % ui)[0]['0x%08X:12' % ui]
+    st = _pets_stats(vals[HEAP_SCAN])
+    for n in ('mods', 'info'):
+        _shot(ev, n, 'pets-page-%s.png' % n)
+    open_menu = struct.unpack_from('<I', menu, 8)[0]
+    ok = open_menu == 6 and st['page_lines'] >= 1
+    return ok, 'open menu after the taps: %d (6 = an info page); lines printed %d; build/proofs/pets-page-*.png' % (
+        open_menu, st['page_lines'])
+
+
+URBANIA = os.path.join(KIT, 'verify', 'saves', 'urbania.sav')
+
+
+def _strays_script(rom):
+    """Script pieces for the strays quest from urbania.sav: (arrive, near the Puppy with 2 treats, feed day 1,
+    feed day 2, take home). The player is put next to the Puppy (the harness can't walk him across the park)."""
+    arrive = _load() + [['wait', 1000], ['shot', 'intro'], ['press', 'A', 4], ['wait', 60]]
+    vals, _ = _ram_run(rom, URBANIA, arrive, WORLD)
+    ents = _world(vals[WORLD])
+    player = [e for e, t, *_ in ents if t == 0][0]
+    pets = [(k, x, y) for _, t, k, x, y in ents if t == 9 and k >= 7]
+    px, py = [(x, y) for k, x, y in pets if k == 7][0]
+    xy = struct.pack('<iiii', (px + 10) << 16, (py + 6) << 16, (px + 10) << 16, (py + 6) << 16).hex()
+    near = [['poke', '0x0214188C=' + (struct.pack('<HI', 396, 0) * 2).hex()], ['poke', '0x02141338=02'],
+            ['poke', '0x%08X=%s' % (player + 0x18, xy)], ['wait', 200]]
+    feed1 = [['press', 'A', 4], ['wait', 120], ['shot', 'menu1'], ['press', 'A', 4], ['wait', 400], ['shot', 'fed1'],
+             ['press', 'A', 4], ['wait', 100]]
+    feed2 = [['poke', '0x0214112C=0500'], ['wait', 200], ['press', 'A', 4], ['wait', 120], ['shot', 'menu2'],
+             ['press', 'DOWN', 4], ['wait', 10], ['press', 'A', 4], ['wait', 400], ['shot', 'fed2'], ['press', 'A', 4],
+             ['wait', 100]]
+    take = [['wait', 150], ['press', 'A', 4], ['wait', 120], ['shot', 'menu3'], ['press', 'DOWN', 4], ['wait', 10],
+            ['press', 'DOWN', 4], ['wait', 10], ['press', 'A', 4], ['wait', 160], ['shot', 'took'], ['press', 'A', 4],
+            ['wait', 500], ['shot', 'adopted'], ['press', 'A', 4], ['wait', 300], ['shot', 'follows']]
+    return arrive, near, feed1, feed2, take, pets
+
+
+def p_strays_appear():
+    """The strays (Phase 10): out of jail (urbania.sav: goal m0g5 "Find a Place to Live" active) a stray Puppy
+    and a stray Kitten are in Urbania Park and a box says so; not in the lobby save (still in the tower)."""
+    rom = build('strays', [os.path.join(KIT, 'mods', 'pets')])[0]
+    arrive, _, _, _, _, pets = _strays_script(rom)
+    vals, ev = _ram_run(rom, URBANIA, arrive)
+    st = _pets_stats(vals[HEAP_SCAN])
+    _shot(ev, 'intro', 'strays-intro.png')
+    lob = _ram_run(rom, os.path.join(KIT, 'verify', 'saves', 'lobby.sav'), _load() + _area_goto(19) + [['wait', 300]])[0]
+    lob_pets = sorted(k for _, k in critters(lob[HEAP_SCAN]) if k >= 7)
+    ok = sorted(k for k, _, _ in pets) == [7, 8] and st['quest'] == 1 and st['msgs'] >= 1 and lob_pets == []
+    return ok, 'out of jail, Urbania Park: strays %s, intro box %d; before (lobby save, then the park): %s; ' \
+        'build/proofs/strays-intro.png' % (sorted(pets), st['msgs'], lob_pets)
+
+
+def p_strays_trust():
+    """The strays quest (Phase 10): next to the stray Puppy with two Pet Treats: A, Feed (trust 1: "Come back
+    tomorrow"); the next day A, Feed (trust 2: "trusts you"); A, Take Home: the Puppy is in Pockets, a
+    townsperson walks over and adopts the Kitten ("... adopted the stray Kitten"), which then follows them.
+    Saved and loaded half-way, the trust is kept (build/proofs/strays-*.png)."""
+    rom = build('strays', [os.path.join(KIT, 'mods', 'pets')])[0]
+    arrive, near, feed1, feed2, take, _ = _strays_script(rom)
+    save = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json')))
+    vals, ev = _ram_run(rom, URBANIA, arrive + near + feed1 + feed2 + take, '0x02141338:1', '0x0214188C:12', WORLD)
+    st = _pets_stats(vals[HEAP_SCAN])
+    for n in ('menu1', 'fed1', 'menu2', 'fed2', 'menu3', 'took', 'adopted', 'follows'):
+        _shot(ev, n, 'strays-%s.png' % n)
+    n = vals['0x02141338:1'][0]
+    pockets = [struct.unpack_from('<H', vals['0x0214188C:12'], 6 * k)[0] for k in range(min(n, 2))]
+    kitten = [(x, y) for _, t, k, x, y in _world(vals[WORLD]) if t == 9 and k == 8]
+    adopter = [(x, y) for _, t, k, x, y in _world(vals[WORLD]) if t == 7 and k == st['adopter']]
+    near_owner = bool(kitten and adopter and (kitten[0][0] - adopter[0][0]) ** 2 + (kitten[0][1] - adopter[0][1]) ** 2 < 60 * 60)
+    # half-way: fed once, saved, loaded
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    p = os.path.join(work, 'half.json')
+    json.dump(arrive + near + feed1 + save, open(p, 'w'))
+    half = os.path.join(work, 'half.sav')
+    run(VERIFY + ['play', rom, '--sav', URBANIA, '--script', p, '--save', os.path.join(work, 'h.dst'), '--export-sav', half])
+    st2 = _pets_stats(_ram_run(rom, half, _load() + [['wait', 300]])[0][HEAP_SCAN])
+    trust = st['trust']
+    ok = st['stray_fed'] == 2 and st['quest'] == 2 and 386 in pockets and 396 not in pockets and \
+        trust & 0xFF == 2 and (trust >> 24) & 1 and 31 <= st['adopter'] < 80 and near_owner and st2['trust'] & 0xFF == 1
+    return ok, 'fed %d time(s), Puppy trust %d, taken: Pockets %s; Kitten adopted by person %d (walked over: %d), ' \
+        'next to them: %s; saved after the first feed and loaded: Puppy trust %d; build/proofs/strays-*.png' % (
+            st['stray_fed'], trust & 0xFF, pockets, st['adopter'], st['adopt_walk'], near_owner, st2['trust'] & 0xFF)
+
+
+def p_pets_stall():
+    """Early pet things (Phase 10): the gift stall in Urbania Park (clerk 24 by the Small Brownstone, shop list 18:
+    flowers, chocolates, comics) also sells Pet Treats, the Dog Basket and the Cat Bed, so a new player can feed
+    the strays and look after the one they adopt. (The Second Looks Thrift Emporium next door is an auction.)
+    From urbania.sav ($200): its shelf stocked with treats and a basket, step up to the clerk and press A (the
+    shop opens), buy both: $45 paid, both in Pockets (build/proofs/pets-stall.png)."""
+    rom = build('pets-stall', [os.path.join(KIT, 'mods', 'pets')])[0]
+    start = _load() + [['wait', 1000], ['press', 'A', 4], ['wait', 60]]       # the strays' intro box first
+    vals, _ = _ram_run(rom, URBANIA, start, WORLD, '0x02141310:8')
+    ents = _world(vals[WORLD])
+    player = [e for e, t, *_ in ents if t == 0][0]
+    clerk = [(x, y) for _, t, k, x, y in ents if t == 7 and k == 24]
+    count, cap, _, slots = struct.unpack('<BBHI', vals['0x02141310:8'])
+    if not clerk:
+        return False, 'no clerk (person 24) in Urbania Park'
+    cx, cy = clerk[0]
+    xy = struct.pack('<iiii', cx << 16, (cy + 30) << 16, cx << 16, (cy + 30) << 16).hex()
+    stock = struct.pack('<HIHI', 396, 0, 397, 0)
+    s = start + [['poke', '0x%08X=%s' % (slots, stock.hex())], ['poke', '0x02141310=02'],
+                 ['poke', '0x%08X=%s' % (player + 0x18, xy)], ['wait', 30]]
+    s += [['press', 'UP', 4], ['press', 'A', 4], ['wait', 20]] * 8 + [['wait', 30], ['shot', 'shop']]
+    s += [['touch', 147, 58, 4], ['wait', 4], ['touch', 147, 58, 4], ['wait', 60]] * 2 + [['shot', 'bought']]
+    vals, ev = _ram_run(rom, URBANIA, s, '0x02141338:1', '0x0214188C:12', '0x02141124:4')
+    _shot(ev, 'bought', 'pets-stall.png')
+    n = vals['0x02141338:1'][0]
+    items = [struct.unpack_from('<H', vals['0x0214188C:12'], 6 * k)[0] for k in range(min(n, 2))]
+    money = struct.unpack('<i', vals['0x02141124:4'])[0]
+    ok = sorted(items) == [396, 397] and money == 200 - 45
+    return ok, 'shelf (list 18) had %d of %d; clerk at %s; Pockets: %s, money $%d (was $200); ' \
+        'build/proofs/pets-stall.png' % (count, cap, clerk[0], items, money)
+
+def _player_poke(rom, sav, script, where):
+    """A poke that puts the player at where(world entities) -> (x, y), found by running script from sav."""
+    vals, _ = _ram_run(rom, sav, script, WORLD)
+    ents = _world(vals[WORLD])
+    player = [e for e, t, *_ in ents if t == 0][0]
+    x, y = where(ents)
+    return ['poke', '0x%08X=%s' % (player + 0x18, struct.pack('<iiii', x << 16, y << 16, x << 16, y << 16).hex())]
+
+
+def p_pets_gate2():
+    """Phase 10 gate, in melonDS with real taps (what Jonathan plays on), five sessions; DeSmuME only takes the
+    saves across the park and the days in between (the trips the harness can't walk):
+    1. at Drifter Woods' stall in Urbania Park (shelf: Pet Treats x2 and a Dog Basket): open the shop, buy all three;
+    2. by the stray Puppy: stand still (it comes up), A, Feed, OK;
+    3. the next day: A, Feed, OK ("trusts you");
+    4. A, Take Home, OK; a townsperson adopts the Kitten, OK;
+    5. at home (the Small Brownstone, rented in DeSmuME), at night: place the basket, then the Puppy: it goes to
+       its basket and sleeps; Options > Mods > Pets shows it.
+    Saved after each; the last save, loaded in DeSmuME: the Puppy is home and in its basket, the quest is
+    done (the Kitten went with its new owner) (build/proofs/pets-gate2-*.png)."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_melon as M
+    if not M.available():
+        return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
+    rom = build('pets-gate2', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    load = _load()
+    save = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json')))
+    shots = {}
+
+    rested = ['poke', '0x02141204=' + '00000060' * 8]    # needs topped up: a long test day ends in hospital
+
+    def desmume(sav, script, name):
+        p = os.path.join(work, name + '.json')
+        json.dump(script[:len(load)] + [rested] + script[len(load):] + save, open(p, 'w'))
+        out = os.path.join(work, name + '.sav')
+        run(VERIFY + ['play', rom, '--sav', sav, '--script', p, '--save', os.path.join(work, name + '.dst'),
+                      '--export-sav', out])
+        return out
+
+    def melon(sav, script, name):
+        try:
+            res = dict(M.run(rom, MELON_LOAD + script + save, sav=sav, out=os.path.join(work, 'melon-' + name)))
+        except RuntimeError:                       # melonDS now and then fails to start: once more
+            res = dict(M.run(rom, MELON_LOAD + script + save, sav=sav, out=os.path.join(work, 'melon-' + name)))
+        for n, f in res.items():
+            shots['%s-%s' % (name, n)] = f
+        return os.path.join(work, 'melon-' + name, 'game.sav')
+
+    # 0. DeSmuME: out of jail in the park, the strays' box answered, $300, the stall stocked, at the clerk
+    intro = load + [['wait', 1000], ['press', 'A', 4], ['wait', 60]]
+    vals, _ = _ram_run(rom, URBANIA, intro, '0x02141310:8')
+    slots = struct.unpack('<BBHI', vals['0x02141310:8'])[3]
+    stall = intro + [['poke', '0x%08X=%s' % (slots, struct.pack('<HIHIHI', 396, 0, 396, 0, 397, 0).hex())],
+                     ['poke', '0x02141310=03'], ['poke', '0x02141124=2c010000']]
+    at = _player_poke(rom, URBANIA, stall, lambda es: [(x, y + 30) for _, t, k, x, y in es if t == 7 and k == 24][0])
+    s0 = desmume(URBANIA, stall + [at, ['wait', 60]], 'stall')
+    # 1. melonDS: buy 2 treats and the basket
+    buy = [['press', 'UP', 4], ['press', 'A', 4], ['wait', 20]] * 8 + [['wait', 30], ['shot', 'shop']]
+    buy += [['touch', 147, 58, 4], ['wait', 4], ['touch', 147, 58, 4], ['wait', 60]] * 3 + [['shot', 'bought'],
+            ['touch', 236, 75, 6], ['wait', 120]]
+    s1 = melon(s0, buy, 'buy')
+    # DeSmuME: across the park, next to the Puppy
+    near = _player_poke(rom, s1, load + [['wait', 100]],
+                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+    s1b = desmume(s1, load + [near, ['wait', 60]], 'near')
+    # 2. melonDS: stand still, A, Feed, OK
+    close = [['press', 'B', 4], ['wait', 100], ['press', 'B', 4], ['wait', 100]]   # a box (B = cancel; harmless)
+    s2 = melon(s1b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu1'], ['press', 'A', 4],
+                     ['wait', 700], ['shot', 'fed1']] + close, 'day1')
+    # DeSmuME: the next day, next to the Puppy again
+    near = _player_poke(rom, s2, load + [['wait', 100]],
+                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+    s2b = desmume(s2, load + [['poke', '0x0214112C=0900'], near, ['wait', 60]], 'nextday')
+    # 3. melonDS: Feed (trust)
+    s3a = melon(s2b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['press', 'DOWN', 4], ['wait', 10],
+                      ['press', 'A', 4], ['wait', 700], ['shot', 'trusts']] + close, 'day2')
+    # DeSmuME: next to the Puppy again (a townsperson close by gets your A instead: the game talks first)
+    near = _player_poke(rom, s3a, load + [['wait', 100]],
+                        lambda es: [(x + 10, y + 6) for _, t, k, x, y in es if t == 9 and k == 7][0])
+    s3b = desmume(s3a, load + [near, ['wait', 60]], 'again')
+    # 4. melonDS: Take Home; the Kitten's new owner
+    s3 = melon(s3b, [['wait', 300], ['press', 'A', 4], ['wait', 120], ['shot', 'menu3'], ['press', 'DOWN', 4],
+                     ['wait', 10], ['press', 'DOWN', 4], ['wait', 10], ['press', 'A', 4], ['wait', 300],
+                     ['shot', 'adopted'], ['press', 'B', 4], ['wait', 700], ['shot', 'kitten']] + close +
+               [['wait', 200]], 'take')
+    # DeSmuME: rent the Small Brownstone at its sign, go home; 23:00
+    rent = [['wait', 60], ['press', 'DOWN', 20], ['wait', 10], ['press', 'A', 6], ['wait', 90], ['press', 'A', 6],
+            ['wait', 240], ['press', 'A', 6], ['wait', 240], ['press', 'A', 6], ['wait', 300], ['press', 'B', 6],
+            ['wait', 200]]
+    s3b = desmume(s3, load + [['wait', 900]] + _area_goto(19, 0) + rent + _area_goto(22) + [['wait', 200]], 'home')
+    night = os.path.join(work, 'night.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', s3b, night, '--clock', '23:00'])
+    # 4. melonDS: place the basket, then the Puppy; it sleeps in its basket; the Pets page
+    place = lambda steps: [["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
+                           ["touch", 131, 36, 8], ["wait", 30], ["touch", 131, 36, 8], ["wait", 90],
+                           ["touch", 236, 166, 8], ["wait", 60]] + sum(([["press", k, 12], ["wait", 20]] for k in steps), []) + \
+        [["press", "A", 6], ["wait", 200]]
+    s4 = melon(night, place(['RIGHT'] * 2) + place(['DOWN'] * 3) + [['wait', 1200], ['shot', 'in-bed'],
+               ['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 60], ['touch', 64, 28, 8],
+               ['wait', 60], ['shot', 'page'], ['touch', 226, 120, 8], ['wait', 60], ['touch', 128, 180, 8],
+               ['wait', 60]], 'home')
+    for n, f in shots.items():
+        if n.split('-', 1)[1] in ('bought', 'menu1', 'fed1', 'trusts', 'menu3', 'adopted', 'kitten', 'in-bed', 'page'):
+            shutil.copy(f, os.path.join(OUT, 'pets-gate2-%s.png' % n))
+    # DeSmuME: power on, load what melonDS saved last
+    vals, _ = _ram_run(rom, s4, load + [['wait', 900]], '0x02141338:1', '0x02141230:1', '0x02141124:4')
+    st = _pets_stats(vals[HEAP_SCAN])
+    kinds = sorted(k for _, k in critters(vals[HEAP_SCAN]) if k >= 7)
+    trust = st['trust']
+    ok = kinds == [7] and st['loaded'] == 1 and st['in_bed'] >= 1 and vals['0x02141230:1'][0] == 1 and \
+        trust & 0xFF == 2 and (trust >> 24) & 1 and vals['0x02141338:1'][0] == 0
+    return ok, 'after 5 melonDS sessions, loaded in DeSmuME: home lot %d, pet critters %s (my pets %d), in its ' \
+        'basket %d, Puppy trust %d, Kitten gone: %d, Pockets %d item(s), money $%d; build/proofs/pets-gate2-*.png' % (
+            vals['0x02141230:1'][0], kinds, st['loaded'], st['in_bed'], trust & 0xFF, (trust >> 24) & 1,
+            vals['0x02141338:1'][0], struct.unpack('<i', vals['0x02141124:4'])[0])
+
+
 def _concat(*scripts):
     p = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'all.json')
     json.dump(sum((json.load(open(s)) for s in scripts), []), open(p, 'w'))
@@ -1600,7 +1949,9 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
-          ('melonds', p_melonds), ('pets-gate', p_pets_gate)]
+          ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
+          ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
+          ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2)]
 
 
 def main(argv):

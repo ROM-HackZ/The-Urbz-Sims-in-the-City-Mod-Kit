@@ -107,6 +107,11 @@ I = inferred (read from the decompile, not exercised).
   `verify/saves/apartment-pets.sav`: the same plus Pockets = the eight pets 386, 389-395 (poked into list 23:
   slots of 6 bytes `{u16 object, 4 x 0}` at 0x0214188C, count 0x02141338), saved through the menu with a
   npc-life + pets + more-furniture build; each pet places and walks in the Small Brownstone.
+  `verify/saves/urbania.sav` (Phase 10): out of jail, standing at the Small Brownstone's rent sign in Urbania Park,
+  no home yet, $200: `play base.nds --from lobby --poke 0x02141940=<apartment's goals with m0g5 sub-goal 2 not
+  done> --poke 0x02141124=c8000000 --goto 19:0 --script verify/scripts/savegame.json --export-sav`. With a pets
+  build the strays are in the park. (Area changes with `--goto`/pokes only work there once the game has settled,
+  e.g. after the strays' box: the byte at 0x02141C24 is 1 until then.)
   `verify/saves/pet-shop.sav`: from apartment.sav, standing at the Bayou Bazaar clerk (char id 15, Sim Quarter
   Farmer's Market, area 13; loads at (995,598)), $850; list 9's shelf (slots at 0x021414F0) poked to Puppy 386,
   Kitten 389, Bunny 390 and Pet Treats 396 and saved through the menu (stock is saved with the game).

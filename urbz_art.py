@@ -222,8 +222,9 @@ def preview(mod, name):
 
 # ------------------------------------------------------------------ for the builder (urbz_pets.py)
 
-def build_pet_art(adir, kind, new_asset):
-    """A pet's art folder -> new art files. new_asset(bytes) returns the file's game id.
+def build_pet_art(adir, kind, new_asset, bed_spot=(30, 10)):
+    """A pet's art folder -> new art files. new_asset(bytes) returns the file's game id. bed_spot: where on
+    its bed it lies, from the bed's position (the bed actions).
     Returns {'slots': [(records bytes (5 x 16) or None, script game id)] x 5, 'palette': game id}; a slot
     with None keeps the starting animal's records."""
     import urbz_composite as C
@@ -272,13 +273,22 @@ def build_pet_art(adir, kind, new_asset):
         out.append(done[slot])
     from urbz_palette import to555
     pdata = b''.join(struct.pack('<H', to555(c)) for c in pal)
-    acts = _pet_actions(adir, timing, pal, extra, head, src, new_asset)
+    acts = _pet_actions(adir, timing, pal, extra, head, src, new_asset, bed_spot)
     return {'slots': out, 'palette': new_asset(pdata), 'actions': acts}
 
 
-def _pet_actions(adir, timing, pal, extra, head, src, new_asset):
+# Actions on a bed (Phase 10). A pet whose picture reaches well into its bed is drawn behind the bed (the
+# game's draw order for objects isn't understood yet), so a pet on its bed stands at the bed's front
+# (code/pets-kit: the bed's position + (bed_spot x, BED_FRONT)) and its sleep / lie pictures are drawn a
+# little higher, onto the bed's front half (bed_spot y). Seen: lifted 10 px it lies on the basket; 20 px is
+# behind it.
+BED_ACTIONS = [('bedsleep', 'sleep'), ('bedlie', 'lie')]
+BED_FRONT = 20                      # px in front of the bed's position (code/pets-kit BED_FRONT)
+
+
+def _pet_actions(adir, timing, pal, extra, head, src, new_asset, bed_spot=(30, 10)):
     """actions/<name>/dir0-4 (urbz_import.ACTIONS) -> [(5 x 16-byte records, script game id)] in ACTIONS
-    order, or None when the folder has no actions."""
+    order then BED_ACTIONS, or None when the folder has no actions."""
     import urbz_composite as C
     from PIL import Image
     from urbzcomp import pack_chunk
@@ -288,18 +298,20 @@ def _pet_actions(adir, timing, pal, extra, head, src, new_asset):
         return None
     first = next(r for r, _ in src if r)
     out = []
-    for name in ACTIONS:
-        t = timing.get('actions', {}).get(name, {'ticks': 4, 'loop': True})
+    bed_origin = (PET_ORIGIN[0], PET_ORIGIN[1] + BED_FRONT - bed_spot[1])
+    for name, folder in [(a, a) for a in ACTIONS] + BED_ACTIONS:
+        origin = PET_ORIGIN if name == folder else bed_origin
+        t = timing.get('actions', {}).get(folder, {'ticks': 4, 'loop': True})
         records = bytearray()
         n = 1
         for d in range(DIRS):
-            fdir = os.path.join(adir, 'actions', name, 'dir%d' % d)
+            fdir = os.path.join(adir, 'actions', folder, 'dir%d' % d)
             pngs = sorted(x for x in os.listdir(fdir) if x.endswith('.png')) if os.path.isdir(fdir) else []
             if not pngs:
                 raise ValueError('%s: no frames' % fdir)
             gfx, entries = bytearray(), []
             for f in pngs:
-                e, content = frame_data(Image.open(os.path.join(fdir, f)), pal, extra, PET_CANVAS, PET_ORIGIN)
+                e, content = frame_data(Image.open(os.path.join(fdir, f)), pal, extra, PET_CANVAS, origin)
                 e.index, e.chunk_off = len(entries), len(gfx)
                 gfx += pack_chunk(CHUNK_FLAGS, content)
                 while len(gfx) % 4:

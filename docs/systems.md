@@ -411,7 +411,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   sprite numbers, the parts are drawn scattered. Limits: the female body always has a skirt and no cap;
   person animations the player lacks (ids >= 196 or empty) show as standing.
 
-## Pets (Phase 8 exploration from the code + game text; Phase 9 made them real pets)
+## Pets (Phase 8 exploration from the code + game text; Phases 9-10 made them real pets)
 
 - The game's pets are **Splicer Island's spliced animals**: you extract DNA from amber and splice genes at the
   Splicer Lab (minigames, strings 155/156/162), then show pets in the **Pet Show** card game (154/160).
@@ -528,6 +528,41 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   clerk at the Sim Quarter Farmer's Market (area 13, clerk char id 15 at (967,545)); shops are state 17 with
   the list = clerk char id - 6; list headers at 0x02141280 + 8*i, list 9's slots at 0x021414F0. Today's stock
   is saved with the game. Pet Treats (object 396, $10) sell there too.
+- **Beds (Phase 10, proof `pets-beds`):** objects 397-401 (Dog Basket, Cat Bed, Rabbit Hutch, Small Pet House,
+  Bird Cage; imported from Apartment Pets, `like` 58 = the Dawg House: decorative, a big enough sprite) and
+  pets.json `"bed"`. At night (and sometimes for a rest) a pet looks through `object_list_head` for a placed
+  bed of its type no other pet has taken (placed for real: node+0x32 = 1 and a position; while you carry an
+  object to place it the list also holds a preview node), walks there and plays `bedsleep` / `bedlie`. Drawing:
+  a pet whose picture reaches well into the bed is drawn behind it (the object/critter draw order isn't
+  understood: not by position y, not by the sprite's top or bottom; a see-through cell made no difference),
+  so it stands 20 px in front of the bed's position + 30 px right, and its bed pictures are drawn 10 px higher
+  (pets.json `"bed_spot"` [30, 10]): it lies on the bed's front half.
+- **Placed object art must list its cells biggest first (fixed 2026-10-06):** a sheet where a 16x16 cell came
+  after an 8x8 one drew the wrong tiles for every later cell (detached legs on the hutch; a test grid showed
+  it); the game's own sheets always go 32 -> 16 -> 8, so `urbz_anims.frame_data` sorts them that way now.
+- **Moving house (proof `pets-move`):** when you come into a home area that isn't the one a pet was in (and not
+  another room of the same home), pets-kit moves it there, next to you. `move_home` puts placed beds into the
+  moving crate like everything else.
+- **The Pets page (proof `pets-page`):** pets-kit is a visible mod now (`"title": "Pets"`, not switchable); the
+  core shows a non-switchable mod with a page as just its page. Lines: "Puppy: in bed, 72/80" (food/fun), then
+  the strays.
+- **Messages:** a plain message box (text[0] only, flags +3 = 0, as "Game Paused") never came up when opened
+  from mod code, so pets-kit's messages are questions with one answer, "OK" (`box_question`); the answer
+  (dialog_result) closes them. Not before 300 ticks after entering an area (under the load pop-up a box never
+  shows). @1/@2 are filled with `dialog_arg` 0x02033B78 (text, slot): 64-byte buffers at 0x02140EA0 +
+  screen*0x100 + slot*0x40 (the rent sign's "@1 for a $@2 deposit").
+- **The strays quest (proofs `strays-appear`, `strays-trust`; code/pets-kit/strays.inc):** while goal m0g5
+  ("Find a Place to Live", 0x02141940 + 5*0xC) is active, the two pets marked `"stray"` (Puppy, Kitten) are
+  spawned in Urbania Park (19) at (776,668) / (836,664) with their own behaviour: wander within ~110 px of
+  their spot, back away while you move (until fed once), come up to you when you stand still for 2 s. A at one:
+  Feed / Leave (then Pet / Feed / Take Home / Leave): a treat a day raises trust (0-2); at 2 Take Home puts
+  its object in Pockets. Then the nearest townsperson (type 7, id 31-79, wandering) is sent to the other stray
+  with `path_request` (action 0x30 holds them, as NPC Life does), and "X adopted the stray Kitten"; it follows
+  them until they leave. Saved per stray: trust, flags (fed, gone), the day fed, the adopter. The game's own
+  pick-up (critter_tap) refuses strays (`pets_tap_kind`).
+- **Early shop:** Drifter Woods' stall in Urbania Park (clerk 24 at (864,253), shop list 18: gifts) sells Pet
+  Treats, the Dog Basket and the Cat Bed (proof `pets-stall`). The Second Looks Thrift Emporium (73, list 10)
+  is an auction ("Up for Auction this Pet Treats!"), so no.
 - Adding a Splicer species would mean new rows in the per-kind tables (sprites, palettes, speed, names),
   new art (2 views per animation), and teaching the splicer and pet show about it; not looked at.
 

@@ -11,6 +11,7 @@ Stream layout:
   u8  dictionary[dict_len]
   bitstream of 32-bit little-endian words, read MSB first
 """
+import os
 import struct
 
 
@@ -657,12 +658,38 @@ def chunk_codec(flags):
     return (flags >> 4) & 7
 
 
+_CHUNK_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'cache', 'chunks')
+
+
+def _cached_compress(raw, flags):
+    """compress() is slow (an optimal parse; a build packs thousands of pet frames): keep results on disk
+    (build/cache/chunks, keyed by the input), so only new or changed frames are packed again."""
+    import hashlib
+    key = hashlib.sha1(bytes([flags & 0xFF]) + bytes(raw)).hexdigest()
+    path = os.path.join(_CHUNK_CACHE, key[:2], key + '.bin')
+    try:
+        with open(path, 'rb') as f:
+            return f.read()
+    except OSError:
+        pass
+    out = compress(raw, flags=flags)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + '.%d.tmp' % os.getpid()
+        with open(tmp, 'wb') as f:
+            f.write(out)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+    return out
+
+
 def pack_chunk(flags, content):
     """Inverse of unpack_chunk, then encode with the chunk's own codec and header."""
     raw = delta16(content) if flags & DELTA_FLAG else content
     codec = chunk_codec(flags)
     if codec == 6:
-        return compress(raw, flags=flags)
+        return _cached_compress(raw, flags)
     if codec == 1:
         packed = lz10_compress(raw)
         packed = bytes([(packed[0] & 0x0F) | (flags & 0xF0)]) + packed[1:]

@@ -138,7 +138,7 @@ def mod_info(md):
            'author': info.get('author', ''), 'description': info.get('description', ''),
            'toggle': bool(info.get('toggle', code)), 'default': bool(info.get('default', True)),
            'conflicts': list(info.get('conflicts', [])), 'save_bytes': int(info.get('save_bytes', 0)),
-           'hidden': bool(info.get('hidden', False))}
+           'hidden': bool(info.get('hidden', False)), 'title': str(info.get('title', ''))}
     if not 0 <= out['save_bytes'] <= 0xFFFF:
         raise CodeError('%s: save_bytes must be 0..65535' % p)
     return out
@@ -656,7 +656,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
         for i, m in enumerate(mods):
             meta = m['meta']
             o = row_addr[id(m)] - CODE_BASE
-            name = m['name'].encode('ascii', 'replace')[:15]
+            name = (meta.get('title') or m['name']).encode('ascii', 'replace')[:15]   # shown; the hash keeps the name
             ver = meta.get('version', '').encode('ascii', 'replace')[:7]
             sw = m in switchable
             flags = (MODF_TOGGLE if sw else 0) | (MODF_EVENTS if has_events(m) else 0) | \

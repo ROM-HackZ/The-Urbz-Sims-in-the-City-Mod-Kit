@@ -220,7 +220,9 @@ def frame_data(img, pal, extra, canvas=CANVAS, origin=ORIGIN):
     idx = C._image_indices(img.convert('RGBA'), pal, None)
     cells, tiles, t = [], bytearray(), 0
     size_code = {8: 0, 16: 1, 32: 2}
-    for x, y, s in cut_cells(idx, canvas, origin):
+    # Biggest cells first, as the game's own sheets do: each cell's tiles then start on a multiple of its own
+    # size. Placed objects need that (a 16x16 piece after an 8x8 one drew the wrong tiles, Phase 10).
+    for x, y, s in sorted(cut_cells(idx, canvas, origin), key=lambda c: -c[2]):
         cells.append(C.Cell(x, y, 0, size_code[s], t, 0))
         for ty in range(0, s, 8):
             for tx in range(0, s, 8):

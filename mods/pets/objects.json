@@ -1,5 +1,20 @@
 {"objects": [
   {"id": 396, "like": 323, "name": "Pet Treats", "price": 10, "page": 4,
    "description": "Crunchy treats for your pet. Walk up to it, press A, and pick Feed.",
-   "sell": {"9": "common"}}
+   "sell": {"9": "common", "18": "common"}},
+  {"id": 397, "like": 58, "name": "Dog Basket", "price": 35, "page": 4,
+   "description": "A wicker basket with a soft cushion. Your dog sleeps here at night.",
+   "sell": {"9": "common", "18": "uncommon"}, "import": {"from": "aptpets", "model": "dog_basket", "scale": 0.7}},
+  {"id": 398, "like": 58, "name": "Cat Bed", "price": 30, "page": 4,
+   "description": "A cosy cat cave. Your cat curls up in it at night.",
+   "sell": {"9": "common", "18": "uncommon"}, "import": {"from": "aptpets", "model": "cat_bed", "scale": 0.8}},
+  {"id": 399, "like": 58, "name": "Rabbit Hutch", "price": 90, "page": 4,
+   "description": "A wooden hutch with a straw floor, for your bunny's nights in.",
+   "sell": {"9": "uncommon"}, "import": {"from": "aptpets", "model": "rabbit_hutch", "scale": 0.7}},
+  {"id": 400, "like": 58, "name": "Small Pet House", "price": 40, "page": 4,
+   "description": "A little house on legs for a hamster or a guinea pig.",
+   "sell": {"9": "uncommon"}, "import": {"from": "aptpets", "model": "guineapig_home", "scale": 0.7}},
+  {"id": 401, "like": 58, "name": "Bird Cage", "price": 120, "page": 4,
+   "description": "A tall cage with a perch, where your bird roosts for the night.",
+   "sell": {"9": "uncommon"}, "import": {"from": "aptpets", "model": "parrotcage", "scale": 0.7}}
 ]}

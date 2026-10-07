@@ -1,6 +1,6 @@
-# Handoff (2026-10-06, Phase 9 done: pets completed)
+# Handoff (2026-10-06, Phase 10 done: strays quest, pet beds, moving, Pets page)
 
-For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase9.md`.
+For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase10.md`.
 
 ## The project
 Jonathan's "dream version" of *The Urbz: Sims in the City* (DS, USA, ROM SHA1
@@ -74,10 +74,19 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   `apartment-pets.sav`, `pet-shop.sav`. Proofs pets-persist, pets-icons, pets-menu, pets-life, pets-needs,
   pets-shop, pets-gate (melonDS: buy, save; home; place, Pet, Feed, save; loaded: all kept).
 
+- **Phase 10 (2026-10-06): pets, the rest** (plan + status: `docs/plan-phase10.md`; facts: `docs/systems.md`
+  "Pets"). The strays quest in Urbania Park (code/pets-kit/strays.inc: two strays, trust over two days, Take
+  Home, a townsperson adopts the other), pet beds and cages (objects 397-401, imported; pets sleep on them),
+  pets follow you when you move house, Options > Mods > Pets page, pet things at Drifter Woods' stall
+  (Urbania Park, list 18). Kit: placed-object art cells biggest first (fixes broken imported furniture),
+  compressed chunks cached in build/cache/chunks (pet builds 9 min -> 25 s), mod.json `"title"`. Save
+  `verify/saves/urbania.sav`. Proofs pets-beds, pets-move, pets-page, pets-stall, strays-appear, strays-trust,
+  pets-gate2 (melonDS).
+
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
-- Still open: the game's own pick-up route (critter_tap; we use our menu instead); pet sounds; a Mods-page
-  pets info page; moving home with pets; saving placed new objects;
+- Still open: the object/critter draw order (pets lie on the front half of their beds); the game's plain
+  message box from mod code; the game's own pick-up route (critter_tap); saving placed new objects;
   using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
   and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
 - Later phases (PLAN.md): outfits, hair styles, characters.

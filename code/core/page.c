@@ -108,6 +108,8 @@ static void build_mods_page(void)
         for (int kind = IT_TOGGLE; kind <= IT_INFO; kind++) {
             if (kind == IT_INFO && !t->rows[i].ev[EV_PAGE])
                 continue;
+            if (kind == IT_TOGGLE && !(t->rows[i].flags & MODF_TOGGLE) && t->rows[i].ev[EV_PAGE])
+                continue;                           /* always on, with a page: just the page */
             if (k++ < skip)
                 continue;
             if (n == PER_PAGE) {
@@ -140,7 +142,8 @@ static void build_mods_page(void)
             mod_row_t *r = &t->rows[items[s].mod];
             cat(labels[s], mod_name(items[s].mod, nm));
             if (items[s].kind == IT_INFO) {
-                cat(labels[s], ": info");
+                if (r->flags & MODF_TOGGLE)
+                    cat(labels[s], ": info");
                 frame = 0;
             } else if (!(r->flags & MODF_TOGGLE)) {
                 cat(labels[s], ": always on");
@@ -271,7 +274,8 @@ int core_menu_hit(void)
         int total = 0;
         for (int i = 0; i < t->count; i++)
             if (!(t->rows[i].flags & MODF_HIDDEN))
-                total += 1 + (t->rows[i].ev[EV_PAGE] != 0);
+                total += (t->rows[i].ev[EV_PAGE] && !(t->rows[i].flags & MODF_TOGGLE)) ? 1 :
+                         1 + (t->rows[i].ev[EV_PAGE] != 0);
         page = (page + 1) * (PER_PAGE - 1) < total ? page + 1 : 0;
     } else if (items[s].kind == IT_INFO) {
         info_mod = items[s].mod;
