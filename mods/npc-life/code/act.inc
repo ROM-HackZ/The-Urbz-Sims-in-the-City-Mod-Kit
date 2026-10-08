@@ -45,6 +45,8 @@ struct {
     u32 magic, sent, finished, aborted, rescued, left, refused, busy_paths;
     u8 last_who, last_need, last_obj, pad;
     u32 rounds, people_seen, candidates, no_object, chats;
+    u32 loose, forced;                       /* watch_loose: told to stand up / put back to wandering */
+    u32 kept;                                /* routine moved on, the use still serves it: carried on */
 } npc_act = { 0x5443414E };                  /* 'NACT' (tests read this) */
 
 #define path_count   GAME_VAR(ADDR_path_count, u8)
@@ -418,7 +420,7 @@ static void start_one(void)
             a->ract = (u8)sim_act_at(&sim, i, week_minute());
             a->since = act_ticks;
             a->until = act_ticks + (want[w] == NEED_BLADDER || want[w] == NEED_HYGIENE ? 1800 :
-                                    450 + act_rnd() % 600);           /* sit for 15-35 s */
+                                    300 + act_rnd() % 450);           /* sit for 10-25 s (about 15-35 game minutes) */
             npc_act.sent++;
             npc_act.last_who = who;
             npc_act.last_need = want[w];
@@ -430,12 +432,69 @@ static void start_one(void)
     }
 }
 
+/* Their routine moved on (e.g. socialising -> eating at 13:29 -> socialising at 13:32): does what they are using
+   still serve it? Then they carry on instead of standing up, and being sent straight back to the same seat a
+   second later (that churn, every few game minutes, looked like someone who never gets up). */
+static int still_wanted(actor_t *a, int act)
+{
+    switch (act) {
+    case A_WASH:   return a->need == NEED_HYGIENE;
+    case A_EAT:    return a->need == NEED_HUNGER || a->need == NEED_COMFORT;
+    case A_FUN:
+    case A_PARK:
+    case A_HOME:   return a->need == NEED_FUN || a->need == NEED_COMFORT;
+    case A_SOCIAL: return a->need == NEED_SOCIAL || a->need == NEED_COMFORT;
+    case A_SLEEP:  return a->need == NEED_ENERGY || a->need == NEED_COMFORT;
+    }
+    return 0;
+}
+
+/* Someone we sent somewhere (they carry our needs block) still using an object with no actor watching them:
+   the actor was dropped while they were briefly in another state (a chat with you, a gesture), and the
+   object's own end can take forever for a townsperson (a seat waits for comfort 100). After 10 s like that
+   they are told to stand up; if that doesn't take, they're put back to wandering. */
+static u32 loose_since[SIM_PEOPLE];
+
+static void watch_loose(void)
+{
+    for (u8 *e = world_first(); e; e = *(u8 **)e) {
+        if (E16(e, 8) != 7)
+            continue;
+        int who = E16(e, 10), i = who - 31;
+        if (i < 0 || i >= SIM_PEOPLE)
+            continue;
+        if (E8(e, 0x104) != ST_USING || *(s32 **)(e + 0x114) != needs_block[i] || acting(e)) {
+            loose_since[i] = 0;
+            continue;
+        }
+        if (!loose_since[i]) {
+            loose_since[i] = act_ticks;
+            continue;
+        }
+        u32 t = act_ticks - loose_since[i];
+        if (t >= 300 && t < 316) {                    /* 10 s: stand up (stop byte 3) */
+            u8 *s = stop_byte(e);
+            if (s)
+                *s = 3;
+            npc_act.loose++;
+        } else if (t >= 600) {                        /* still there: back to wandering, whatever it takes */
+            path_cancel(e);
+            play_anim(e, 4);
+            set_state(e, ST_WANDER);
+            set_action(e, 2);
+            loose_since[i] = 0;
+            npc_act.forced++;
+        }
+    }
+}
+
 /* Every tick from mod_on_tick (NPC Life on, city running). */
 static void act_tick(void)
 {
     act_ticks++;
     if (act_ticks & 15)
         return;
+    watch_loose();
     for (int k = 0; k < MAX_ACTORS; k++) {
         actor_t *a = &actors[k];
         if (!a->e)
@@ -447,7 +506,12 @@ static void act_tick(void)
             a->e = 0;
             continue;
         }
-        if (a->ract != sim_act_at(&sim, a->who - 31, week_minute())) {
+        int now_act = sim_act_at(&sim, a->who - 31, week_minute());
+        if (a->ract != now_act && a->kind == K_OBJECT && still_wanted(a, now_act)) {
+            a->ract = (u8)now_act;                   /* socialising -> eating at the same table: stay seated */
+            npc_act.kept++;
+        }
+        if (a->ract != now_act) {
             int who = a->who;
             finish(a, 1);                            /* their day moved on (e.g. breakfast time) */
             rest_until[who - 31] = act_ticks + 30;   /* pick the next thing almost at once */

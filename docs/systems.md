@@ -386,6 +386,13 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
 - **Start checks know animations:** the vending machine's (0x020ADB90) refuses a townsperson without 0x7F (press
   the button) and 0x41 (eat); nobody but the player has 0x7F. A person sent anyway stands still for that
   part, then eats (proof `npc-act-eat`).
+- **Sitting too long (2026-10-08, proof `npc-seat-turns`, reported in Café Z-Bach):** NPC Life ended a use
+  whenever the routine changed, with a 1 s rest; Sue's visit flips socialising/eating every few minutes, so
+  she stood up and was sent back to the same love seat at once, again and again: she sat the whole visit.
+  Now a use that still serves the new routine carries on (`still_wanted`), sits last 10-25 s (act_ticks run
+  at 30 a second), and `watch_loose` stands up anyone still using an object with our needs block and no actor
+  (stop byte 3 after 10 s, then back to wandering). Café Z-Bach (42) has 2 invisible love seats (156) and 2
+  invisible computers (116) among its drawn booths; the Coffee Shop (34) has only invisible computers.
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.

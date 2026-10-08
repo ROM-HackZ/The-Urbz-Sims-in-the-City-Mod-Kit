@@ -116,6 +116,8 @@ I = inferred (read from the decompile, not exercised).
   0x64000000) and Drifter Woods' shelf (list 18: header 0x02141310, slots 0x021416A0) = his own 373, 376, 371 +
   396, 397, 398 (one Pet Treats: two looked like a bug; the stall restocks at midnight),
   saved through the menu with the vanilla ROM (so the strays' box still comes up with a pets build).
+  `verify/saves/cafe.sav`: out-of-jail.sav set to day 1, 12:20 (Sue visits Café Z-Bach 13:00-16:00; proof
+  `npc-seat-turns`).
   `verify/saves/pet-shop.sav`: from apartment.sav, standing at the Bayou Bazaar clerk (char id 15, Sim Quarter
   Farmer's Market, area 13; loads at (995,598)), $850; list 9's shelf (slots at 0x021414F0) poked to Puppy 386,
   Kitten 389, Bunny 390 and Pet Treats 396 and saved through the menu (stock is saved with the game).

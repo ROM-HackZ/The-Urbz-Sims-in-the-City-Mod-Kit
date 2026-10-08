@@ -53,7 +53,11 @@ In the area you're in, people act out their routine with the game's own objects 
   shower, sleep and use the toilet; anyone you give new art with `urbz_anims.py` joins in);
 - everyone else, or when there's nothing to use, chats: one walks up to another, they face each
   other and take turns gesturing;
-- at most 4 actions at once; when their routine moves on (breakfast time), they stop and go;
+- at most 4 actions at once; when their routine moves on (breakfast time), they stop and go, unless what
+  they're using still fits (socialising -> eating at the same table: they stay seated); a sit lasts 10-25 s,
+  then they get up and wander a while before sitting again;
+- someone left sitting with nobody watching them (e.g. after you talked to them) is told to stand up after
+  10 s;
   nobody is taken from a story scene, from talking to you, or from leaving for their next place;
 - switched off on the Mods page, everyone stops and goes back to the game's own wandering.
 - The info page shows "eating here" / "chatting here" for people acting it out.
@@ -61,4 +65,5 @@ In the area you're in, people act out their routine with the game's own objects 
 ## Not yet
 
 The 28 people without object animations can't sit, eat, wash or sleep visibly yet: that needs
-new art, drawn per person (Phase 7, `docs/plan-phase7.md`).
+new art, drawn per person (Phase 7, `docs/plan-phase7.md`). Many chairs drawn in public places aren't seats
+in the game's data at all (Café Z-Bach has two invisible love seats among its booths), so nobody can use them.

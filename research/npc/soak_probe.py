@@ -37,14 +37,13 @@ def run_snaps():
     import urbz_verify as V
     out = tempfile.mkdtemp(prefix='urbz-soak-')
     script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]]
+    if area is not None:                          # (the loader's own goto only works once the game settled)
+        script += P._area_goto(area) + [['wait', 120]]
     for k in range(steps):
         script += [['wait', every], ['shot', 's%02d' % k]]
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
            'state': V.city_state(os.path.abspath(rom), None, save), 'script': script,
            'snap': ['0x02100000:0x100000', '0x0214112C:6'], 'poke': []}
-    if area is not None:
-        pts = json.load(open(V.AREAS_JSON))['areas'][area]['entry_points']
-        job['goto'] = (area, pts[0]['id'] if pts else 0)
     res = V.run_child(job, timeout=3000)
     return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
 
@@ -71,16 +70,25 @@ for n, (mem, clock) in enumerate(snaps):
             ea, who, need, obj, kind, since, until, partner, pwho, phase = struct.unpack_from(
                 '<IBBBBIIIBB', rd(base + SYM['actors'] + 28 * a, 26))
             if ea:
-                actors.append((ea, who, need, kind, partner, pwho, phase))
+                actors.append((ea, who, need, kind, partner, pwho, phase, since, until))
         nact = struct.unpack_from('<8I', rd(base + SYM['npc_act'], 32))
+        more = struct.unpack_from('<5I', rd(base + SYM['npc_act'] + 36, 20))   # rounds, seen, candidates, no_object, chats
+        if os.environ.get('NACT'):
+            print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d' % (nact[1:] + more))
     held = {a[0] for a in actors} | {a[4] for a in actors if a[3] == 1}
     print('%02d day %d %02d:%02d  %s | actors %s' % (n, day, hh, mm, ' '.join(
         '%s %x/%x %d,%d' % (name(w), st, ac, x, y) for _, w, st, ac, fl, x, y in people),
-        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'obj need %d' % a[2], '') for a in actors]))
+        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'obj need %d %d..%d' % (a[2], a[7], a[8]), '') for a in actors]))
+    if k >= 0:
+        print('   act_ticks %d' % struct.unpack('<I', rd(base + SYM['act_ticks'], 4))[0])
     for e_, w, st, ac, fl, x, y in people:
         h = hist.setdefault(e_, [])
         h.append((n, st, ac, x, y))
-        if ac == 0x30 and e_ not in held:
+        if st == 0x11 and e_ not in held and k >= 0:
+            suspects.append('%02d using an object, nobody tracking them %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
+        if st == 0x11:
+            suspects.append('%02d using an object %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
+        if ac == 0x30 and e_ not in held and k >= 0:
             suspects.append('%02d orphan %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
         last = [p for p in h if p[0] > n - 3]
         if st == 0x26 and len(last) == 3 and all(p[3:] == last[0][3:] for p in last):
@@ -93,7 +101,7 @@ for n, (mem, clock) in enumerate(snaps):
             a, b = people[i], people[j]
             if abs(a[5] - b[5]) < 4 and abs(a[6] - b[6]) < 4:
                 suspects.append('%02d stacked %s and %s at %d,%d' % (n, name(a[1]), name(b[1]), a[5], a[6]))
-print('npc_act (sent, finished, aborted, rescued, left, refused, busy_paths):', nact[1:] if k >= 0 else '-')
+print('npc_act (sent, finished, aborted, rescued, left, refused, busy_paths):', nact[1:] if 'nact' in globals() else '-')
 print('suspects:' if suspects else 'suspects: none')
 for s in suspects:
     print('  ' + s)

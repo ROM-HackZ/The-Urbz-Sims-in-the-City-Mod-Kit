@@ -1934,6 +1934,41 @@ def p_pets_gate2():
             vals['0x02141338:1'][0], struct.unpack('<i', vals['0x02141124:4'])[0])
 
 
+def p_npc_seat_turns():
+    """NPC Life, sitting in a café (reported: someone sat down and never got up). verify/saves/cafe.sav: day 1
+    12:20, out of jail; Sue (58) visits Café Z-Bach (42) 13:00-16:00, switching between socialising and eating
+    every few minutes. Each switch used to stand her up and send her straight back to the same seat a second
+    later, so she sat the whole visit. Now a use that still serves the new routine carries on, a sit lasts
+    10-25 s, then she gets up and wanders before sitting again. 26 snapshots, 10 s apart."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    rom = npc_life_rom('npc-seat-turns')
+    out = tempfile.mkdtemp(prefix='urbz-proof-')
+    script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + _area_goto(42) + \
+        [['wait', 120]] + sum(([['wait', 300], ['shot', 's%02d' % k]] for k in range(26)), [])
+    job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+           'state': V.city_state(os.path.abspath(rom), None, 'cafe'), 'snap': ['0x02100000:0x100000']}
+    res = V.run_child(job, timeout=3000)
+    seq = []
+    for _, files in res['snaps']:
+        mem = open(files[0], 'rb').read()
+        rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+        e, st = struct.unpack('<I', rd(0x02121AF0, 4))[0], None
+        while e and 0x02100000 <= e < 0x02200000:
+            if struct.unpack('<HH', rd(e + 8, 4)) == (7, 58):
+                st = rd(e + 0x104, 1)[0]
+            e = struct.unpack('<I', rd(e, 4))[0]
+        seq.append('S' if st == 0x11 else '.' if st else ' ')
+    line = ''.join(seq)
+    runs = [len(r) for r in line.split('.') for r in r.split(' ') if r]
+    sat = 'S' in line
+    longest = max(runs) if runs else 0
+    shutil.copy(os.path.join(out, 'snap_s05.png'), os.path.join(OUT, 'npc-seat-turns.png'))
+    ok = sat and longest <= 6 and len(runs) >= 2
+    return ok, 'Sue every 10 s (S sitting, . up, blank away): [%s]; times she sat %d, longest sit %d snapshots ' \
+        '(at most 6 = 60 s); build/proofs/npc-seat-turns.png' % (line, len(runs), longest)
+
+
 def p_max_needs():
     """Max Needs (a testing aid, mods/max-needs): while it is on, the player's 8 needs stay at 100; switched off
     on the Mods page (CORE switch poke), they are left as they were (lower). From the apartment save, 3,000 frames each."""
@@ -2108,7 +2143,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):
