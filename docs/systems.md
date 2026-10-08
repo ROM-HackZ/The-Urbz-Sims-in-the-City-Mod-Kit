@@ -531,6 +531,9 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   0x02072914): the player in state 0x10, facing them, A pressed. pets-kit points that literal at its own
   `pets_person_touch`: when a pet you face is nearer than the person, the A is left for the pet (a stray next
   to Gramma Hattie's spot used to be out of reach while she stood there).
+- **pets-kit and NPC Life share townspeople (2026-10-08):** both drive people by setting their action to 0x30
+  (the wander state ignores it). The strays' adopter is never someone already at 0x30 (an NPC Life chat or
+  visit), and NPC Life only takes people standing at action 7, so neither takes the other's.
 - **Behaviour (Phase 9, proof `pets-life`):** pets-kit replaces the pets' behaviour (+0x4C) with
   `pets_behaviour`: wander with the game's own critter movement, and every few seconds pick an idle action
   (sniff, sit, scratch, lie, play, happy); at night (22:00-07:00) sleep or lie; hunger or happiness under 25 =

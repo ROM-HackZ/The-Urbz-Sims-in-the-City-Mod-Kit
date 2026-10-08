@@ -196,6 +196,8 @@ static void adopt_start(int o)
             int id = ENT_KIND(p);
             if (ENT_TYPE(p) != 7 || id < 31 || id >= 80 || p[0x104] != 0x23 || (ENT_FLAGS(p) & 2))
                 continue;
+            if (p[0x105] == ACT_OURS)            /* already driven (NPC Life's chats and visits use 0x30 too) */
+                continue;
             int d = dist2(p, se);
             if (d < bd) {
                 bd = d;
