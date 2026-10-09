@@ -393,7 +393,16 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   at 30 a second), and `watch_loose` stands up anyone still using an object with our needs block and no actor
   (stop byte 3 after 10 s, then back to wandering). Café Z-Bach (42) has 2 invisible love seats (156) and 2
   invisible computers (116) among its drawn booths; the Coffee Shop (34) has only invisible computers.
-- **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
+- **Standing up again / using more of a place (2026-10-09, proofs `npc-seat-turns`, `npc-look`):** after a
+  sit the game's wander left people standing between chair and table for a game hour (its random walks
+  start blocked there): NPC Life now walks them back to where they were when it sent them (`came_from`).
+  Seats are picked at random among the usable ones. Townspeople only have stand 0x04, walk 0x0A and (about
+  20 of them) gestures 0x87/0x78/0xDB, plus the sit set for 8; so besides seats, NPC Life sends anyone to
+  objects they can enjoy standing (`look_kind`: Admire 8, Gaze 25, Critique Graffiti 94, Watch TV 69,
+  Drink 83, Wash Hands 68 calm; Dance 17, Boogie 18, Spin 100 lively; and by number the grill 1 and phones
+  205-207): path to a spot 26/13 px off a corner of it (the other corners if that fails), face it, gesture
+  now and then for 10-20 s. The game's own activity isn't started (it would wait for animations they don't
+  have).- **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
 

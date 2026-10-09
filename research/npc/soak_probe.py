@@ -30,8 +30,9 @@ def name(i):
 
 
 
-def run_snaps():
-    """P.snapshots, with the boxes that come up first (the strays' intro) closed with B."""
+def run_snaps(n_steps=None, player_at=None):
+    """P.snapshots, with the boxes that come up first (the strays' intro) closed with B. player_at = (entity,
+    x, y): the player is put there first (env PLAYER_AT=x,y: to watch a spot)."""
     import tempfile
     sys.path.insert(0, os.path.join(KIT, 'verify'))
     import urbz_verify as V
@@ -39,7 +40,10 @@ def run_snaps():
     script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]]
     if area is not None:                          # (the loader's own goto only works once the game settled)
         script += P._area_goto(area) + [['wait', 120]]
-    for k in range(steps):
+    if player_at:
+        pe, px, py = player_at
+        script += [['poke', '0x%08X=%s' % (pe + 0x18, struct.pack('<iiii', px << 16, py << 16, px << 16, py << 16).hex())]]
+    for k in range(steps if n_steps is None else n_steps):
         script += [['wait', every], ['shot', 's%02d' % k]]
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap',
            'state': V.city_state(os.path.abspath(rom), None, save), 'script': script,
@@ -48,7 +52,16 @@ def run_snaps():
     return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
 
 
-snaps, out = run_snaps()
+player_at = None
+if os.environ.get('PLAYER_AT'):
+    first, _ = run_snaps(1)
+    mem = first[0][0]
+    rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+    e = struct.unpack('<I', rd(0x02121AF0, 4))[0]
+    while e and struct.unpack('<H', rd(e + 8, 2))[0] != 0:
+        e = struct.unpack('<I', rd(e, 4))[0]
+    player_at = (e,) + tuple(int(v) for v in os.environ['PLAYER_AT'].split(','))
+snaps, out = run_snaps(None, player_at)
 hist, suspects = {}, []
 for n, (mem, clock) in enumerate(snaps):
     rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
@@ -72,13 +85,13 @@ for n, (mem, clock) in enumerate(snaps):
             if ea:
                 actors.append((ea, who, need, kind, partner, pwho, phase, since, until))
         nact = struct.unpack_from('<8I', rd(base + SYM['npc_act'], 32))
-        more = struct.unpack_from('<5I', rd(base + SYM['npc_act'] + 36, 20))   # rounds, seen, candidates, no_object, chats
+        more = struct.unpack_from('<10I', rd(base + SYM['npc_act'] + 36, 40))  # rounds, seen, cand, no_object, chats, loose, forced, kept, walked_off, looks
         if os.environ.get('NACT'):
-            print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d' % (nact[1:] + more))
+            print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d loose %d forced %d kept %d walked_off %d looks %d' % (nact[1:] + more))
     held = {a[0] for a in actors} | {a[4] for a in actors if a[3] == 1}
     print('%02d day %d %02d:%02d  %s | actors %s' % (n, day, hh, mm, ' '.join(
         '%s %x/%x %d,%d' % (name(w), st, ac, x, y) for _, w, st, ac, fl, x, y in people),
-        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'obj need %d %d..%d' % (a[2], a[7], a[8]), '') for a in actors]))
+        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'look %d' % a[5] if a[3] == 2 else 'obj need %d %d..%d' % (a[2], a[7], a[8]), '') for a in actors]))
     if k >= 0:
         print('   act_ticks %d' % struct.unpack('<I', rd(base + SYM['act_ticks'], 4))[0])
     for e_, w, st, ac, fl, x, y in people:
@@ -86,14 +99,21 @@ for n, (mem, clock) in enumerate(snaps):
         h.append((n, st, ac, x, y))
         if st == 0x11 and e_ not in held and k >= 0:
             suspects.append('%02d using an object, nobody tracking them %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
-        if st == 0x11:
-            suspects.append('%02d using an object %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
+        run = 0
+        for p_ in reversed(h):
+            if p_[1] != 0x11:
+                break
+            run += 1
+        if run * every > 1800:                        # using one thing for over a minute of real time
+            suspects.append('%02d sitting/using too long (%d s) %s at %d,%d' % (n, run * every // 60, name(w), x, y))
+        if st == 0x23 and len(h) >= 6 and all(p[1:] == h[-1][1:] for p in h[-6:]) and h[-6][2] == 7:
+            pass
         if ac == 0x30 and e_ not in held and k >= 0:
             suspects.append('%02d orphan %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
         last = [p for p in h if p[0] > n - 3]
         if st == 0x26 and len(last) == 3 and all(p[3:] == last[0][3:] for p in last):
             suspects.append('%02d stuck walking %s at %d,%d' % (n, name(w), x, y))
-        last8 = [p for p in h if p[0] > n - 8]
+        last8 = [p for p in h if p[0] > n - 8] if st != 0x31 else []   # (0x31: a shop clerk at the counter)
         if len(last8) == 8 and all(p[1:] == last8[0][1:] for p in last8) and n - 8 >= 0:
             suspects.append('%02d frozen %s %x/%x at %d,%d' % (n, name(w), st, ac, x, y))
     for i in range(len(people)):

@@ -23,7 +23,7 @@
 #define ACT_SIT    0x38                      /* chairs, sofas, benches */
 enum { NEED_HUNGER, NEED_HYGIENE, NEED_ENERGY, NEED_SOCIAL, NEED_COMFORT, NEED_BLADDER, NEED_FUN };
 
-enum { K_OBJECT, K_CHAT };
+enum { K_OBJECT, K_CHAT, K_LOOK };     /* K_LOOK: at an object anyone can enjoy without its animations */
 enum { CH_WALK, CH_TALK };
 #define ACT_OURS   0x30                      /* an action the wander state ignores: we drive them */
 
@@ -39,6 +39,10 @@ typedef struct {
 static actor_t actors[MAX_ACTORS];
 static s32 needs_block[SIM_PEOPLE][16];      /* entity+0x114 for people we send (64 bytes each) */
 static u32 rest_until[SIM_PEOPLE];           /* no new action before this tick */
+static u32 walk_off[SIM_PEOPLE];             /* after a use: walk away from it at this tick (0 = no) */
+static s32 came_from[SIM_PEOPLE][2];         /* where they were when sent to an object (reachable: they walked) */
+static u8 off_result[SIM_PEOPLE];            /* path_request's result byte for that walk */
+static u32 off_until[SIM_PEOPLE];            /* walking away until this tick (0 = not walking away) */
 static u32 act_ticks;
 
 struct {
@@ -47,6 +51,8 @@ struct {
     u32 rounds, people_seen, candidates, no_object, chats;
     u32 loose, forced;                       /* watch_loose: told to stand up / put back to wandering */
     u32 kept;                                /* routine moved on, the use still serves it: carried on */
+    u32 walked_off;                          /* stepped away from an object after using it */
+    u32 looks;                               /* went to look at / dance by / watch something */
 } npc_act = { 0x5443414E };                  /* 'NACT' (tests read this) */
 
 #define path_count   GAME_VAR(ADDR_path_count, u8)
@@ -106,6 +112,8 @@ static void finish(actor_t *a, int why)
         resume(e, a->who);
         resume(a->partner, a->partner_who);
         rest_until[a->partner_who - 31] = act_ticks + 600 + (act_rnd() % 900);
+    } else if (a->kind == K_LOOK) {
+        resume(e, a->who);
     } else if (alive(e, a->who)) {
         if (E8(e, 0x104) == ST_USING) {
             u8 *s = stop_byte(e);
@@ -127,6 +135,8 @@ static void finish(actor_t *a, int why)
     else
         npc_act.aborted++;
     rest_until[a->who - 31] = act_ticks + 600 + (act_rnd() % 900);   /* 20-50 s before the next */
+    if (a->kind == K_OBJECT)
+        walk_off[a->who - 31] = act_ticks + 45;
     a->e = 0;
 }
 
@@ -225,11 +235,11 @@ static int dist2(u8 *a, u8 *b)
     return dx * dx + dy * dy;
 }
 
-/* The nearest object here offering an activity for `need` that this person may start. */
+/* An object here offering an activity for `need` that this person may start (picked at random). */
 static u8 *find_object(u8 *person, int need, int *activity, int *number)
 {
     u8 *best = 0;
-    int best_d = 0x7FFFFFFF;
+    int found = 0;
     for (u32 *node = *(u32 **)ADDR_object_list_head; node; node = (u32 *)node[0]) {
         int num = *(u16 *)((u8 *)node + 8);
         u8 *ent = (u8 *)node[9];
@@ -250,10 +260,10 @@ static u8 *find_object(u8 *person, int need, int *activity, int *number)
             if (((int (*)(void *, void *))CLASS(num, 0x1C))(node, person) != 1 ||
                 (!lenient && ((int (*)(void *, void *, int))CLASS(num, 8))(node, person, acts[k]) != 1))
                 continue;
-            int d = dist2(person, ent);
-            if (d < best_d) {
+            /* any of them, not always the nearest: everyone coming in the same door took the same chair
+               and the rest of the table stayed empty */
+            if (act_rnd() % (u32)++found == 0) {
                 best = ent;
-                best_d = d;
                 *activity = acts[k];
                 *number = num;
             }
@@ -370,6 +380,141 @@ static void chat_tick(actor_t *a)
     }
 }
 
+/* Things anyone can do at an object without its own animations (most people only have stand, walk and a few
+   gestures): walk up, face it and take it in, gesturing now and then. 1 = calm (admire an exhibit, gaze into
+   the crystal ball, critique graffiti, watch TV, have a drink at the fountain, wash hands; and by number: stand
+   at a grill, make a call at a phone), 2 = lively (dance by the jukebox or on the dance pad, spin at the DJ
+   desk). Activity numbers: docs/objects.md. */
+static int look_kind(int activity)
+{
+    switch (activity) {
+    case 8: case 25: case 94: case 69: case 83: case 68:
+        return 1;
+    case 17: case 18: case 100:
+        return 2;
+    }
+    return 0;
+}
+
+static u8 *find_look(u8 *person, int *kind)
+{
+    u8 *best = 0;
+    int found = 0;
+    for (u32 *node = *(u32 **)ADDR_object_list_head; node; node = (u32 *)node[0]) {
+        int num = *(u16 *)((u8 *)node + 8);
+        u8 *ent = (u8 *)node[9];
+        if (!ent || num >= 386 || num == 225 || num == 236 || !CLASS(num, 4) || !E32(ent, 0x18))
+            continue;                                     /* (225, 236: the chicken and the nutria) */
+        int taken = 0;
+        for (int k = 0; k < MAX_ACTORS; k++)
+            taken |= actors[k].e && actors[k].kind == K_LOOK && actors[k].partner == ent;
+        if (taken || dist2(person, ent) > 400 * 400)
+            continue;
+        if (num == 1 || (num >= 205 && num <= 207)) {        /* by the grill, on the phone (no activity of theirs) */
+            if (act_rnd() % (u32)++found == 0) {
+                best = ent;
+                *kind = 1;
+            }
+            continue;
+        }
+        u8 acts[8] = { 0 };
+        ((int (*)(void *, u8 *))CLASS(num, 4))(node, acts);
+        for (int k = 0; k < 7 && acts[k]; k++) {
+            int lk = look_kind(acts[k]);
+            if (!lk)
+                continue;
+            if (act_rnd() % (u32)++found == 0) {
+                best = ent;
+                *kind = lk;
+            }
+            break;
+        }
+    }
+    return best;
+}
+
+/* A spot a step from the object: first on the side we come from, then the other three diagonals (a phone on a
+   wall or an exhibit against one can only be reached from the open side). */
+static int look_path(u8 *e, u8 *obj, int try_no)
+{
+    static const s8 side[4][2] = { { 26, 13 }, { -26, 13 }, { 26, -13 }, { -26, -13 } };
+    int sx = E32(e, 0x18) > E32(obj, 0x18) ? 0 : 1, sy = E32(e, 0x1C) > E32(obj, 0x1C) ? 0 : 2;
+    int k = ((sx | sy) + try_no) & 3;
+    s32 xy[2] = { (s32)E32(obj, 0x18) + (side[k][0] << 16), (s32)E32(obj, 0x1C) + (side[k][1] << 16) };
+    E8(e, 0x10B) = 0;
+    return path_request(e, xy, (u8 *)(e + 0x10B), 0) == 1;
+}
+
+static int start_look(int slot, u8 *e, int who)
+{
+    int kind = 0;
+    u8 *obj = find_look(e, &kind);
+    if (!obj)
+        return 0;
+    if (!look_path(e, obj, 0)) {
+        npc_act.refused++;
+        return 0;
+    }
+    actor_t *a = &actors[slot];
+    a->e = e;
+    a->who = who;
+    a->kind = K_LOOK;
+    a->partner = obj;
+    a->partner_who = (u8)kind;
+    a->phase = CH_WALK;
+    a->since = act_ticks;
+    a->need = NEED_FUN;
+    a->obj_number = 0;                                    /* (K_LOOK: the side tried, 0-3) */
+    a->turn = 0;
+    a->ract = (u8)sim_act_at(&sim, who - 31, week_minute());
+    set_action(e, ACT_OURS);
+    play_anim(e, 0x0A);
+    npc_act.sent++;
+    npc_act.looks++;
+    npc_act.last_who = who;
+    return 1;
+}
+
+static void look_tick(actor_t *a)
+{
+    u8 *e = a->e, *obj = a->partner;
+    if (E8(e, 0x104) != ST_WANDER || E8(e, 0x105) != ACT_OURS) {
+        finish(a, 0);                                     /* something else took over */
+        return;
+    }
+    if (E8(e, 0x107) & 2) {
+        finish(a, 2);
+        return;
+    }
+    if (a->phase == CH_WALK) {
+        int r = E8(e, 0x10B);
+        if (r == 1 || dist2(e, obj) < 36 * 36) {
+            path_cancel(e);
+            play_anim(e, 4);
+            face(e, dir_to(e, obj));
+            a->phase = CH_TALK;
+            a->until = act_ticks + 300 + act_rnd() % 300;   /* 10-20 s */
+            a->next_gesture = act_ticks + 45;
+        } else if (r == 3 && a->obj_number < 3 && path_count < 3) {
+            path_cancel(e);                               /* no way there from this side: another side */
+            if (!look_path(e, obj, ++a->obj_number))
+                finish(a, 3);
+        } else if (r == 3 || act_ticks - a->since > 600)
+            finish(a, 3);
+        return;
+    }
+    if (act_ticks >= a->until) {
+        finish(a, 1);
+        return;
+    }
+    if (act_ticks >= a->next_gesture) {
+        int g = a->turn ? 0 : gesture_of(a->who, act_rnd());
+        play_anim(e, g ? g : 4);
+        a->turn ^= 1;
+        a->next_gesture = act_ticks + (a->partner_who == 2 ? 30 + act_rnd() % 30 : 120 + act_rnd() % 150);
+    }
+}
+
 static void start_one(void)
 {
     if (path_count >= 2) {                           /* leave a path slot for the game */
@@ -411,6 +556,8 @@ static void start_one(void)
                 npc_act.refused++;
                 continue;
             }
+            came_from[i][0] = (s32)E32(e, 0x18);
+            came_from[i][1] = (s32)E32(e, 0x1C);
             actor_t *a = &actors[slot];
             a->e = e;
             a->who = who;
@@ -427,7 +574,13 @@ static void start_one(void)
             npc_act.last_obj = number;
             return;                                  /* one new action per round */
         }
+        int act = sim_act_at(&sim, i, week_minute());     /* free time: look at things here, or chat */
+        int free = act == A_FUN || act == A_PARK || act == A_HOME || act == A_SOCIAL || act == A_EAT;
+        if (free && act != A_SOCIAL && (act_rnd() & 1) && start_look(slot, e, who))
+            return;                                   /* (socialising: a chat first) */
         if (start_chat(slot, e, who))                /* nothing to use here they can show: a chat */
+            return;
+        if (free && start_look(slot, e, who))
             return;
     }
 }
@@ -463,6 +616,32 @@ static void watch_loose(void)
         int who = E16(e, 10), i = who - 31;
         if (i < 0 || i >= SIM_PEOPLE)
             continue;
+        /* Up again after a use, they walk back to where they came from: the game's own wandering left them
+           standing at the chair for a game hour or more (its random walks start blocked between the chair and
+           the table), which looked like someone who never got up. */
+        if (off_until[i]) {
+            int r = off_result[i];
+            if (r == 1 || r == 3 || act_ticks >= off_until[i] || E8(e, 0x105) != ACT_OURS) {
+                if (E8(e, 0x104) == ST_WANDER && E8(e, 0x105) == ACT_OURS) {
+                    path_cancel(e);
+                    play_anim(e, 4);
+                    set_action(e, 2);
+                }
+                off_until[i] = 0;
+            }
+        } else if (walk_off[i] && act_ticks >= walk_off[i]) {
+            if (E8(e, 0x104) == ST_WANDER && E8(e, 0x105) == 7 && !acting(e) && path_count < 3) {
+                off_result[i] = 0;
+                if (path_request(e, came_from[i], &off_result[i], 0) == 1) {
+                    set_action(e, ACT_OURS);
+                    play_anim(e, 0x0A);
+                    off_until[i] = act_ticks + 450;
+                    npc_act.walked_off++;
+                }
+                walk_off[i] = 0;
+            } else if (act_ticks - walk_off[i] > 300)
+                walk_off[i] = 0;                      /* (busy with something else by now) */
+        }
         if (E8(e, 0x104) != ST_USING || *(s32 **)(e + 0x114) != needs_block[i] || acting(e)) {
             loose_since[i] = 0;
             continue;
@@ -507,7 +686,7 @@ static void act_tick(void)
             continue;
         }
         int now_act = sim_act_at(&sim, a->who - 31, week_minute());
-        if (a->ract != now_act && a->kind == K_OBJECT && still_wanted(a, now_act)) {
+        if (a->ract != now_act && a->kind != K_CHAT && still_wanted(a, now_act)) {
             a->ract = (u8)now_act;                   /* socialising -> eating at the same table: stay seated */
             npc_act.kept++;
         }
@@ -521,6 +700,10 @@ static void act_tick(void)
             chat_tick(a);
             continue;
         }
+        if (a->kind == K_LOOK) {
+            look_tick(a);
+            continue;
+        }
         int st = E8(e, 0x104);
         if (E8(e, 0x107) & 2)
             finish(a, 2);                            /* the game wants them elsewhere */
@@ -532,6 +715,7 @@ static void act_tick(void)
             a->e = 0;
             npc_act.finished++;
             rest_until[a->who - 31] = act_ticks + 600 + (act_rnd() % 900);
+            walk_off[a->who - 31] = act_ticks + 45;
         }
     }
     start_one();
@@ -543,6 +727,25 @@ static void act_release_all(void)
     for (int k = 0; k < MAX_ACTORS; k++)
         if (actors[k].e)
             finish(&actors[k], 0);
+    for (u8 *e = world_first(); e; e = *(u8 **)e) {      /* and anyone walking away from an object */
+        int i = E16(e, 10) - 31;
+        if (E16(e, 8) == 7 && i >= 0 && i < SIM_PEOPLE && off_until[i] && E8(e, 0x105) == ACT_OURS) {
+            path_cancel(e);
+            play_anim(e, 4);
+            set_action(e, 2);
+        }
+    }
+    for (int i = 0; i < SIM_PEOPLE; i++)
+        off_until[i] = walk_off[i] = 0;
+}
+
+/* A new area: its people are new entities. */
+static void act_area_reset(void)
+{
+    for (int k = 0; k < MAX_ACTORS; k++)
+        actors[k].e = 0;
+    for (int i = 0; i < SIM_PEOPLE; i++)
+        off_until[i] = walk_off[i] = 0;
 }
 
 /* For the info page: what this person is doing here, or 0. */

@@ -85,8 +85,7 @@ void mod_on_tick(void)
 void mod_on_area_enter(int area)
 {
     (void)area;
-    for (int k = 0; k < MAX_ACTORS; k++)
-        actors[k].e = 0;                      /* the old area's people are gone */
+    act_area_reset();                         /* the old area's people are gone */
 }
 
 void mod_on_disable(void)

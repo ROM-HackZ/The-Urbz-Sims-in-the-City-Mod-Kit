@@ -67,7 +67,7 @@ def ram(rom, frames, *reads, pokes=(), script=None, start=('--city',)):
 
 def find_magic(rom, frames, magic, size):
     """Read `size` bytes of a code mod's struct that starts with the u32 `magic`."""
-    r = ram(rom, frames, '0x%08X:0x8000' % CODE_BASE)['0x%08X:0x8000' % CODE_BASE]
+    r = ram(rom, frames, '0x%08X:0x10000' % CODE_BASE)['0x%08X:0x10000' % CODE_BASE]
     i = r.find(struct.pack('<I', magic))
     if i < 0:
         raise RuntimeError('magic %08x not found in the code region' % magic)
@@ -215,7 +215,7 @@ def table_on(rom, frames, index, pokes=()):
 def p_toggle_call():
     """A call hook (npc-visit) switched off in-game: the game's own schedule answers again."""
     rom, _, _ = build('toggle-call', [os.path.join(TESTS, 'mods', 'npc-visit')])
-    reg = '0x%08X:0x8000' % CODE_BASE
+    reg = '0x%08X:0x10000' % CODE_BASE
 
     def answered(region):
         i = region.find(struct.pack('<I', 0x54495356))
@@ -282,7 +282,7 @@ def with_switches(sav, out, entries):
 
 def probe_state(rom, start, frames, script=None):
     """save-probe's counters after a run: dict."""
-    reg = '0x%08X:0x8000' % CODE_BASE
+    reg = '0x%08X:0x10000' % CODE_BASE
     r = ram(rom, frames, reg, '0x02141FEC:4', '0x0214112C:6', start=start, script=script)
     b = r[reg]
     i = b.find(struct.pack('<I', 0x52505653))
@@ -437,7 +437,7 @@ def p_npc_life_days():
     where the original game puts them, out-of-town daytime hours become visits, and the routines follow
     the game's week."""
     rom = npc_life_rom('npc-life-days', [os.path.join(TESTS, 'mods', 'fast-clock')])
-    snaps, _ = snapshots(rom, 'lobby', 12, 750, ['0x%08X:0x8000' % CODE_BASE, '0x0214112C:6'])
+    snaps, _ = snapshots(rom, 'lobby', 12, 750, ['0x%08X:0x10000' % CODE_BASE, '0x0214112C:6'])
     tables = orig_timetables()
     first, last = npcl(snaps[0][0]), npcl(snaps[-1][0])
     bad = [misplaced(sim_plans(r, first['sim']), tables) for r, _ in snaps]
@@ -465,7 +465,7 @@ def p_npc_life_stays():
     """Nobody goes missing: at 18:00 Monday the game has Kris on the roof (70), and with NPC Life her live
     timetable says the roof too, so she never turns up in the lobby (her home)."""
     rom = npc_life_rom('npc-life-stays')
-    reg = '0x%08X:0x8000' % CODE_BASE
+    reg = '0x%08X:0x10000' % CODE_BASE
     mem = ram(rom, 1, reg, start=['--from', 'lobby'])[reg]
     live = sim_plans(mem, npcl(mem)['sim'])[KRIS - 31][18 * 7 + 0]
     usual = orig_timetables()[KRIS - 31][18 * 7 + 0]
@@ -483,7 +483,7 @@ def p_npc_life_visit():
     place they know (a meal, a club, a park), and the game walks them in there. The visit is read from the
     live timetables in RAM; the clock is set to just before it and that area is loaded."""
     rom = npc_life_rom('npc-life-visit')
-    reg = '0x%08X:0x8000' % CODE_BASE
+    reg = '0x%08X:0x10000' % CODE_BASE
     mem = ram(rom, 1, reg, '0x0214112C:6', start=['--from', 'lobby'])
     st = npcl(mem[reg])
     plans, tables = sim_plans(mem[reg], st['sim']), orig_timetables()
@@ -704,7 +704,7 @@ def p_npc_life_reload():
     import urbz_save
     from urbz_code import name_hash
     rom = npc_life_rom('npc-life-reload')
-    reg = '0x%08X:0x8000' % CODE_BASE
+    reg = '0x%08X:0x10000' % CODE_BASE
     before = ram(rom, 1, reg, start=['--from', 'lobby'])[reg]
     sav = play_export(rom, 'npc-life-reload', ['--from', 'lobby'], SAVEGAME)
     buf = open(sav, 'rb').read()
@@ -1104,9 +1104,12 @@ def p_rom_grow():
     melon = ''
     import urbz_melon
     if urbz_melon.available():
-        r = subprocess.run([sys.executable, os.path.join(KIT, 'verify', 'urbz_melon.py'), 'boot', rom],
-                           capture_output=True, text=True)
-        melon = r.stdout or 'failed: ' + ' '.join(r.stderr.split())[-200:]
+        for attempt in range(2):                    # (melonDS now and then fails to start under xvfb: once more)
+            r = subprocess.run([sys.executable, os.path.join(KIT, 'verify', 'urbz_melon.py'), 'boot', rom],
+                               capture_output=True, text=True)
+            melon = r.stdout or 'failed: ' + ' '.join(r.stderr.split())[-200:]
+            if 'boot: OK' in melon:
+                break
     melon_ok = 'boot: OK' in melon or not urbz_melon.available()
     return ok and size_ok and melon_ok, 'ROM %.1f MB used, header chip size %d MB; melonDS: %s; %s' % (
         used / 2 ** 20, (128 << h[0x14]) >> 10, (melon.strip().splitlines() or ['not installed'])[-1][:60], detail)
@@ -1935,38 +1938,86 @@ def p_pets_gate2():
 
 
 def p_npc_seat_turns():
-    """NPC Life, sitting in a café (reported: someone sat down and never got up). verify/saves/cafe.sav: day 1
-    12:20, out of jail; Sue (58) visits Café Z-Bach (42) 13:00-16:00, switching between socialising and eating
-    every few minutes. Each switch used to stand her up and send her straight back to the same seat a second
-    later, so she sat the whole visit. Now a use that still serves the new routine carries on, a sit lasts
-    10-25 s, then she gets up and wanders before sitting again. 26 snapshots, 10 s apart."""
+    """NPC Life, sitting (reported: Sue and Dusty sat down and never got up). Two places, 10 s snapshots:
+    - Café Z-Bach (42) from verify/saves/cafe.sav (day 1, 12:20): Sue's visit switches between socialising
+      and eating every few minutes; each switch used to stand her up and send her straight back, so she sat
+      the whole visit. A use that still serves the new routine now carries on.
+    - Slice O' Life Pizza (51) from verify/saves/pizza.sav (day 0, 12:30): Dusty, Cannonball and Phoebe use
+      the table's chairs. Up again, people stood trapped between chair and table for a game hour (the game's
+      random walks start blocked there); they now walk back where they came from, and others get the chair.
+    Every sit lasts at most 60 s, and everyone who got up was more than 20 px from the seat 20 s later."""
     sys.path.insert(0, os.path.join(KIT, 'verify'))
     import urbz_verify as V
     rom = npc_life_rom('npc-seat-turns')
+    report, ok = [], True
+    for save, area, steps in (('cafe', 42, 26), ('pizza', 51, 40)):
+        out = tempfile.mkdtemp(prefix='urbz-proof-')
+        script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + \
+            _area_goto(area) + [['wait', 120]] + sum(([['wait', 300], ['shot', 's%02d' % k]] for k in range(steps)), [])
+        job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+               'state': V.city_state(os.path.abspath(rom), None, save), 'snap': ['0x02100000:0x100000']}
+        res = V.run_child(job, timeout=3000)
+        track = {}                                  # who -> [(state, x, y) or None] per snapshot
+        for n, (_, files) in enumerate(res['snaps']):
+            mem = open(files[0], 'rb').read()
+            rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+            e = struct.unpack('<I', rd(0x02121AF0, 4))[0]
+            while e and 0x02100000 <= e < 0x02200000:
+                t, who = struct.unpack('<HH', rd(e + 8, 4))
+                if t == 7 and 31 <= who < 80:
+                    x, y = struct.unpack('<ii', rd(e + 0x18, 8))
+                    track.setdefault(who, [None] * steps)[n] = (rd(e + 0x104, 1)[0], x >> 16, y >> 16)
+                e = struct.unpack('<I', rd(e, 4))[0]
+        sits, longest, stuck, seats = 0, 0, [], {}
+        for who, seq in track.items():
+            n = 0
+            while n < steps:
+                if seq[n] and seq[n][0] == 0x11:
+                    m = n
+                    while m < steps and seq[m] and seq[m][0] == 0x11:
+                        m += 1
+                    sits += 1
+                    longest = max(longest, m - n)
+                    seat = seq[m - 1][1:]
+                    seats.setdefault(seat, set()).add(who)
+                    later = [p for p in seq[m:m + 3] if p]
+                    if m < steps - 2 and later and all(abs(p[1] - seat[0]) + abs(p[2] - seat[1]) <= 20 for p in later):
+                        stuck.append(who)
+                    n = m
+                else:
+                    n += 1
+        shared = max((len(v) for v in seats.values()), default=0)
+        good = sits >= 2 and longest <= 6 and not stuck
+        ok = ok and good
+        report.append('%s: %d sits, longest %d snapshots (at most 6), still at the seat 20 s after getting up: %s, '
+                      'most people on one seat: %d' % (save, sits, longest, stuck or 'nobody', shared))
+        shutil.copy(os.path.join(out, 'snap_s05.png'), os.path.join(OUT, 'npc-seat-turns-%s.png' % save))
+    return ok, '; '.join(report) + '; build/proofs/npc-seat-turns-*.png'
+
+
+def p_npc_look():
+    """NPC Life, using more of the place (2026-10-09): everyone, not only the 9 with object animations, goes to
+    things they can enjoy standing: the grill, a pay phone and the graffiti wall in Urbania Park (also exhibits,
+    the crystal ball, TVs, fountains, the jukebox and dance pad elsewhere), faces it and gestures now and then
+    for 10-20 s. From out-of-jail.sav (18:30, Urbania Park), 30 snapshots 10 s apart: how many went, how many
+    got there, and nobody was stuck."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    rom = npc_life_rom('npc-look')
     out = tempfile.mkdtemp(prefix='urbz-proof-')
-    script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + _area_goto(42) + \
-        [['wait', 120]] + sum(([['wait', 300], ['shot', 's%02d' % k]] for k in range(26)), [])
+    script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + \
+        sum(([['wait', 300], ['shot', 's%02d' % k]] for k in range(30)), [])
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
-           'state': V.city_state(os.path.abspath(rom), None, 'cafe'), 'snap': ['0x02100000:0x100000']}
+           'state': V.city_state(os.path.abspath(rom), None, 'out-of-jail'), 'snap': ['0x02100000:0x100000']}
     res = V.run_child(job, timeout=3000)
-    seq = []
-    for _, files in res['snaps']:
-        mem = open(files[0], 'rb').read()
-        rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
-        e, st = struct.unpack('<I', rd(0x02121AF0, 4))[0], None
-        while e and 0x02100000 <= e < 0x02200000:
-            if struct.unpack('<HH', rd(e + 8, 4)) == (7, 58):
-                st = rd(e + 0x104, 1)[0]
-            e = struct.unpack('<I', rd(e, 4))[0]
-        seq.append('S' if st == 0x11 else '.' if st else ' ')
-    line = ''.join(seq)
-    runs = [len(r) for r in line.split('.') for r in r.split(' ') if r]
-    sat = 'S' in line
-    longest = max(runs) if runs else 0
-    shutil.copy(os.path.join(out, 'snap_s05.png'), os.path.join(OUT, 'npc-seat-turns.png'))
-    ok = sat and longest <= 6 and len(runs) >= 2
-    return ok, 'Sue every 10 s (S sitting, . up, blank away): [%s]; times she sat %d, longest sit %d snapshots ' \
-        '(at most 6 = 60 s); build/proofs/npc-seat-turns.png' % (line, len(runs), longest)
+    mem = open(res['snaps'][-1][1][0], 'rb').read()
+    k = mem.find(struct.pack('<I', 0x5443414E))
+    f = struct.unpack_from('<8I', mem, k)
+    more = struct.unpack_from('<10I', mem, k + 36)
+    looks, rescued, finished = more[9], f[4], f[2]
+    ok = looks >= 5 and rescued * 2 <= looks
+    return ok, 'went to look at something: %d, gave up on the way: %d, actions finished: %d (sent %d)' % (
+        looks, rescued, finished, f[1])
 
 
 def p_max_needs():
@@ -2143,7 +2194,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

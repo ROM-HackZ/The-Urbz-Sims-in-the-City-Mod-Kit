@@ -51,8 +51,13 @@ In the area you're in, people act out their routine with the game's own objects 
   toilet; at night a bed, at washing time a shower (written, but not seen in a test yet);
 - a person only does what they have the animation for (only Kris can eat; 8 people can sit,
   shower, sleep and use the toilet; anyone you give new art with `urbz_anims.py` joins in);
-- everyone else, or when there's nothing to use, chats: one walks up to another, they face each
-  other and take turns gesturing;
+- everyone, in their free time, also goes to things they can enjoy standing up: the grill, a pay phone,
+  the graffiti wall, museum exhibits, the crystal ball, a TV, a drinking fountain, the jukebox and dance
+  pad, the DJ desk. They face it and gesture now and then for 10-20 s (busier by the jukebox);
+- or they chat: one walks up to another, they face each other and take turns gesturing (people who
+  are socialising chat first);
+- seats are picked at random among the free ones (everyone used to take the one nearest the door), and
+  after a sit people walk back the way they came (they used to stand trapped between chair and table);
 - at most 4 actions at once; when their routine moves on (breakfast time), they stop and go, unless what
   they're using still fits (socialising -> eating at the same table: they stay seated); a sit lasts 10-25 s,
   then they get up and wander a while before sitting again;
