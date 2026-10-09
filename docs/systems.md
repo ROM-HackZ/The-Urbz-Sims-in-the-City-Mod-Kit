@@ -402,7 +402,27 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   Drink 83, Wash Hands 68 calm; Dance 17, Boogie 18, Spin 100 lively; and by number the grill 1 and phones
   205-207): path to a spot 26/13 px off a corner of it (the other corners if that fails), face it, gesture
   now and then for 10-20 s. The game's own activity isn't started (it would wait for animations they don't
-  have).- **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
+  have).
+- **Borrowed poses (2026-10-09, proof `npc-poses`, `urbz_poses.py`):** a mod's `poses.json` (NPC Life ships
+  one) makes the builder add a hidden mod `build/new-poses`: for each townsperson missing a group (sit
+  0x6B-0x6D, eat 0x41, toilet 0x7B, shower 0x69, sleep 0x21/0x20), the donor = whoever has it with the
+  closest standing silhouette (feet aligned, scaled to the same height: overlap + width). Each donor sheet
+  is scaled about the feet to the person's height, recoloured colour by colour (each donor colour lives
+  mostly in one of 8 height bands of the standing figure; it becomes the person's colour in that band at the
+  same pixel-weighted brightness quantile; face skin -> face skin), and the head is swapped: the top 17% of
+  the figure (as wide as the standing head, centred on what is there) is cleared and the person's own
+  standing head drawn with its top on the figure's top. Frames wider than tall (lying down) keep the donor's
+  head, recoloured. New sheets (gfx + layout per view, the quick encoder) are new assets numbered after pets'
+  and objects'; the donor's frame scripts are reused. Each person's list is copied (original rows, then the
+  new ones, records with relocs) and `npc_anim_lists[id]` points at it; NPC Life's `has_anim` then lets them
+  use seats, food, toilets, showers and beds. 35 people, 146 sets, 640 files, ~3.6 MB, 20 KB of lists (sit's three
+  rows share one record array); made
+  once in about a minute and kept in `build/cache/poses/<hash of the code and the game>`. People whose list
+  another mod hooks (`urbz_anims.py`) are skipped, and `skip` in poses.json (48 Lottie Cash: wheelchair).
+  **Code region budget:** with all four player mods the boot copy is ~156 KB of its 160 KB limit (the poses
+  lists are 20 KB of it). If it runs out: generate the record arrays at start-up into BSS (not copied) from a
+  compact table, or shrink other mods' tables.
+- **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
 

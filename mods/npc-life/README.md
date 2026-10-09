@@ -49,8 +49,10 @@ In the area you're in, people act out their routine with the game's own objects 
 - someone eating walks to a vending machine, grill or fridge and eats; with no food object there,
   they sit down at a table; relaxing at home, they sit on a bench or sofa; now and then, the
   toilet; at night a bed, at washing time a shower (written, but not seen in a test yet);
-- a person only does what they have the animation for (only Kris can eat; 8 people can sit,
-  shower, sleep and use the toilet; anyone you give new art with `urbz_anims.py` joins in);
+- a person only does what they have the animation for. In the original game only Kris can eat and 8
+  people can sit, shower, sleep and use the toilet; `poses.json` gives everyone else borrowed ones
+  (built by `urbz_poses.py` from the closest-looking person who has them, in their own colours and with
+  their own head), and anyone you draw new art for with `urbz_anims.py` uses yours;
 - everyone, in their free time, also goes to things they can enjoy standing up: the grill, a pay phone,
   the graffiti wall, museum exhibits, the crystal ball, a TV, a drinking fountain, the jukebox and dance
   pad, the DJ desk. They face it and gesture now and then for 10-20 s (busier by the jukebox);
@@ -69,6 +71,7 @@ In the area you're in, people act out their routine with the game's own objects 
 
 ## Not yet
 
-The 28 people without object animations can't sit, eat, wash or sleep visibly yet: that needs
-new art, drawn per person (Phase 7, `docs/plan-phase7.md`). Many chairs drawn in public places aren't seats
+The borrowed poses (`poses.json`) are made by machine from someone else's animation: up close they look a
+little off-model (the donor's build, the person's colours and head). Drawing them by hand (`urbz_anims.py`)
+replaces them person by person. Lottie Cash (wheelchair) still doesn't sit, eat or wash. Many chairs drawn in public places aren't seats
 in the game's data at all (Café Z-Bach has two invisible love seats among its booths), so nobody can use them.

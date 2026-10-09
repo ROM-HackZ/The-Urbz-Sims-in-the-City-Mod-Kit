@@ -567,23 +567,55 @@ def act_run(name, pokes_at=None, steps=12):
     return rom, res, out
 
 
+def _area_snaps(rom, save, area, steps, every):
+    """RAM 0x02100000-0x021FFFFF every `every` frames in an area, from a verify/saves save (DeSmuME)."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    out = tempfile.mkdtemp(prefix='urbz-proof-')
+    script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + \
+        _area_goto(area) + [['wait', 120]] + sum(([['wait', every], ['shot', 's%02d' % k]] for k in range(steps)), [])
+    job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+           'state': V.city_state(os.path.abspath(rom), None, save), 'snap': ['0x02100000:0x100000']}
+    res = V.run_child(job, timeout=3000)
+    return [open(files[0], 'rb').read() for _, files in res['snaps']], out
+
+
+def _people_in(mem):
+    """{id: (state, action, anim)} of the people in the world entity list of a 0x02100000 RAM dump."""
+    rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+    out, e = {}, struct.unpack('<I', rd(0x02121AF0, 4))[0]
+    while e and 0x02100000 <= e < 0x02200000:
+        t, who = struct.unpack('<HH', rd(e + 8, 4))
+        if t == 7 and 31 <= who < 80:
+            out[who] = (rd(e + 0x104, 1)[0], rd(e + 0x105, 1)[0], rd(e + 0xC7, 1)[0])
+        e = struct.unpack('<I', rd(e, 4))[0]
+    return out
+
+
 def p_npc_act():
-    """Visible actions (NPC Life, Phase 6): in Slice O' Life Pizza, people act out what they're doing with the
-    game's own objects and animations: someone with the object animations sits on a chair (state 0x11,
-    anim 0x6B), and two others chat: they face each other and take turns gesturing (our action 0x30 with
-    gestures 0x87/0x78/0xDB). Nobody without the sit animation is sent to a chair."""
+    """Visible actions (NPC Life, Phase 6): people act out what they're doing with the game's own objects and
+    animations. In Slice O' Life Pizza (17:05) people sit on the chairs (state 0x11, anim 0x6B), and nobody
+    without the sit animation (with borrowed poses: Lottie) is sent to a chair. In Cafe Z-Bach (cafe.sav,
+    socialising) two people chat: they face each other and take turns gesturing (our action 0x30 with gestures
+    0x87/0x78/0xDB). (Until the borrowed poses, Gramma Hattie chatted at the pizza place; she now sits.)"""
     rom, res, out = act_run('npc-act')
     sits = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st == 0x11 and an == 0x6B})
-    wrong = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st in (0x11, 0x26)} - USE_SET)
-    talk = [r for r in res if sum(1 for st, ac, an in r['people'].values() if st == 0x23 and ac == 0x30) >= 2]
-    gest = sorted({an for r in res for st, ac, an in r['people'].values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
+    # (with borrowed poses everyone has the sit set but the people poses.json skips)
+    no_sit = set(json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json'))).get('skip', []))
+    wrong = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st in (0x11, 0x26)} & no_sit)
     shots = sorted(glob.glob(os.path.join(out, '*.png')))
     if len(shots) > 4:
         shutil.copy(shots[4], os.path.join(OUT, 'npc-act.png'))
-    ok = bool(sits) and not wrong and bool(talk) and bool(gest) and res[-1]['chats'] >= 1
-    return ok, ('sitting (anim 0x6B): %s; sent to objects without the animations: %s; snapshots with two people '
-                'chatting: %d, gestures seen: %s; actions started: %d; build/proofs/npc-act.png') % (
-        sits, wrong or 'none', len(talk), ['%02x' % g for g in gest], res[-1]['sent'])
+    mems, cout = _area_snaps(rom, 'cafe', 42, 24, 150)
+    states = [_people_in(m) for m in mems]
+    talk = [p for p in states if sum(1 for st, ac, an in p.values() if st == 0x23 and ac == 0x30 and an != 0x0A) >= 2]
+    gest = sorted({an for p in states for st, ac, an in p.values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
+    k = mems[-1].find(struct.pack('<I', NACT_MAGIC))
+    chats = struct.unpack_from('<I', mems[-1], k + 52)[0] if k >= 0 else 0
+    ok = bool(sits) and not wrong and bool(talk) and bool(gest) and chats >= 1
+    return ok, ('pizza: sitting (anim 0x6B): %s; sent to objects without the animations: %s; cafe: snapshots with '
+                'two people chatting: %d, gestures seen: %s, chats started: %d; build/proofs/npc-act.png') % (
+        sits, wrong or 'none', len(talk), ['%02x' % g for g in gest], chats)
 
 
 def routine_day(cid, week=0, wd=0):
@@ -1995,6 +2027,66 @@ def p_npc_seat_turns():
     return ok, '; '.join(report) + '; build/proofs/npc-seat-turns-*.png'
 
 
+def p_npc_poses():
+    """Borrowed poses (urbz_poses.py, mods/npc-life/poses.json): 27 townspeople had no sit, eat, toilet, shower
+    or sleep animation, so NPC Life could only walk them about. The build now makes each missing one from the
+    closest-looking person who has it, in the person's colours with their own head (new files, made from the
+    game's art at build time). Checked: every person's animation list in RAM points at the new list with the
+    new rows, and at Slice O' Life Pizza (pizza.sav, area 51) and Cafe Z-Bach (cafe.sav, 42) NPC Life seats
+    someone who had no sit animation before. Screenshot of them sitting: build/proofs/npc-poses-*.png."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    import urbz_anims as A
+    import urbz_poses as Q
+    rom, log = build('npc-poses', [os.path.join(KIT, 'mods', 'npc-life')])[:2]
+    line = [l for l in log.splitlines() if l.startswith('poses:')]
+    lists = struct.unpack('<36I', ram(rom, 1, '0x%08X:144' % (A.ANIM_LISTS + 4 * 31),
+                                      start=['--from', 'lobby'])['0x%08X:144' % (A.ANIM_LISTS + 4 * 31)])
+    skip = set(json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json'))).get('skip', []))
+    want = {c: Q.missing(c) for c in range(31, 67) if Q.missing(c) and c not in skip}
+    moved = [c for c in want if lists[c - 31] >= CODE_BASE]
+    bad_rows = []
+    for c in moved[:4]:                               # (a few people's rows, read back)
+        rows = ram(rom, 1, '0x%08X:0x180' % lists[c - 31], start=['--from', 'lobby'])['0x%08X:0x180' % lists[c - 31]]
+        ids = []
+        for k in range(0, len(rows), 12):
+            if rows[k] == 0xC4:
+                break
+            ids.append(rows[k])
+        need = [A.GROUPS[g][1][0] for g in want[c]]
+        if not all(a in ids for a in need) or ids[:len(A.anim_ids(c))] != A.anim_ids(c):
+            bad_rows.append(c)
+    report, sat_new = [], {}
+    for save, area, steps in (('pizza', 51, 32), ('cafe', 42, 26)):
+        out = tempfile.mkdtemp(prefix='urbz-proof-')
+        script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]] + \
+            _area_goto(area) + [['wait', 120]] + sum(([['wait', 300], ['shot', 's%02d' % k]] for k in range(steps)), [])
+        job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+               'state': V.city_state(os.path.abspath(rom), None, save), 'snap': ['0x02100000:0x100000']}
+        res = V.run_child(job, timeout=3000)
+        who_sat = {}
+        for n, (_, files) in enumerate(res['snaps']):
+            mem = open(files[0], 'rb').read()
+            rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+            e = struct.unpack('<I', rd(0x02121AF0, 4))[0]
+            while e and 0x02100000 <= e < 0x02200000:
+                t, who = struct.unpack('<HH', rd(e + 8, 4))
+                if t == 7 and who in want and 'sit' in want[who] and rd(e + 0x104, 1)[0] == 0x11:
+                    who_sat.setdefault(who, n)
+                e = struct.unpack('<I', rd(e, 4))[0]
+        names = A.names()
+        for who, n in who_sat.items():
+            sat_new.setdefault(save, []).append(names[who].split()[0])
+        if who_sat:
+            first = min(who_sat.values())
+            shutil.copy(os.path.join(out, 'snap_s%02d.png' % first), os.path.join(OUT, 'npc-poses-%s.png' % save))
+        report.append('%s: sat with a borrowed pose: %s' % (save, ', '.join(sat_new.get(save, [])) or 'nobody'))
+    ok = bool(line) and len(moved) == len(want) and not bad_rows and len(sat_new) >= 1
+    return ok, '%s; lists moved for %d of %d people (rows wrong: %s); %s; build/proofs/npc-poses-*.png' % (
+        line[0] if line else 'no poses line in the build log', len(moved), len(want), bad_rows or 'none',
+        '; '.join(report))
+
+
 def p_npc_look():
     """NPC Life, using more of the place (2026-10-09): everyone, not only the 9 with object animations, goes to
     things they can enjoy standing: the grill, a pay phone and the graffiti wall in Urbania Park (also exhibits,
@@ -2194,7 +2286,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

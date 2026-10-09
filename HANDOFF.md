@@ -1,4 +1,4 @@
-# Handoff (2026-10-07, Phase 10 done + pet bug fixes)
+# Handoff (2026-10-09, Phase 10 done + pet and NPC Life fixes, borrowed poses)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase10.md`.
 
@@ -94,6 +94,13 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - NPC Life bug pass (2026-10-08/09): nobody sits for a whole visit or stands trapped at a chair; seats picked
   at random; everyone also goes to things they can enjoy standing (proofs npc-seat-turns, npc-look);
   research/npc/soak_probe.py watches an area for stuck people.
+- Borrowed poses (2026-10-09, Jonathan chose "borrow and restyle"): `urbz_poses.py` + `mods/npc-life/poses.json`
+  give the 27 people without them sit/eat/toilet/shower/sleep (and the 6 without eat, Kris toilet), built at
+  build time into hidden `build/new-poses` (docs/systems.md "Borrowed poses"). Proof `npc-poses` (Gramma sits at
+  the pizza place, Luthor at Cafe Z-Bach); melonDS checked with research/npc/poses_melon.py. They look a bit
+  off-model up close; `python urbz_poses.py preview <dir> <person>` shows them. Lottie (wheelchair) skipped.
+  **The code region is nearly full** (all player mods: ~156 of 160 KB copied at boot; docs/systems.md). npc-act's
+  chat check moved to Cafe Z-Bach (at the pizza place Hattie now sits instead of chatting). 66/66 proofs.
 - Still open: using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
   and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
 - Later phases (PLAN.md): outfits, hair styles, characters.

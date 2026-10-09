@@ -298,7 +298,8 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
             print(w)
     except CodeError as e:
         raise BuildError(str(e))
-    # Pets (pets.json) and objects (objects.json): generated, hidden mods (urbz_pets.py, urbz_objects.py).
+    # Pets (pets.json), objects (objects.json) and poses (poses.json): generated, hidden mods
+    # (urbz_pets.py, urbz_objects.py, urbz_poses.py).
     from urbz_pets import pets_mod, PetsError
     from urbz_objects import objects_mod, ObjectsError
     gen = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build')
@@ -310,9 +311,15 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
                                          lambda: _first_free_string(proj, list(mod_dirs) + list(pdirs or [])),
                                          pet_objects,
                                          lambda: _first_free_asset(manifest, list(mod_dirs) + list(pdirs or [])))
-    except (PetsError, ObjectsError) as e:
+        # Borrowed poses (a mod's poses.json, urbz_poses.py): the townspeople's missing animations.
+        from urbz_poses import poses_mod, PosesError
+        so_far = list(mod_dirs) + list(pdirs or []) + list(odir or [])
+        sdir, poses_line = poses_mod(proj, mod_dirs, os.path.join(gen, 'new-poses'),
+                                     lambda: _first_free_asset(manifest, so_far),
+                                     progress=(lambda s: None) if quiet else print)
+    except (PetsError, ObjectsError, PosesError) as e:
         raise BuildError(str(e))
-    for dirs, line in ((pdirs, pets_line), (odir, objects_line)):
+    for dirs, line in ((pdirs, pets_line), (odir, objects_line), (sdir, poses_line)):
         if dirs:
             mod_dirs = list(mod_dirs) + dirs
             if not quiet:

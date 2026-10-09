@@ -1,0 +1,5 @@
+{
+  "_about": "Borrowed poses: townspeople without an animation (sit, eat, toilet, shower, sleep) get one built from the closest-looking person who has it, in their own colours and with their own head (urbz_poses.py, made at build time from your game; the first build takes a few minutes). groups: which to make. skip: people to leave alone (48 Lottie Cash uses a wheelchair).",
+  "groups": ["sit", "eat", "toilet", "shower", "sleep"],
+  "skip": [48]
+}

@@ -678,7 +678,8 @@ def apply_code(arm9_data, mods, fmap, core=None):
     # asset tables, placed last) are not copied: the start-up clears them.
     copied = len(bytes(region).rstrip(b'\0'))
     if copied > 160 * 1024:
-        raise CodeError('code mods total %d KB to copy at boot; the limit is 160 KB' % (copied // 1024))
+        raise CodeError('code mods total %d bytes to copy at boot; the limit is 160 KB (%d bytes)'
+                        % (copied, 160 * 1024))
     if len(region) > HEAP_COMFORT:
         report.append('warning: code mods take %d KB from the game heap (measured headroom in '
                       'the city is about 1.4 MB; see docs/systems.md)' % (len(region) // 1024))

@@ -241,10 +241,22 @@ hours, saved with your game. In your area they act it out: they sit down at tabl
 toilet, and walk up to each other to chat. Switch it in the game (Options > Mods), see what
 people are doing on its info page, and tune it with two JSON files: see `mods\npc-life\README.md`.
 
+## Borrowed poses (automatic)
+
+In the original game only 8 townspeople can sit, shower, sleep or use the toilet, and only Kris can eat.
+With NPC Life on, the build gives everyone else those animations: each one is taken from the
+closest-looking person who has it, recoloured to the person's own colours and given their own head. They
+look a little off-model up close, but everyone can now sit at a table, eat, wash and sleep. The first
+build makes them from your game (about a minute; kept in `build\cache` after that). Which groups, and who
+to leave alone: `mods\npc-life\poses.json` (Lottie Cash is left out: she uses a wheelchair). To look at
+them first: `python urbz_poses.py preview <folder> hattie` (contact sheets, the original pose above each
+borrowed one).
+
 ## New animations for the townspeople (drawn by you)
 
-Only 8 townspeople have the game's sit/toilet/shower/sleep animations (and only Kris can eat).
-`urbz_anims.py` lets you draw the missing ones for anyone, in their own look:
+Only 8 townspeople have the game's sit/toilet/shower/sleep animations (and only Kris can eat); the
+borrowed poses above fill in the rest. `urbz_anims.py` lets you draw your own for anyone, in their own
+look (a person you draw for keeps your drawings instead of the borrowed ones):
 ```
 python urbz_anims.py list                         who has which animation
 python urbz_anims.py template my-anims hattie sit # Gramma Hattie: frames to draw + a guide
