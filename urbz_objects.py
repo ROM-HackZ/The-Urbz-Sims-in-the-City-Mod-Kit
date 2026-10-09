@@ -53,6 +53,11 @@ PICK_RANDOM = 387                          # a shop_defs item: "pick one at rand
 SHOP_PICK_GIVE_UP = 0x0203C5A8, 0x0A000034, 0x0A00003C   # beq 0x0203C680 (add it) -> beq 0x0203C6A0 (return)
 CATALOG_LOOPS = (0x0201C6E8, 0x0201C920)   # "cmp rN, #0x118": the Catalog only looks at objects 0-279
 RARITY = {'common': 1, 'uncommon': 2, 'rare': 3}        # info word (shop_pick reads +4, +8, +0xC)
+# Activities: {u16 need, u16 menu text} per activity number (0-119). New actions (objects.json "actions") get
+# numbers 120+ in a moved copy; these three words in the game point at it (+0, +0, +2).
+ACTIVITY_TABLE, N_ACTIVITIES = 0x020EA9B0, 120
+ACTIVITY_REFS = ((0x02008BEC, 0), (0x02067A48, 0), (0x02067A4C, 2))
+NEEDS = ['hunger', 'hygiene', 'energy', 'social', 'comfort', 'bladder', 'fun', 'room']
 FIELDS = {'model': ('t', 0), 'description': ('t', 1), 'name': ('t', 2), 'page': ('t', 3),
           'price': ('i', 0)}
 
@@ -112,6 +117,74 @@ def mod_objects(mod_dirs, extra=()):
     return out
 
 
+def activity_names(arm9, by_number=False):
+    """{lower-case menu text: activity number} of the game's activities (the first one with each name), or
+    with by_number [lower-case menu text per activity number]."""
+    from urbz_text import project_strings
+    texts = project_strings(os.path.join(KIT, 'project'))
+    out, each = {}, []
+    for k in range(N_ACTIVITIES):
+        sid = struct.unpack_from('<H', arm9, ACTIVITY_TABLE - ARM9_BASE + 4 * k + 2)[0]
+        t = texts[sid] if sid < len(texts) else None
+        t = (t.decode('latin-1') if isinstance(t, bytes) else t or '').strip().lower()
+        each.append(t)
+        if t:
+            out.setdefault(t, k)
+    return each if by_number else out
+
+
+def action_rows(new_actions, rows, arm9, string):
+    """objects.json "actions" -> (rows for code/objects, rows for the moved activity table).
+    An action: {"name": menu text, "as": one of the object's own activities ("Sit", "Sleep", ... or a number),
+    the needs it changes per tick (e.g. "fun": 0.3; the game's chairs give comfort 0.2-0.3), "until": the
+    need that ends it when full (default: the one it fills most), "minutes": or after this many game minutes}.
+    It plays exactly like "as" (walk there, animation, the object's own effects) plus these effects, and ends
+    when "until" is full or the time is up. code/objects reads {u16 object, u8 activity, u8 until, u8 quality,
+    u8 0, u16 ticks, u8 as[4] (the game's activities with that menu text: several are called "Sit"; code/objects
+    takes the one the object offers; 0 = none), s32 effects[8]} rows."""
+    if not new_actions:
+        return b'', []
+    names = activity_names(arm9)
+    names_of = activity_names(arm9, by_number=True)
+    code_rows, table_rows = [], []
+    for k, (mod, obj, a) in enumerate(new_actions):
+        what = 'mod "%s": object %d: action %d' % (mod, obj, k + 1)
+        aid = N_ACTIVITIES + k
+        if aid > 255:
+            raise ObjectsError('%s: too many new actions (at most %d)' % (what, 256 - N_ACTIVITIES))
+        if not isinstance(a, dict) or not a.get('name') or 'as' not in a:
+            raise ObjectsError('%s: needs "name" and "as" (e.g. {"name": "Read a Book", "as": "Sit", "fun": 0.3})' % what)
+        base = a['as'] if isinstance(a['as'], int) else names.get(str(a['as']).strip().lower())
+        if base is None or not 0 <= base < N_ACTIVITIES:
+            raise ObjectsError('%s: "as": "%s" is not one of the game\'s activities (Sit, Sleep, ...)' % (what, a['as']))
+        eff = [0] * 8
+        for n, v in a.items():
+            if n in NEEDS:
+                if not isinstance(v, (int, float)) or not -2 <= v <= 2:
+                    raise ObjectsError('%s: "%s" is the change per tick, -2 to 2 (a chair: comfort 0.2)' % (what, n))
+                eff[NEEDS.index(n)] = int(round(v * (1 << 24)))
+            elif n not in ('name', 'as', 'until', 'minutes'):
+                raise ObjectsError('%s: unknown field "%s" (needs: %s)' % (what, n, ', '.join(NEEDS)))
+        until = a.get('until')
+        if until is None and 'minutes' not in a:
+            best = max(range(8), key=lambda j: eff[j])
+            until = NEEDS[best] if eff[best] > 0 else None
+        if until is not None and until not in NEEDS:
+            raise ObjectsError('%s: "until" is a need (%s)' % (what, ', '.join(NEEDS)))
+        if until is None and 'minutes' not in a:
+            raise ObjectsError('%s: give "until" (a need) or "minutes"' % what)
+        ticks = int(a.get('minutes', 0)) * 20                # 20 ticks a game minute at normal speed
+        if not 0 <= ticks <= 0xFFFF:
+            raise ObjectsError('%s: "minutes" is 1-3000' % what)
+        u = NEEDS.index(until) if until else 8
+        q = rows['class'][obj][0x23] if obj < len(rows['class']) else 1
+        same = [k for k in range(1, N_ACTIVITIES) if names_of[k] == names_of[base]][:4] or [base]
+        code_rows.append(struct.pack('<HBBBBH4B8i', obj, aid, u, q, 0, ticks, *(same + [0] * (4 - len(same))), *eff))
+        need = struct.unpack_from('<H', arm9, ACTIVITY_TABLE - ARM9_BASE + 4 * base)[0]
+        table_rows.append(struct.pack('<HH', need if u == 8 else u, string(a['name'], what + ' name')))
+    return b''.join(code_rows), table_rows
+
+
 def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=None):
     """first_string() gives the first free string number for new text; first_asset() the first free
     asset number for new art. Write the generated mod (code/build/patch.bin+json, hooks.txt, text/strings.tsv,
@@ -154,6 +227,7 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     for i in range(N_GAME, n):                  # gaps: an unused, unsold row
         rows['info'][i] = bytearray(struct.pack('<5I', 1, 0, 0, 0, 0))
     strings, sid = [], None
+    new_actions = []
 
     def string(v, what):
         nonlocal sid
@@ -179,6 +253,13 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
             if k in e:
                 v = string(e[k], 'object %d %s' % (i, k)) if k in ('name', 'description') else e[k]
                 struct.pack_into('<I', rows['text' if t == 't' else 'info'][i], 4 * f, v & 0xFFFFFFFF)
+        if 'quality' in e:                      # how fast it fills needs: the class row's byte 0x23 indexes
+            q = e['quality']                    # motive_effect_scale (x1.0, 1.0, 1.2, 1.4, 1.6, 2.0)
+            if not isinstance(q, int) or not 1 <= q <= 5:
+                raise ObjectsError('mod "%s": object %d: "quality" is 1 (x1.0) to 5 (x2.0)' % (mod, i))
+            rows['class'][i][0x23] = q
+        for a in e.get('actions', []):
+            new_actions.append((mod, i, a))
         for shop, rarity in e.get('sell', {}).items():
             if rarity not in RARITY or not str(shop).isdigit() or not 0 <= int(shop) <= 20:
                 raise ObjectsError('mod "%s": object %d: sell {"0-20": "common|uncommon|rare"}' % (mod, i))
@@ -237,8 +318,10 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         if e['id'] >= N_GAME:
             like[e['id']] = e['like']
     # Own palettes for code/objects: {u16 object, u16 0, u32 palette id x 4} ..., u32 count, 'OPAL', then 'NEWO'.
+    acts, act_rows = action_rows(new_actions, rows, arm9, string)
     opal = b''.join(struct.pack('<HH4I', i, 0, *[a['palette']] * 4) for i, a in sorted(art.items()))
-    blob = bytearray(opal + struct.pack('<I', len(art)) + b'OPAL')
+    blob = bytearray(acts + struct.pack('<I', len(act_rows)) + b'ACTS' +
+                     opal + struct.pack('<I', len(art)) + b'OPAL')
     shelves = []
     blob += b'NEWO' + struct.pack('<%dH' % (LAST + 1), *like)  # code/objects finds it before obj_text
     syms = {}
@@ -296,6 +379,15 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         a, old, new = SHOP_PICK_GIVE_UP
         assert struct.unpack_from('<I', arm9, a - ARM9_BASE)[0] == old, 'unexpected shop_pick at %08x' % a
         lines.append('u32 0x%08X 0x%08X' % (a, new))
+    if act_rows:                                # the activity table moves: room for the new actions
+        while len(blob) % 4:
+            blob.append(0)
+        syms['activities'] = len(blob)
+        base = ACTIVITY_TABLE - ARM9_BASE
+        blob += arm9[base:base + 4 * N_ACTIVITIES] + b''.join(act_rows)
+        for a, off in ACTIVITY_REFS:
+            assert struct.unpack_from('<I', arm9, a - ARM9_BASE)[0] == ACTIVITY_TABLE + off, 'activity ref %08x' % a
+            lines.append('u32 0x%08X @activities+%d' % (a, off))
     n4 = (n + 3) & ~3                           # an ARM immediate (rows past n are never on a page)
     for a in CATALOG_LOOPS:
         w = struct.unpack_from('<I', arm9, a - ARM9_BASE)[0]

@@ -140,8 +140,8 @@ Plan and status: `docs/plan-phase6.md`. In short:
   (only 6 people had it), the 8 people with object animations sit on chairs and use the toilet; the others
   chat (walk up, face each other, take turns gesturing). Max 4 at once; switching off releases everyone.
 - **Player-body prototype** (`mods/npc-body-proto`, off by default): Kris drawn with the player's body and
-  animations in her own colours. Jonathan decides whether to roll it out (limits: skirt, no cap, 2 palette
-  rows per person).
+  animations in her own colours. **Not rolled out** (Jonathan, 2026-10-09: no); it stays a test mod. People
+  got their missing animations as borrowed poses instead (`urbz_poses.py`).
 
 Not done / later: eating at real food objects (the places we tried have none: people sit at a table),
 the needs that objects restore don't flow back into the sim yet, the 28 people without object
@@ -198,6 +198,15 @@ other. Pet things are sold at Drifter Woods' stall in Urbania Park.
 
 **Status (2026-10-06): done**, gate `pets-gate2` passes in melonDS (details: docs/plan-phase10.md "Status").
 
+## After Phase 10 (2026-10-07 to 10-09)
+
+- Pet rough edges; NPC Life bug pass (nobody sits forever, seats shared, more of each place used).
+- **Borrowed poses:** every townsperson (but Lottie) can sit, eat, wash, use the toilet and sleep, with
+  animations made at build time from the closest-looking person who has them (`urbz_poses.py`).
+- **Furniture:** new furniture has its own quality and can have brand-new actions (`objects.json`
+  `"quality"`, `"actions"`); `mods/more-furniture` has 13 imported pieces. Code regions over 160 KB go into
+  the static code.
+
 ## Working in the cloud
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).
@@ -210,6 +219,7 @@ other. Pet things are sold at Drifter Woods' stall in Urbania Park.
 ## Decisions log
 
 - 2026-10-01: mods overlay instead of editing `project/`; later mods win.
+- 2026-10-09: the player-body prototype is not rolled out (Jonathan: no); borrowed poses instead.
 - 2026-10-01: our own EA/LZ77 encoders (optimal parse) so most edits fit their slots.
 - 2026-10-01: code goes in a new autoload block after BSS with the heap moved up (not ITCM, which the SDK
   may hand out); each mod is linked at 0 and relocated by the builder (no compiler needed to build ROMs).

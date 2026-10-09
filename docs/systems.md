@@ -190,7 +190,15 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
   `OS_GetInitArenaLo`) past it. Proven: a 25 KB region with two mods boots, runs and smoke-tests
   identical to the original.
 - When arm9 grows past 0x127800 in the ROM, arm7 + file-name table + FAT + banner move to the end
-  of the cartridge (header fields 0x30/0x40/0x48/0x68/0x80 updated).
+  of the cartridge (header fields 0x30/0x40/0x48/0x68/0x80 updated), and so do any files the bigger arm9
+  would now cover (their FAT entries change; 2026-10-09).
+- **Code regions over 160 KB (2026-10-09):** the autoload copy at start-up runs forwards from a source inside
+  the BSS (about 0x02123700) to 0x0214DE20, so past ~170 KB it would overwrite its own source. A bigger region
+  is made part of the **static code** instead: the arm9 file holds zeros for the BSS (cleared at start-up as
+  always) and then the region, and the cartridge loader puts it at 0x0214DE20 before anything runs (the
+  ITCM/DTCM autoload bytes follow it and are copied out as before). The arm9 file grows by ~180 KB of zeros
+  plus the region. All four player mods together: 306 KB, in DeSmuME and melonDS (proofs game-intact,
+  melonds, furniture-melonds).
 - Hooks (`hooks.txt`): `call` rewrites a BL, `jump` replaces a function, `wrap` runs our code
   before one moved ARM instruction (flags and r0-r3 preserved), `data`/`u8`/`u16`/`u32` write bytes.
   About 96% of the game is ARM code; `code/functions.json` (Ghidra export) gives each function's
@@ -403,6 +411,28 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   205-207): path to a spot 26/13 px off a corner of it (the other corners if that fails), face it, gesture
   now and then for 10-20 s. The game's own activity isn't started (it would wait for animations they don't
   have).
+- **The player using an object (2026-10-09, research/objects/use_probe.py, face_scan.py):** every tick of
+  the city (`world_tick` 0x02084104), with the player standing (state 0x10), the tile in front (facing +0x12,
+  0-7, offsets at 0x02113B68) is checked against each object's bounds (node +0x7C..+0x82); a hit becomes the
+  pointed-at object (*0x021473FC, the arrow over it). A then calls `FUN_02067a70`: the class +0x1C check,
+  then `FUN_02067760` builds the menu: class +4 (activities: node, u8 out[7] at entity+0x132), each item's
+  text from the activity table (+2), then Put in Pocket (0x2C) and Move (0x25) at home. Choosing one
+  (`FUN_020675f4`) calls class +0xC start(node, player, activity), which takes a use record and walks there;
+  then class +0x10 tick(node, person) runs each tick (`FUN_02069338`) until it returns 0 or 2. Seat ticks
+  (e.g. `FUN_0206be3c`) add their effect row with `motive_apply_effect(needs, row, class+0x23 quality)` and
+  ask `object_use_continue` (0x020691D0) whether to go on (the need full and its timer out = stand up).
+  Copies (`like`) and imported furniture work the same way as their originals (proofs furniture-quality,
+  furniture-actions; the more-furniture pieces checked one by one).
+- **Furniture quality and new actions (2026-10-09):** `objects.json` `"quality"` writes the class row's byte
+  +0x23 (the multiplier index; proof furniture-quality: x2.03 for 5 vs 1). `"actions"` get activity numbers
+  120+ in a moved activity table (3 words point at it: 0x02008BEC, 0x02067A48, 0x02067A4C; the game has
+  0-119, several called "Sit", e.g. 41 and 56). code/objects, at power-on, gives those objects' class rows
+  four wrappers (activities: the copied object's plus ours; can-start and start: as the activity named by
+  "as" that the object offers; tick: marks the use as ours), and replaces `object_use_continue`: during one of
+  our uses it adds our effects (written as a row of the game's effect table, so `motive_apply_effect` scales
+  them by quality) and asks about our need ("until") or counts down "minutes" (20 ticks a game minute).
+  Everything else is the copied activity's own (walking, animation, its own effects, the clock running fast
+  in bed). Proofs furniture-actions, furniture-melonds.
 - **Borrowed poses (2026-10-09, proof `npc-poses`, `urbz_poses.py`):** a mod's `poses.json` (NPC Life ships
   one) makes the builder add a hidden mod `build/new-poses`: for each townsperson missing a group (sit
   0x6B-0x6D, eat 0x41, toilet 0x7B, shower 0x69, sleep 0x21/0x20), the donor = whoever has it with the
@@ -419,9 +449,8 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   rows share one record array); made
   once in about a minute and kept in `build/cache/poses/<hash of the code and the game>`. People whose list
   another mod hooks (`urbz_anims.py`) are skipped, and `skip` in poses.json (48 Lottie Cash: wheelchair).
-  **Code region budget:** with all four player mods the boot copy is ~156 KB of its 160 KB limit (the poses
-  lists are 20 KB of it). If it runs out: generate the record arrays at start-up into BSS (not copied) from a
-  compact table, or shrink other mods' tables.
+  (The code region went past the 160 KB start-up copy with all mods on; it now goes into the static code
+  then: "Code regions over 160 KB" above.)
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
@@ -704,7 +733,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   sprite). Found on the way: `object_anims` starts at 0x020F34E0 (not +4); copied one field off, new
   objects drew nothing (386) or garbled sprites (389+). Saving and loading placed new objects works (proof
   `pets-gate2`: the basket is still there). A save holding new objects in a build without the mod that adds
-  them used to load to a black screen; see "Saves and missing mods". Open: using a copied chair (sitting).
+  them used to load to a black screen; see "Saves and missing mods". Copied and imported furniture is used like its original ("The player using an object").
 - **Saves and missing mods (2026-10-07, proof `save-without-mod`, code/core/objguard.c):** placed objects
   live in a store at `placed_store_ptr` *0x021418BC (u16 total, 160 records of 10 bytes {u16 object, ...},
   per area (82) u8 first @+0x642+4a, u8 count @+0x643+4a; read by 0x0203D5F8 after the 24 item lists).

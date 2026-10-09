@@ -268,6 +268,9 @@ obj_text_lit       = 0x02014130   # a literal holding object_text_table (moved b
 shop_pick_count_lit = 0x0203C6AC  # literal: how many object numbers exist (386; urbz_objects raises it)
 placed_store_ptr   = 0x021418BC   # u8 *: placed objects of all areas (game_state+0x138+0x664): u16 total, 160 x 10-byte records {u16 object, ...} from +2, per area (82) u8 first @+0x642+4a, u8 count @+0x643+4a; read by 0x0203D5F8
 obj_class_lit      = 0x02008BE8   # a literal holding the class table (moved by urbz_objects.py)
+object_class_table = 0x020EAF84   # the game's own class table (0x24 per object): +4 activities(node, u8 out[7]), +8 can start(node, person, activity), +0xC start(node, person, activity), +0x10 tick(node, person) -> 0/2 ends, +0x23 u8 quality (0-5)
+object_user_record = 0x02069520   # rec *(node, person): the person's use of the object (node+0xC, 2 x 12 bytes: person, u16 activity +4, u16 phase +6, u8 stop +8, u8 path +9)
+object_use_continue = 0x020691D0  # int (rec, needs, need, s16 *timer): 0 = the use ends (need full and the timer ran out, or stop byte 1); the object ticks ask it every tick of the use
 pockets_ptr        = 0x02141274   # game_state+0x154: -> Pockets (item list 23)
 object_shapes      = 0x020E6954   # u32 per placeable object (0-252): footprint data
 object_models      = 0x020F1D28   # u32 per placeable object: art (model data); 0 = not drawn

@@ -99,10 +99,16 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   build time into hidden `build/new-poses` (docs/systems.md "Borrowed poses"). Proof `npc-poses` (Gramma sits at
   the pizza place, Luthor at Cafe Z-Bach); melonDS checked with research/npc/poses_melon.py. They look a bit
   off-model up close; `python urbz_poses.py preview <dir> <person>` shows them. Lottie (wheelchair) skipped.
-  **The code region is nearly full** (all player mods: ~156 of 160 KB copied at boot; docs/systems.md). npc-act's
-  chat check moved to Cafe Z-Bach (at the pizza place Hattie now sits instead of chatting). 66/66 proofs.
-- Still open: using copied/imported furniture (sit, sleep: it behaves as its `like`); The Sims 2 DS skinning/animations
-  and its 16 black models; fold `urbz_anims.py` into `urbz_art.py`.
+  npc-act's chat check moved to Cafe Z-Bach (at the pizza place Hattie now sits instead of chatting).
+- Furniture (2026-10-09, Jonathan: "address furni"; chose own strength + brand-new actions + a set picked by
+  Claude): copies and imports already worked (sit, sleep). `objects.json` now has `"quality"` (1-5) and
+  `"actions"` (new menu items that play like Sit/Sleep plus their own effects, until a need is full or for some
+  minutes; code/objects). `mods/more-furniture` = 13 pieces from Sims 3 / Apartment Pets with qualities and
+  5 actions. Proofs furniture-quality, furniture-actions, furniture-melonds. The code region with all mods
+  (306 KB) is now part of the static code (no 160 KB limit; files the arm9 covers move to the end).
+  Jonathan said no to the player-body prototype (it stays a test mod).
+- Still open: The Sims 2 DS skinning/animations and its 16 black models; fold `urbz_anims.py` into
+  `urbz_art.py`; a reading animation for "Read a Book" (it plays Sit).
 - Later phases (PLAN.md): outfits, hair styles, characters.
 
 ## Setup in a fresh environment

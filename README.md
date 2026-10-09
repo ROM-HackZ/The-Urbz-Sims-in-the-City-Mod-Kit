@@ -291,13 +291,28 @@ New numbers: 386 and 389-511. A new object can have its own art: `"art": "art/<f
 "Drawing furniture" below) or `"import": {...}` (a model from another Sims DS game, "Importing from other Sims
 games" below). Without either it wears the copied object's art.
 
+New furniture can also be better or do more than the piece it copies:
+- `"quality": 1-5` - how fast it fills needs (the game's own scale: 1 = x1.0 ... 5 = x2.0; a $50 sofa is 1,
+  the $1,100 one 5).
+- `"actions"` - extra choices in its menu. Each plays like one of the object's own (`"as": "Sit"` or
+  `"Sleep"`: you walk there and sit or lie down as usual) and also changes needs every tick, then ends when
+  `"until"` (a need) is full or after `"minutes"` game minutes:
+  ```
+  "actions": [{"name": "Read a Book", "as": "Sit", "fun": 0.25},
+              {"name": "Nap", "as": "Sit", "energy": 0.12, "minutes": 60}]
+  ```
+  Needs: hunger, hygiene, energy, social, comfort, bladder, fun, room. For scale, the game's chairs give
+  comfort 0.2-0.3 a tick (30 ticks a second). The sitting itself still gives its comfort too.
+
 Two mods use this, each picked on its own in the mod manager (no in-game switch):
 - **`mods\pets`** adds eight pets from `pets.json` (Puppy, Kitten, Bunny, Hamster, Guinea Pig, Cockatoo,
   Macaw, Snake) and Pet Treats: buy them at the Farmer's Market, let them loose at home and look after them
   ("Looking after pets" below). Their art: see "Drawing a pet" below. Numbers 386 and 389-429.
-- **`mods\more-furniture`** adds three pieces of furniture to the Catalog and the furniture shop
-  (copies of a chair, a bed and a recliner with new names and prices, until new art exists).
-  Numbers 430-511.
+- **`mods\more-furniture`** adds 13 pieces from The Sims 3 and Apartment Pets (rendered from your own copies
+  of those games, "Importing from other Sims games" below): armchairs, a recliner, sofas, a loveseat, beds,
+  a dining chair and tables, sold at the furniture shop (some also at the Second Looks Thrift Emporium).
+  Some have their own actions: the Club Armchair's Read a Book, the Mission Recliner's Nap, Daydream on the
+  Club Sofa and Camelback Loveseat, Read in Bed on the Mission Double Bed. Numbers 430-511.
 
 ## Looking after pets
 

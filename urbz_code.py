@@ -29,6 +29,7 @@ ARENA_LO_LITERAL = 0x020B7D88   # OS_GetInitArenaLo(main) returns this word
 MODULE_PARAMS = 0x02000ADC
 BSS = (0x02121AC0, 0x0214DE20)
 HEAP_COMFORT = 128 * 1024       # warn above this (see docs/systems.md, heap budget)
+AUTOLOAD_LIMIT = 160 * 1024     # bigger code regions go into the static code (apply_to_image, step 4)
 KIT = os.path.dirname(os.path.abspath(__file__))
 CORE_DIR = os.path.join(KIT, 'code', 'core')
 # Mod table (code/include/mod.h): at CODE_BASE whenever the core is built in.
@@ -332,6 +333,16 @@ class Arm9:
     def add_section(self, data, ram, bss):
         import ndspy.code
         self.mcf.sections.append(ndspy.code.MainCodeFile.Section(data, ram, bss, implicit=False))
+
+    def extend_static(self, data, ram):
+        """Make `data` part of the main (static) code, loaded straight to `ram` by the cartridge loader: the
+        static part is padded with zeros up to `ram` (the game's BSS, cleared at start-up anyway). The
+        autoload blocks' bytes (ITCM, DTCM) then follow it and are copied out as before."""
+        s0 = self.mcf.sections[0]
+        end = s0.ramAddress + len(s0.data)
+        if ram < end:
+            raise CodeError('the static code ends at %08x, past %08x' % (end, ram))
+        s0.data = bytes(s0.data) + bytes(ram - end) + bytes(data)
 
     def save(self):
         return self.mcf.save(compress=False)
@@ -671,15 +682,14 @@ def apply_code(arm9_data, mods, fmap, core=None):
         report.append('mod table at %08x: %d mod(s), %d switchable' % (
             CODE_BASE, len(mods), len(switchable)))
 
-    # 4. New autoload section + move the heap up.
-    # At boot the section's bytes sit inside the game's BSS (from about
-    # 0x02123700) and are copied out before BSS is cleared; past ~160 KB the
-    # copy would overlap its own destination. Trailing zeros (e.g. the moved
-    # asset tables, placed last) are not copied: the start-up clears them.
+    # 4. The region goes into RAM at CODE_BASE (just past the game's BSS), and the heap moves up.
+    # Up to 160 KB (not counting trailing zeros, e.g. the moved asset tables placed last): a new autoload
+    # block. At boot its bytes sit inside the game's BSS (from about 0x02123700) and are copied out before
+    # BSS is cleared; past ~160 KB that copy would overlap its own destination. Bigger: the region becomes
+    # part of the static code instead (the arm9 file holds zeros for the BSS in between and for the
+    # trailing zeros), which the cartridge loader puts in place before anything runs (STATIC_LIMIT).
     copied = len(bytes(region).rstrip(b'\0'))
-    if copied > 160 * 1024:
-        raise CodeError('code mods total %d bytes to copy at boot; the limit is 160 KB (%d bytes)'
-                        % (copied, 160 * 1024))
+    static = copied > AUTOLOAD_LIMIT
     if len(region) > HEAP_COMFORT:
         report.append('warning: code mods take %d KB from the game heap (measured headroom in '
                       'the city is about 1.4 MB; see docs/systems.md)' % (len(region) // 1024))
@@ -691,10 +701,14 @@ def apply_code(arm9_data, mods, fmap, core=None):
             raise CodeError('unexpected heap-start literal %08x (is this the USA ROM?)' % lit)
         data = bytes(region).rstrip(b'\0')
         data += bytes(-len(data) % 4)
-        a9.add_section(data, CODE_BASE, len(region) - len(data))
+        if static:
+            a9.extend_static(bytes(region), CODE_BASE)
+        else:
+            a9.add_section(data, CODE_BASE, len(region) - len(data))
         a9.write(ARENA_LO_LITERAL, struct.pack('<I', CODE_BASE + len(region)), 'heap start')
-        report.append('code region %08x-%08x (%d bytes); heap now starts at %08x'
-                      % (CODE_BASE, CODE_BASE + len(region), len(region), CODE_BASE + len(region)))
+        report.append('code region %08x-%08x (%d bytes, %s); heap now starts at %08x'
+                      % (CODE_BASE, CODE_BASE + len(region), len(region),
+                         'in the static code' if static else 'copied at start-up', CODE_BASE + len(region)))
     return a9.save(), report
 
 
@@ -732,6 +746,25 @@ def put_arm9(img, arm9):
         struct.pack_into('<I', img, 0x80, end)
         if off + need > new:
             raise CodeError('the game code grew too large for the cartridge layout')
+    # Files the bigger arm9 would cover (they follow it in the image) move to the end of the image: their
+    # FAT entries say where they are, so nothing else needs to know.
+    fat, fat_size = struct.unpack_from('<II', img, 0x48)
+    used = struct.unpack_from('<I', img, 0x80)[0]
+    for k in range(fat_size // 8):
+        a, b = struct.unpack_from('<II', img, fat + 8 * k)
+        if b > a and a < off + need and b > off + size:
+            new = (used + 0x1FF) & ~0x1FF
+            end = new + (b - a)
+            cap = img[0x14]
+            while (0x20000 << cap) < end:
+                cap += 1
+            if (0x20000 << cap) > len(img):
+                img += b'\xff' * ((0x20000 << cap) - len(img))
+                img[0x14] = cap
+            img[new:end] = img[a:b]
+            struct.pack_into('<II', img, fat + 8 * k, new, end)
+            used = end
+    struct.pack_into('<I', img, 0x80, used)
     old_end = off + size + (12 if has_footer else 0)
     img[off:off + len(arm9)] = arm9
     if has_footer:

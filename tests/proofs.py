@@ -1000,6 +1000,156 @@ def p_objects_new():
         ['%08x' % c for c in chairs])
 
 
+MEM_HI = '0x02100000:0x100000'
+
+
+def _world_full(mem):
+    """[(entity, type, id, x, y, state, action, anim)] of the world entity list in a 0x02100000 RAM dump."""
+    rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+    e, out = struct.unpack('<I', rd(0x02121AF0, 4))[0], []
+    while e and 0x02100000 <= e < 0x02200000:
+        t, who = struct.unpack('<HH', rd(e + 8, 4))
+        x, y = struct.unpack('<ii', rd(e + 0x18, 8))
+        out.append((e, t, who, x >> 16, y >> 16, rd(e + 0x104, 1)[0], rd(e + 0x105, 1)[0], rd(e + 0xC7, 1)[0]))
+        e = struct.unpack('<I', rd(e, 4))[0]
+    return out
+
+
+def use_object(rom, obj, at, presses, after, reads=(), pokes=()):
+    """Place `obj` at home (place_script), stand the player at `at` = (dx, dy, facing 0-7) from it (the game
+    then points at it: research/objects/face_scan.py finds such spots), press `presses` (A opens its menu,
+    then the menu's keys), run the `after` steps. Returns ({read: bytes} incl. MEM_HI, evidence folder)."""
+    def go(extra, rd):
+        out = run(VERIFY + ['ram', rom, '--city', '--goto', '68', '--frames', '1', '--script', place_script(extra)]
+                  + sum((['--read', r] for r in rd), []) + sum((['--poke', p] for p in pocket_pokes(obj)), []))
+        vals = dict(l.split(' = ', 1) for l in out.splitlines() if ' = ' in l)
+        return {r: bytes.fromhex(vals[r].strip()) for r in rd}, out.strip().splitlines()[-1].split('evidence: ')[-1]
+    first, _ = go([['wait', 30]], [MEM_HI])
+    w = _world_full(first[MEM_HI])
+    pl = [e for e in w if e[1] == 0][0]
+    ob = [e for e in w if e[1] == 5 and e[2] == obj][0]
+    x, y = ob[3] + at[0], ob[4] + at[1]
+    steps = [['wait', 30], ['poke', '0x%08X=%s' % (pl[0] + 0x18, struct.pack('<iiii', x << 16, y << 16, x << 16, y << 16).hex())],
+             ['poke', '0x%08X=%02x' % (pl[0] + 0x12, at[2])]] + [['poke', p] for p in pokes] + [['wait', 30]]
+    for k, b in enumerate(presses):
+        steps += [['press', b, 6], ['wait', 60], ['shot', 'menu%d' % k]]
+    return go(steps + list(after), [MEM_HI] + list(reads))
+
+
+CHAIR_AT = (40, 16, 7)                              # where the player points at a chair 136 copy (face_scan)
+
+
+def p_furniture_quality():
+    """Furniture quality (objects.json "quality", 1-5: the class row's byte 0x23, which picks the game's
+    multiplier x1.0 ... x2.0 for every need an object fills). Two copies of the Country Class Chair: 440 with
+    quality 1 and 441 with quality 5. The player sits on each (A, Sit) with Comfort at 10 and Comfort is
+    read 20 s later: the quality-5 chair filled about twice as much."""
+    d = new_mod('quality')
+    json.dump({'objects': [
+        {'id': 440, 'like': 136, 'name': 'Plain Chair', 'price': 50, 'page': 3, 'description': 'q1', 'quality': 1},
+        {'id': 441, 'like': 136, 'name': 'Fine Chair', 'price': 500, 'page': 3, 'description': 'q5', 'quality': 5}]},
+        open(os.path.join(d, 'objects.json'), 'w'))
+    rom = build('furniture-quality', [d])[0]
+    got = {}
+    for obj in (440, 441):
+        r, ev = use_object(rom, obj, CHAIR_AT, ['A', 'A'], [['wait', 60], ['poke', '0x02141214=0000000a'],
+                           ['poke', '0x02141C30=0000'],                 # (needs frozen in this early save: thaw)
+                           ['wait', 300], ['shot', 'after']], reads=['0x02141204:32'])
+        m = struct.unpack('<8i', r['0x02141204:32'])
+        me = [e for e in _world_full(r[MEM_HI]) if e[1] == 0][0]
+        got[obj] = (m[4] / (1 << 24) - 10, me[5])
+    ok = all(st == 0x11 for _, st in got.values()) and got[440][0] > 0.5 and 1.6 <= got[441][0] / got[440][0] <= 2.4
+    return ok, 'Comfort gained in 10 s sitting: quality 1 %.1f, quality 5 %.1f (x%.2f; the game: x1.0 vs x2.0)' % (
+        got[440][0], got[441][0], got[441][0] / max(got[440][0], 0.01))
+
+
+def p_furniture_actions():
+    """New actions on furniture (objects.json "actions", code/objects): a copy of the Country Class Chair (440)
+    offers "Read a Book" (plays like Sit, plus Fun +0.3 a tick, until Fun is full) and "Nap" (like Sit, plus
+    Energy +0.1, for 15 game minutes). Its menu lists Sit, Read a Book, Nap, Put in Pocket, Move
+    (build/proofs/furniture-actions-menu.png). Read a Book from Fun and Comfort 10: seated, both rise, and
+    the player gets up once Fun is full. Nap: still seated 5 s in with Energy rising, up again after the
+    15 minutes with Energy short of full."""
+    d = new_mod('actions')
+    json.dump({'objects': [{'id': 440, 'like': 136, 'name': 'Reading Chair', 'price': 200, 'page': 3,
+                            'description': 'actions', 'actions': [
+                                {'name': 'Read a Book', 'as': 'Sit', 'fun': 0.3},
+                                {'name': 'Nap', 'as': 'Sit', 'energy': 0.1, 'minutes': 15}]}]},
+              open(os.path.join(d, 'objects.json'), 'w'))
+    rom = build('furniture-actions', [d])[0]
+    low = [['poke', '0x02141C30=0000'], ['poke', '0x02141214=0000000a'], ['poke', '0x0214121C=0000000a'],
+           ['poke', '0x0214120C=0000000a']]                     # thaw needs; Comfort, Fun, Energy 10
+
+    def go(keys, waits):
+        out = []
+        for w in waits:
+            r, ev = use_object(rom, 440, CHAIR_AT, keys, low + [['wait', w], ['shot', 'after']], reads=['0x02141204:32'])
+            m = [v / (1 << 24) for v in struct.unpack('<8i', r['0x02141204:32'])]
+            me = [e for e in _world_full(r[MEM_HI]) if e[1] == 0][0]
+            out.append((me[5], m, ev))
+        return out
+    read = go(['A', 'DOWN', 'A'], (240, 1200))
+    nap = go(['A', 'DOWN', 'DOWN', 'A'], (300, 1200))
+    menu = glob.glob(os.path.join(read[0][2], '*menu1.png'))
+    if menu:
+        shutil.copy(menu[0], os.path.join(OUT, 'furniture-actions-menu.png'))
+    ok = (read[0][0] == 0x11 and read[0][1][6] > 20 and read[0][1][4] > 15 and read[1][0] == 0x10 and read[1][1][6] >= 99
+          and nap[0][0] == 0x11 and nap[0][1][2] > 15 and nap[1][0] == 0x10 and nap[1][1][2] < 99)
+    f = lambda r: 'state %02x, Fun %.0f, Comfort %.0f, Energy %.0f' % (r[0], r[1][6], r[1][4], r[1][2])
+    return ok, ('Read a Book: 4 s in %s; 20 s in %s. Nap: 5 s in %s; 20 s in %s; '
+                'build/proofs/furniture-actions-menu.png') % (f(read[0]), f(read[1]), f(nap[0]), f(nap[1]))
+
+
+def p_furniture_melonds():
+    """mods/more-furniture in melonDS with real buttons: the Club Armchair (430, rendered from your Sims 3) placed
+    at home and the player beside it (a save made in DeSmuME). Loaded in melonDS: A opens its menu (Sit, Read a
+    Book, ...), DOWN + A reads: the player sits, and is up again later (build/proofs/furniture-melonds-*.png).
+    The same save in DeSmuME: Fun rises while reading."""
+    if not _sources('sims3'):
+        return None, 'skipped: no sims3 in sources.json'
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_melon as M
+    if not M.available():
+        return False, 'melonDS not set up: run verify/melonds_setup.sh (Linux), then rerun this proof'
+    rom = build('furniture', [os.path.join(KIT, 'mods', 'more-furniture')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    r, _ = use_object(rom, 430, CHAIR_AT, [], [])
+    w = _world_full(r[MEM_HI])
+    pl = [e for e in w if e[1] == 0][0]
+    ob = [e for e in w if e[1] == 5 and e[2] == 430][0]
+    x, y = ob[3] + CHAIR_AT[0], ob[4] + CHAIR_AT[1]
+    steps = [['wait', 30], ['poke', '0x%08X=%s' % (pl[0] + 0x18, struct.pack('<iiii', x << 16, y << 16, x << 16, y << 16).hex())],
+             ['poke', '0x%08X=%02x' % (pl[0] + 0x12, CHAIR_AT[2])], ['wait', 30]]
+    sp = os.path.join(work, 'mk.json')
+    json.dump(json.load(open(place_script(steps))) + json.load(open(os.path.join(KIT, 'verify', 'scripts', 'savegame.json'))),
+              open(sp, 'w'))
+    sav = os.path.join(work, 'chair.sav')
+    run(VERIFY + ['play', rom, '--city', '--goto', '68', '--script', sp, '--save', os.path.join(work, 'x.dst'),
+                  '--export-sav', sav] + sum((['--poke', p] for p in pocket_pokes(430)), []))
+    read = [['press', 'A', 6], ['wait', 60], ['shot', 'menu'], ['press', 'DOWN', 6], ['wait', 30], ['press', 'A', 6],
+            ['wait', 240], ['shot', 'reading'], ['wait', 900], ['shot', 'later']]
+    try:
+        shots = dict(M.run(rom, MELON_LOAD + [['wait', 60]] + read, sav=sav, out=os.path.join(work, 'melon')))
+    except RuntimeError:                             # (melonDS now and then fails to start: once more)
+        shots = dict(M.run(rom, MELON_LOAD + [['wait', 60]] + read, sav=sav, out=os.path.join(work, 'melon')))
+    for n in ('menu', 'reading', 'later'):
+        shutil.copy(shots[n], os.path.join(OUT, 'furniture-melonds-%s.png' % n))
+    # the same in DeSmuME, with numbers: the player's state and Fun
+    lp = os.path.join(work, 'l.json')
+    json.dump(_load() + [['poke', '0x02141C30=0000'], ['poke', '0x0214121C=0000000a']] + read[:6] + [['wait', 240]],
+              open(lp, 'w'))
+    out = run(VERIFY + ['ram', rom, '--sav', sav, '--script', lp, '--frames', '1', '--read', MEM_HI])
+    mem = bytes.fromhex(dict(l.split(' = ', 1) for l in out.splitlines() if ' = ' in l)[MEM_HI].strip())
+    me = [e for e in _world_full(mem) if e[1] == 0][0]
+    fun = struct.unpack_from('<i', mem, 0x0214121C - 0x02100000)[0] / (1 << 24)
+    from PIL import Image
+    seated = Image.open(shots['reading']).convert('RGB').crop((0, 0, 256, 192)).tobytes() != \
+        Image.open(shots['later']).convert('RGB').crop((0, 0, 256, 192)).tobytes()
+    ok = me[5] == 0x11 and fun > 20 and seated
+    return ok, ('melonDS: menu, reading and later screens (they differ: %s); DeSmuME from the same save, 4 s into '
+                'Read a Book: state %02x, Fun %.0f (from 10); build/proofs/furniture-melonds-*.png') % (seated, me[5], fun)
+
+
 def p_pets_data():
     """Pets as data (mods/pets: pets.json; urbz_pets.py + code/pets-kit): the Puppy (object 386, from the
     rooster) and the Kitten (389, from the chicken) get critter kinds 7 and 8. Each, placed at home, becomes
@@ -2286,7 +2436,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):
