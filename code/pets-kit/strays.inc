@@ -69,22 +69,6 @@ static void stray_remove(int k)
     stray_live[k].e = 0;
 }
 
-/* dir 1-8 clockwise, 8 = up (entity_face) towards (dx, dy) */
-static int dir8(int dx, int dy)
-{
-    int ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
-    if (ax > 2 * ay)
-        return dx > 0 ? 2 : 6;
-    if (ay > 2 * ax)
-        return dy > 0 ? 4 : 8;
-    return dx > 0 ? (dy < 0 ? 1 : 3) : (dy > 0 ? 5 : 7);
-}
-
-static int dist2(u8 *a, u8 *b)
-{
-    int dx = ENT_X(a) - ENT_X(b), dy = ENT_Y(a) - ENT_Y(b);
-    return dx * dx + dy * dy;
-}
 
 static void person_name(int id, char *out)
 {

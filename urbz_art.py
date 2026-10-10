@@ -104,6 +104,85 @@ def load_palette(path):
     return [im.getpixel((16 * i + 8, 8))[:3] + (255,) for i in range(16)]
 
 
+# ------------------------------------------------------------------ shared palettes (2026-10-09)
+# The DS has 16 colour rows for sprites; at home 9-15 are free, and every pet, bed and imported piece of
+# furniture with a palette of its own takes one (the game shares a row only between things with the same
+# palette file: load_palette_row 0x0206D73C). Past 7, everything else is drawn in the last row's colours.
+# Things given the same "palette" group in pets.json / objects.json get one palette fitted to all of them
+# (each member weighs the same) and the same palette file, so they share a row.
+
+PAL_SKIP = ('palette.png', 'icon.png', 'icon-palette.png', 'preview.png')
+
+
+def _art_pngs(folder):
+    out = []
+    for root, _dirs, files in os.walk(folder):
+        for f in sorted(files):
+            if f.endswith('.png') and f not in PAL_SKIP:
+                out.append(os.path.join(root, f))
+    return sorted(out)
+
+
+def _fit_shared(samples, colours=15):
+    """k-means (from a median cut) over every member's pixels, each member weighing the same."""
+    import numpy as np
+    from PIL import Image
+    X = np.concatenate(samples).astype(np.float32)
+    q = Image.fromarray(X.reshape(1, -1, 3).astype(np.uint8)).quantize(colors=colours, method=Image.Quantize.MEDIANCUT,
+                                                                       dither=Image.Dither.NONE)
+    p = q.getpalette()[:3 * colours]
+    p += p[:3] * (colours - len(p) // 3)
+    C = np.array(p, np.float32).reshape(colours, 3)
+    for _ in range(25):
+        a = ((X[:, None] - C[None]) ** 2).sum(-1).argmin(1)
+        for j in range(colours):
+            if (a == j).any():
+                C[j] = X[a == j].mean(0)
+    return [tuple(int(round(v)) for v in c) for c in C]
+
+
+def share_palette(folders, out_root):
+    """Art folders (pets or furniture) -> copies in out_root/<name> drawn in one 16-colour palette.
+    Returns {folder: copy}. Skipped when nothing changed since the last build."""
+    import hashlib
+    import shutil
+    import numpy as np
+    from PIL import Image
+    h = hashlib.sha1(b'v1')
+    for f in folders:
+        for p in _art_pngs(f) + [os.path.join(f, x) for x in ('palette.png', 'timing.json')]:
+            if os.path.exists(p):
+                h.update(p.encode() + open(p, 'rb').read())
+    stamp = os.path.join(out_root, 'stamp.txt')
+    out = {f: os.path.join(out_root, '%02d-%s' % (k, os.path.basename(f.rstrip('/\\')))) for k, f in enumerate(folders)}
+    if os.path.exists(stamp) and open(stamp).read() == h.hexdigest() and all(os.path.isdir(o) for o in out.values()):
+        return out
+    rng = np.random.default_rng(1)
+    samples = []
+    for f in folders:
+        px = [np.array(Image.open(p).convert('RGBA')) for p in _art_pngs(f)]
+        px = np.concatenate([im[im[..., 3] >= 128][:, :3] for im in px] or [np.zeros((1, 3), np.uint8)])
+        samples.append(px[rng.choice(len(px), min(4000, len(px)), replace=False)])
+    pal = [(0, 0, 0)] + _fit_shared(samples)
+    C = np.array(pal[1:], np.int32)
+    if os.path.isdir(out_root):
+        shutil.rmtree(out_root)
+    for f, o in out.items():
+        shutil.copytree(f, o)
+        for p in _art_pngs(o):
+            im = np.array(Image.open(p).convert('RGBA'))
+            m = im[..., 3] >= 128
+            rgb = im[..., :3].reshape(-1, 3).astype(np.int32)
+            idx = ((rgb[:, None, :] - C[None]) ** 2).sum(-1).argmin(1)
+            res = np.zeros_like(im)
+            res[..., :3] = C[idx].reshape(im.shape[:2] + (3,)).astype(np.uint8)
+            res[..., 3] = np.where(m, 255, 0)
+            Image.fromarray(res, 'RGBA').save(p)
+        save_palette(os.path.join(o, 'palette.png'), pal)
+    open(stamp, 'w').write(h.hexdigest())
+    return out
+
+
 # ------------------------------------------------------------------ commands
 
 def template(mod, name, recolour=None):

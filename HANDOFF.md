@@ -91,6 +91,10 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
 - Pet rough edges done 2026-10-07 (draw order, plain message boxes, saves without the mod, A near a townsperson: docs/plan-phase10.md).
+- Pets test-play fixes 2026-10-09 (Jonathan: "perfect pets and npc-life", pets first; he chose all 9 fixes, a treat a
+  day): shared palettes (pets.json/objects.json "palette" groups), sleep through the night, no endless sleep, slower
+  needs, Pets page scrolls (R/L, core), pets stay with you, greeting, Play gesture, only your own pets can be pocketed
+  (his bug report). docs/plan-phase10.md "Test-play fixes". NPC Life test-play is next.
 - NPC Life bug pass (2026-10-08/09): nobody sits for a whole visit or stands trapped at a chair; seats picked
   at random; everyone also goes to things they can enjoy standing (proofs npc-seat-turns, npc-look);
   research/npc/soak_probe.py watches an area for stuck people.

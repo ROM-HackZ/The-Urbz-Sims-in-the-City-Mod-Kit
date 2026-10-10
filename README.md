@@ -290,6 +290,9 @@ the new rows by itself. `python urbz_objects.py show 225` prints an object's row
 New numbers: 386 and 389-511. A new object can have its own art: `"art": "art/<folder>"` (your drawings,
 "Drawing furniture" below) or `"import": {...}` (a model from another Sims DS game, "Importing from other Sims
 games" below). Without either it wears the copied object's art.
+Each object with its own art takes one of the ~7 sprite colour sets the DS has free at home (past that, things
+come out in the wrong colours); objects with the same `"palette": "<group>"` share one set (their colours are
+fitted together), and so do pets with the same `"palette"` in pets.json.
 
 New furniture can also be better or do more than the piece it copies:
 - `"quality": 1-5` - how fast it fills needs (the game's own scale: 1 = x1.0 ... 5 = x2.0; a $50 sofa is 1,

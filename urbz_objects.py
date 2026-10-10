@@ -272,11 +272,52 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
     art = {}
     nxt = [first_asset() if first_asset else None]
 
+    seen = {}
+
     def new_asset(data):
+        data = bytes(data)
+        if data in seen:                        # the same file twice (a shared palette): one id
+            return seen[data]
         os.makedirs(adir, exist_ok=True)
         open(os.path.join(adir, '%05d.bin' % nxt[0]), 'wb').write(data)
         nxt[0] += 1
+        seen[data] = nxt[0]
         return nxt[0]                           # game id = file number + 1
+    folders = {}                                # first every art folder (imports rendered), then the builds:
+    for mod, e in entries:                      # pieces in one "palette" group share one palette (one colour
+        if 'art' not in e and 'import' not in e:   # row in the game: urbz_art.share_palette)
+            continue
+        i = e['id']
+        if i < N_GAME or nxt[0] is None:
+            continue
+        if 'import' in e:
+            import urbz_import
+            try:
+                folders[i] = urbz_import.object_art(e['import'], e['like'], os.path.join(
+                    os.path.dirname(out_dir), 'imports', '%s-%d' % (mod, i)))
+            except urbz_import.SourceMissing:
+                pass                            # said below
+            except (OSError, ValueError, KeyError, SystemExit) as ex:
+                raise ObjectsError('mod "%s": object %d: art: %s' % (mod, i, ex))
+        else:
+            folders[i] = os.path.join(e.get('_dir', ''), e['art'])
+    groups = {}
+    for mod, e in entries:
+        g = e.get('palette')
+        if g is None:
+            continue
+        if not isinstance(g, str):
+            raise ObjectsError('mod "%s": object %d: "palette" is a group name (pieces in one group share colours)'
+                               % (mod, e['id']))
+        if e['id'] in folders:
+            groups.setdefault((mod, g), []).append(e['id'])
+    for (mod, g), members in sorted(groups.items()):
+        if len(members) > 1:
+            from urbz_art import share_palette
+            shared = share_palette([folders[i] for i in members], os.path.join(
+                os.path.dirname(out_dir), 'imports', 'shared-%s-%s' % (mod, g)))
+            for i in members:
+                folders[i] = shared[folders[i]]
     for mod, e in entries:
         if 'art' not in e and 'import' not in e:
             continue
@@ -286,7 +327,9 @@ def objects_mod(proj, mod_dirs, out_dir, first_string, extra=(), first_asset=Non
         if nxt[0] is None:
             raise ObjectsError('object %d has art, but the builder gave no asset numbers' % i)
         try:
-            if 'import' in e:
+            if i in folders:
+                folder = folders[i]
+            elif 'import' in e:
                 import urbz_import
                 try:
                     folder = urbz_import.object_art(e['import'], e['like'], os.path.join(

@@ -192,6 +192,8 @@ static u32 now_minutes(void)
     return (u32)(game_time.day * 1440 + game_time.hour * 60 + game_time.minute);
 }
 
+void core_page_tick(void);
+
 u32 core_tick(u32 a, u32 b, u32 c, u32 d)
 {
     if (core.request & 0x80000000) {
@@ -213,6 +215,7 @@ u32 core_tick(u32 a, u32 b, u32 c, u32 d)
             fire(EV_MINUTE, n);
     }
     fire(EV_TICK, 0);
+    core_page_tick();
     return ret;
 }
 

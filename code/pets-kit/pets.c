@@ -173,15 +173,19 @@ typedef struct {
     u8 area, hunger, happy, flags;               /* hunger / happy: 100 = full / very happy */
 } mypet_t;
 
-enum { M_WANDER, M_ACT, M_GO, M_TALK, M_BED };   /* what a pet is doing (not saved) */
-typedef struct { u8 *e; u8 mode, action; u16 timer, age; u8 *bed; } live_t;
+enum { M_WANDER, M_ACT, M_GO, M_TALK, M_BED, M_BACK };   /* what a pet is doing (not saved) */
+/* bed_fail: its bed couldn't be reached tonight (it sleeps where it is until morning); seen: the tick its
+   behaviour last ran (the game only runs critters near the screen) */
+typedef struct { u8 *e; u8 mode, action; u16 timer, age; u8 bed_fail, greet; u8 *bed; u32 seen; s16 ax, ay; s32 gd; u16 cool; u8 phase, pad; } live_t;
+/* greet: come and say hello when it has found its feet (just spawned, the game's walking isn't set up yet);
+   ax, ay: the last place it was within reach of you (it walks back there, the way it came) */
 
 static mypet_t mine[MAX_MINE];
 static live_t live[MAX_MINE];
 static u32 n_mine, need_spawn, greet;
 struct { u32 magic, kept, respawned, forgot, loads, loaded, acts, talks, last_pick, actions_done, a_presses, a_state, a_dx, a_dy, a_faces, mood0, n, act_mask, greets, px, py,
            to_bed, in_bed, bed0, moved, quest, trust, adopter, stray_n, pet0, msgs, stray_fed, adopt_walk, page_lines,
-           person_skips; }
+           person_skips, brought; }
     pets_stats = { 0x53544550 };                 /* 'PETS' (tests read it) */
 
 #define ENT_TYPE(e)  (*(u16 *)((e) + 8))
@@ -190,6 +194,28 @@ struct { u32 magic, kept, respawned, forgot, loads, loaded, acts, talks, last_pi
 #define ENT_X(e)     ((s16)(*(s32 *)((e) + 0x18) >> 16))
 #define ENT_Y(e)     ((s16)(*(s32 *)((e) + 0x1C) >> 16))
 #define ANIM_DONE    0x400000
+
+/* dir 1-8 clockwise, 8 = up (entity_face) towards (dx, dy) */
+static int dir8(int dx, int dy)
+{
+    int ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
+    if (ax > 2 * ay)
+        return dx > 0 ? 2 : 6;
+    if (ay > 2 * ax)
+        return dy > 0 ? 4 : 8;
+    return dx > 0 ? (dy < 0 ? 1 : 3) : (dy > 0 ? 5 : 7);
+}
+
+static int dir_to_xy(u8 *e, int x, int y)
+{
+    return dir8(x - ENT_X(e), y - ENT_Y(e));
+}
+
+static int dist2(u8 *a, u8 *b)
+{
+    int dx = ENT_X(a) - ENT_X(b), dy = ENT_Y(a) - ENT_Y(b);
+    return dx * dx + dy * dy;
+}
 
 static u32 rnd(u32 n)
 {
@@ -227,6 +253,12 @@ static void take_over(u32 i, u8 *e)
     live[i].e = e;
     live[i].mode = M_WANDER;
     live[i].timer = 60 + rnd(120);
+    live[i].greet = 0;
+    live[i].bed_fail = 0;
+    live[i].cool = 0;
+    u8 *pl = player_entity();
+    live[i].ax = pl ? ENT_X(pl) : (e ? ENT_X(e) : 0);
+    live[i].ay = pl ? ENT_Y(pl) : (e ? ENT_Y(e) : 0);
     if (e)
         *(void (**)(u8 *))(e + 0x4C) = pets_behaviour;
 }
@@ -352,7 +384,8 @@ static void bed_tick(u32 i)
         live[i].bed = be;
         return;
     }
-    act(i, a, a == A_SLEEP ? 900 + rnd(900) : 300 + rnd(300));   /* stuck on the way: here will do */
+    live[i].bed_fail = 1;                          /* stuck on the way: here will do, until morning */
+    act(i, a, a == A_SLEEP ? 900 + rnd(900) : 300 + rnd(300));
 }
 
 /* What to do next, from the time of day and how it feels. */
@@ -360,14 +393,14 @@ static void choose(u32 i)
 {
     mypet_t *m = &mine[i];
     if (night()) {
-        int a = rnd(4) ? A_SLEEP : A_LIE;
-        u8 *bed = find_bed(i);
+        u8 *bed = live[i].bed_fail ? 0 : find_bed(i);
         if (bed)
-            go_to_bed(i, bed, a);
+            go_to_bed(i, bed, A_SLEEP);
         else
-            act(i, a, 600 + rnd(900));
+            act(i, A_SLEEP, 600 + rnd(900));
         return;
     }
+    live[i].bed_fail = 0;                          /* a new day: it may try its bed again tonight */
     if (m->hunger < 25 || m->happy < 25) {          /* moping: sad, sits or lies about */
         static const u8 mope[] = { A_SAD, A_SAD, A_SIT, A_LIE };
         act(i, mope[rnd(4)], 200 + rnd(200));
@@ -390,8 +423,16 @@ static void go_to_player(u32 i)
         wander(i);
         return;
     }
-    int dx = ENT_X(pl) - ENT_X(e), dy = ENT_Y(pl) - ENT_Y(e);
-    if (dx * dx + dy * dy < 24 * 24 || !live[i].timer) {
+    int dx = ENT_X(pl) - ENT_X(e), dy = ENT_Y(pl) - ENT_Y(e), d = dx * dx + dy * dy;
+    int stuck = 0;
+    if (live[i].timer % 60 == 0) {                 /* no closer than 2 s ago: something is in the way */
+        int r = 0;
+        while ((r + 1) * (r + 1) <= live[i].gd)
+            r++;
+        stuck = live[i].gd && d > (r - 4) * (r - 4);
+        live[i].gd = d;
+    }
+    if (d < 24 * 24 || !live[i].timer || stuck) {
         entity_stop(e);
         pet_face(e, entity_dir_to(e, pl));
         act(i, A_HAPPY, 90);
@@ -402,17 +443,79 @@ static void go_to_player(u32 i)
     entity_go(e);
 }
 
+static u32 pet_ticks;                            /* mod_on_tick's count (live.seen: a pet's behaviour ran) */
+
+/* Out of your sight the game stops running a critter, so one that wandered into the next room stayed there for
+   good (2026-10-09). A pet that gets more than LEASH away while wandering comes back towards you. */
+#define LEASH 100
+
+static int far_from_player(u8 *e)
+{
+    u8 *pl = player_entity();
+    return pl && dist2(e, pl) > LEASH * LEASH;
+}
+
+static void back_tick(u32 i)
+{
+    u8 *e = live[i].e, *pl = player_entity();
+    int dx = live[i].ax - ENT_X(e), dy = live[i].ay - ENT_Y(e), near_a = dx * dx + dy * dy < 8 * 8;
+    if (!pl || dist2(e, pl) < 60 * 60 || !live[i].timer) {
+        if (!live[i].phase && !near_a && dx * dx + dy * dy >= 12 * 12) {   /* a wall in the way: it's there now */
+            s32 x = (s32)live[i].ax << 16, y = (s32)live[i].ay << 16;
+            *(s32 *)(e + 0x18) = *(s32 *)(e + 0x20) = x;
+            *(s32 *)(e + 0x1C) = *(s32 *)(e + 0x24) = y;
+            pets_stats.brought++;
+        }
+        entity_stop(e);
+        live[i].cool = 300;                        /* (no new try for 10 s: it doesn't stand frozen trying) */
+        wander(i);
+        return;
+    }
+    if (!live[i].phase && near_a)
+        live[i].phase = 1;                         /* back where it was in reach: now towards you */
+    pet_face(e, live[i].phase ? entity_dir_to(e, pl) : dir_to_xy(e, live[i].ax, live[i].ay));
+    entity_go(e);
+}
+
 void pets_behaviour(u8 *e)
 {
     sort_like_people(e);
     int i = mine_of(e);
+    if (i >= 0) {
+        live[i].seen = pet_ticks;
+        if (!far_from_player(e)) {
+            live[i].ax = ENT_X(e);
+            live[i].ay = ENT_Y(e);
+        } else if (live[i].mode == M_WANDER && e[0x104] != 0x12 && !live[i].cool) {
+            live[i].mode = M_BACK;                 /* not off into the next room: back the way it came */
+            live[i].timer = 240;
+            live[i].phase = 0;
+            pets_play(e, A_WALK);
+        }
+        if (live[i].cool)
+            live[i].cool--;
+    }
     if (i < 0 || live[i].mode == M_WANDER) {
         critter_update(e);                         /* the game's own wandering (walk / stand) */
-        if (i >= 0 && live[i].mode == M_WANDER && !--live[i].timer && e[0x104] != 0x12)
-            choose((u32)i);
+        if (i >= 0 && live[i].mode == M_WANDER && (!live[i].timer || !--live[i].timer) && e[0x104] != 0x12) {
+            if (live[i].greet) {
+                live[i].greet = 0;
+                live[i].mode = M_GO;
+                live[i].timer = 450;
+                live[i].gd = 0;
+                pets_play(e, A_WALK);
+            } else
+                choose((u32)i);
+        }
         return;
     }
     live_t *l = &live[i];
+    if (l->mode == M_BACK) {
+        if (l->timer)
+            l->timer--;
+        back_tick((u32)i);
+        return;
+    }
     if (l->timer)
         l->timer--;
     if (l->mode == M_GO) {
@@ -426,7 +529,7 @@ void pets_behaviour(u8 *e)
         return;
     }
     l->age++;
-    if (l->action == A_SLEEP && l->age % 150 == 0) {   /* a bed was put down: off to it */
+    if (l->action == A_SLEEP && l->age % 150 == 0 && night() && !l->bed_fail) {   /* a bed was put down: off to it */
         u8 *bed = find_bed((u32)i);
         if (bed) {
             go_to_bed((u32)i, bed, A_SLEEP);
@@ -435,6 +538,10 @@ void pets_behaviour(u8 *e)
     }
     int once = l->action == A_PLAY || l->action == A_EAT || l->action == A_HAPPY || l->action == A_PETTED ||
                l->action == A_SCRATCH;
+    if (!l->timer && night() && (l->action == A_SLEEP || l->action == A_BEDSLEEP)) {
+        l->timer = 600 + rnd(600);                 /* asleep till morning (it used to get up every half hour) */
+        return;
+    }
     if (!l->timer || (once && l->age > 20 && (ENT_FLAGS(e) & ANIM_DONE)))
         wander((u32)i);
 }
@@ -540,6 +647,7 @@ static void msg_tick(u8 *pl)
 
 /* ---- talking to a pet (or a stray): walk up, press A ---------------------------------------------- */
 enum { DO_LEAVE, DO_PET, DO_PLAY, DO_FEED, DO_POCKET, DO_TAKE };
+u32 pets_play_anim = 0x90;                         /* the player's gesture while playing (tests poke it) */
 #define STRAY0 100                                 /* talk.who: 0.. = my pets, STRAY0 + k = stray k */
 static struct { int stage, who, act; u32 timer; u8 *e; u8 acts[4]; } talk;
 
@@ -732,6 +840,10 @@ static void talk_tick(void)
             pets_play(e, A_PETTED);
             break;
         case DO_PLAY:
+            if (stray < 0) {
+                entity_set_state(pl, 0);
+                entity_anim(pl, (int)pets_play_anim);         /* you play along (it used to be just the pet) */
+            }
             pets_play(e, A_PLAY);
             break;
         case DO_FEED:
@@ -744,7 +856,7 @@ static void talk_tick(void)
                 pets_play(e, A_EAT);
             } else if (pockets_take(TREATS)) {
                 pets_play(e, A_EAT);
-                m->hunger = bump(m->hunger, 45);
+                m->hunger = bump(m->hunger, 60);
                 m->happy = bump(m->happy, 5);
             } else {
                 play_sound(3);                      /* refused: no treats */
@@ -831,13 +943,21 @@ void pets_removed(u8 *obj)
     obj_removed_orig(obj);
 }
 
+/* What picking a critter up gives back: a pet only when it is one of yours (someone else's, e.g. the stray a
+   townsperson adopted, is not yours to pocket: 2026-10-09). */
+unsigned pets_pick_object(unsigned kind, u8 *critter)
+{
+    return mine_of(critter) >= 0 ? pets_object_of(kind) : 0;
+}
+
 /* critter_pickup (state 0x12, action 0x0E) after the Chicken case: r0 = kind, r5 = 0 (result), r6 = critter. */
 __attribute__((naked)) void pets_pick_stub(void)
 {
     __asm__ volatile(
         "cmp r0, #5\n"
         "ldreq pc, =0x0202A2E0\n"          /* the Nutria: the game's own code */
-        "bl pets_object_of\n"
+        "mov r1, r6\n"
+        "bl pets_pick_object\n"
         "cmp r0, #0\n"
         "ldreq pc, =0x0202A2FC\n"          /* not a pet: nothing to give back */
         "mov r1, r0\n"
@@ -891,8 +1011,8 @@ __attribute__((naked)) void pets_stop_stub(void)
    taken home through the quest). */
 unsigned pets_tap_kind(u8 *e)
 {
-    if (stray_live[0].e == e || stray_live[1].e == e)
-        return 0xFF;
+    if (stray_live[0].e == e || stray_live[1].e == e || (pets_object_of(ENT_KIND(e)) && mine_of(e) < 0))
+        return 0xFF;                               /* a stray, or someone else's pet: not yours to pick up */
     return pets_anim_kind(ENT_KIND(e));
 }
 
@@ -927,9 +1047,13 @@ static void spawn_mine(int area)
         }
         take_over(i, spawn_critter(m->kind, m->facing, 0, m->x, m->y));
         if (greet && live[i].e && !night()) {     /* coming home: they come to say hello */
-            live[i].mode = M_GO;
-            live[i].timer = 240;
-            pets_play(live[i].e, A_WALK);
+            if (pl && dist2(live[i].e, pl) > 140 * 140) {
+                act(i, A_HAPPY, 90);               /* too far (slow pets never got there): happy where it is */
+                pets_stats.greets++;
+            } else {
+                live[i].greet = 1;                 /* once it has found its feet (a second or so) */
+                live[i].timer = 20 + rnd(30);
+            }
         }
         pets_stats.respawned++;
     }
@@ -947,6 +1071,21 @@ void mod_on_tick(void)
     }
     u8 *pl = player_entity();
     area_ticks++;
+    pet_ticks++;
+    /* a pet out of sight (the game no longer runs it: it wandered into the next room, or was saved there) comes
+       back to you, unseen, while the world runs */
+    if (pl && TOP_STATE == 1 && !talk_busy() && !msg_open && area_ticks > 120 && !(pet_ticks & 15))
+        for (u32 i = 0; i < n_mine; i++) {
+            if (!alive(i) || pet_ticks - live[i].seen < 90 || live[i].mode == M_TALK)
+                continue;
+            u8 *e = live[i].e;
+            s32 x = *(s32 *)(pl + 0x18) + (s32)((rnd(25) - 12) << 16), y = *(s32 *)(pl + 0x1C) + (s32)((rnd(17) - 8) << 16);
+            *(s32 *)(e + 0x18) = *(s32 *)(e + 0x20) = x;
+            *(s32 *)(e + 0x1C) = *(s32 *)(e + 0x24) = y;
+            live[i].seen = pet_ticks;
+            wander(i);
+            pets_stats.brought++;
+        }
     strays_tick(pl);
     talk_tick();
     msg_tick(pl);
@@ -976,18 +1115,24 @@ void mod_on_tick(void)
     }
 }
 
-/* Needs drift with the game clock: hungry after about 8 hours, bored after about 12. */
+/* Needs drift with the game clock (2026-10-09: one treat a day is enough, Jonathan): -1 every 20 minutes
+   awake, every 40 asleep, for both: about 60 a day. A treat gives 60. */
+static int asleep(u32 i)
+{
+    if (!alive(i))
+        return night();
+    int a = live[i].action;
+    return live[i].mode == M_ACT && (a == A_SLEEP || a == A_BEDSLEEP);
+}
+
 void mod_on_minute(int minutes)
 {
-    static int mh, mf;
-    mh += minutes;
-    mf += minutes;
-    int dh = mh / 5, df = mf / 7;
-    mh %= 5;
-    mf %= 7;
+    static u8 acc[MAX_MINE];
     for (u32 i = 0; i < n_mine; i++) {
-        mine[i].hunger = bump(mine[i].hunger, -dh);
-        mine[i].happy = bump(mine[i].happy, -df);
+        int t = acc[i] + minutes * (asleep(i) ? 1 : 2), d = t / 40;
+        acc[i] = (u8)(t % 40);
+        mine[i].hunger = bump(mine[i].hunger, -d);
+        mine[i].happy = bump(mine[i].happy, -d);
     }
 }
 

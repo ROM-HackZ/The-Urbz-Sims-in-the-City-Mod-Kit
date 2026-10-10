@@ -220,3 +220,31 @@ Changes from the plan:
 - **A townsperson next to a pet took the A press:** a pet you face that is nearer than the person now gets it
   (pets-kit wraps the people's touch callback).
 - **The game's pick-up route for critters:** not needed; the A menu's Put in Pocket does that for pets.
+
+## Test-play fixes (2026-10-09, Claude played two game days with all 8 pets and 4 beds; Jonathan: fix all)
+- **Wrong colours past 3 pets:** sprites have 16 colour rows; at home 9-15 are free and the game shares a row
+  only between things with the same palette file (`load_palette_row` 0x0206D73C: it compares the palette id;
+  with no row free it returns 0xFF = row 15, so the rest came out in whatever was loaded there last). The
+  builder now fits one palette per `"palette"` group (pets.json: pets1 Puppy/Bunny/Cockatoo, pets2
+  Kitten/Macaw, pets3 Hamster/Guinea Pig/Snake; objects.json: beds) with every member weighing the same
+  (`urbz_art.share_palette`, k-means over their pixels) and identical files get one id: 4 rows instead of 12.
+  Proof `pets-colours`.
+- **Endless sleep:** a pet whose bed was behind furniture tried again every 150 ticks and started its sleep
+  over each time (asleep at 2 pm). Now a failed walk to bed sleeps where it is until morning (`bed_fail`),
+  beds are only tried at night, and nights are one sleep (no lying about, no getting up every half hour).
+  Proof `pets-night`.
+- **Starving:** hunger and fun now drop 1 every 20 minutes awake, every 40 asleep (about 60 a day); a treat
+  gives 60 (was -1/5 and -1/7 minutes, +45). Proof `pets-needs`.
+- **The Pets page showed 4 pets:** the core never scrolled info pages. R / L scroll them now (the D-pad walks
+  you about while a menu is open); "(R: more, L: back)" on the last line. Redrawing from the tick has to run
+  as the bottom screen (`screen_index` = 1) or the text lands on the top screen.
+- **Frozen in the next room:** the game runs a critter only near the screen. A wandering pet more than 100 px
+  from you walks back to the last place it was in reach, then towards you (10 s rest between tries); one not
+  run for 3 s while the world runs is brought next to you. Proof `pets-come-back`.
+- **Coming home:** pets that are far do their happy wiggle where they are; the others come once they have
+  found their feet (just spawned, walking didn't work yet) and stop when something is in the way.
+- **Play:** you crouch and bounce (player animation 0x90, `pets_play_anim`) while the pet plays. Proof
+  `pets-play`.
+- **Someone else's pet in Pockets** (Jonathan): after the quest he pocketed the Puppy Gramma Hattie had
+  adopted. The game's pick-up now gives back a pet only when it's one of yours. Proof `pets-not-yours`.
+- mods/pets/README.md rewritten (it still said pets weren't saved).

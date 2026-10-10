@@ -149,10 +149,45 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset, first_string=None):
     os.makedirs(adir, exist_ok=True)
     nxt = [first_asset]
 
+    seen = {}
+
     def new_asset(data):
+        data = bytes(data)
+        if data in seen:                               # the same file twice (a shared palette): one id
+            return seen[data]
         open(os.path.join(adir, '%05d.bin' % nxt[0]), 'wb').write(data)
         nxt[0] += 1
+        seen[data] = nxt[0]
         return nxt[0]                                  # game id = file number + 1
+
+    def art_folder(mod, md, pet, src):
+        folder = os.path.join(md, pet.get('art', 'art/' + pet['name'].lower()))
+        if 'import' in pet:                            # rendered from another Sims game (urbz_import.py)
+            import urbz_import
+            try:
+                folder = urbz_import.pet_art(pet['import'], src, os.path.join(
+                    os.path.dirname(out_dir), 'imports', '%s-%s' % (mod, pet['name'].lower())))
+            except urbz_import.SourceMissing as sm:            # build anyway, with the starting animal's art
+                print('warning: mod "%s": %s keeps the %s\'s art: %s' % (mod, pet['name'], pet['from'], sm))
+            except (OSError, ValueError, KeyError) as e:
+                raise PetsError('mod "%s": pet %s: import: %s' % (mod, pet['name'], e))
+        return folder
+    folders, groups = {}, {}
+    for i, (mod, md, pet) in enumerate(pets):
+        folders[i] = art_folder(mod, md, pet, FROM[pet['from']])
+        g = pet.get('palette')
+        if g is not None and not isinstance(g, str):
+            raise PetsError('mod "%s": pet %s: "palette" is a group name (pets in one group share colours)' % (
+                mod, pet['name']))
+        if g and os.path.exists(os.path.join(folders[i], 'timing.json')):
+            groups.setdefault((mod, g), []).append(i)
+    for (mod, g), members in sorted(groups.items()):    # one palette (one colour row in the game) per group
+        if len(members) > 1:
+            from urbz_art import share_palette
+            shared = share_palette([folders[i] for i in members], os.path.join(
+                os.path.dirname(out_dir), 'imports', 'shared-%s-%s' % (mod, g)))
+            for i in members:
+                folders[i] = shared[folders[i]]
     arm9 = game_arm9(proj)
     rd = lambda a, n: arm9[a - ARM9_BASE:a - ARM9_BASE + n]
     k_total = N_KINDS + len(pets)
@@ -168,16 +203,7 @@ def pets_mod(proj, mod_dirs, out_dir, first_asset, first_string=None):
             struct.pack_into('<I', table[kind], 0xC, int(sp * float(pet['speed'])))
         anims.append(bytearray(anims[src]))
         pals.append(bytearray(pals[src]))
-        folder = os.path.join(md, pet.get('art', 'art/' + pet['name'].lower()))
-        if 'import' in pet:                            # rendered from another Sims game (urbz_import.py)
-            import urbz_import
-            try:
-                folder = urbz_import.pet_art(pet['import'], src, os.path.join(
-                    os.path.dirname(out_dir), 'imports', '%s-%s' % (mod, pet['name'].lower())))
-            except urbz_import.SourceMissing as sm:            # build anyway, with the starting animal's art
-                print('warning: mod "%s": %s keeps the %s\'s art: %s' % (mod, pet['name'], pet['from'], sm))
-            except (OSError, ValueError, KeyError) as e:
-                raise PetsError('mod "%s": pet %s: import: %s' % (mod, pet['name'], e))
+        folder = folders[i]
         if os.path.exists(os.path.join(folder, 'timing.json')):
             from urbz_art import build_pet_art
             try:

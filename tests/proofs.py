@@ -1452,7 +1452,7 @@ def _pocket_place(obj, steps):
 PETS_STATS = ('kept', 'respawned', 'forgot', 'loads', 'loaded', 'acts', 'talks', 'last_pick', 'actions_done',
               'a_presses', 'a_state', 'a_dx', 'a_dy', 'a_faces', 'mood0', 'n', 'act_mask', 'greets', 'px', 'py',
               'to_bed', 'in_bed', 'bed0', 'moved', 'quest', 'trust', 'adopter', 'stray_n', 'pet0', 'msgs', 'stray_fed', 'adopt_walk', 'page_lines',
-              'person_skips')
+              'person_skips', 'brought')
 
 
 def _pets_stats(heap):
@@ -1586,41 +1586,53 @@ def p_pets_life():
 
 
 def p_pets_needs():
-    """Light needs (Phase 9): hunger and happiness (0-100) go down with the game clock; a hungry or unhappy pet
-    mopes (sad, sits, lies about); Feed with Pet Treats (396) in Pockets uses one and fills it up; Feed without
-    treats is refused. Clock: tests/mods/fast-clock (a game minute per tick) from 08:00, so it stays day."""
+    """Light needs (Phase 9; rates 2026-10-09: one treat a day is enough, Jonathan): hunger and happiness (0-100)
+    go down with the game clock, 1 every 20 minutes awake (40 asleep); a hungry or unhappy pet mopes (sad, sits,
+    lies about); Feed with Pet Treats (396) in Pockets uses one and gives 60; Feed without treats is refused.
+    Clock: tests/mods/fast-clock (a game minute per tick) from 07:00, so it stays day."""
     fast = build('pets-needs', [os.path.join(KIT, 'mods', 'pets'), os.path.join(TESTS, 'mods', 'fast-clock')])[0]
     rom = build('pets-menu', [os.path.join(KIT, 'mods', 'pets')])[0]
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
     morning = os.path.join(work, 'morning.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, morning, '--clock', '08:00'])
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, morning, '--clock', '07:00'])
     load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
     place = _pocket_place(386, ['DOWN'] * 3)[:-1] + [['wait', 20]]
     feed = [['press', 'A', 4], ['wait', 40], ['press', 'DOWN', 4], ['wait', 10], ['press', 'DOWN', 4], ['wait', 10],
             ['press', 'A', 4], ['wait', 300]]
     treats = [['poke', '0x0214188C=' + struct.pack('<HI', 396, 0).hex()], ['poke', '0x02141338=01'], ['wait', 10]]
+    syms = json.load(open(os.path.join(KIT, 'code', 'pets-kit', 'build', 'patch.json')))['symbols']
 
     def run_(r, s, script):
         p = os.path.join(work, 's.json')
         json.dump(script, open(p, 'w'))
         out = run(VERIFY + ['ram', r, '--sav', s, '--script', p, '--frames', '30', '--read', HEAP_SCAN,
-                            '--read', '0x02141338:1'])
+                            '--read', '0x02141338:1', '--read', '0x0214112C:4'])
         vals = {l.split(' = ')[0].strip(): bytes.fromhex(l.split(' = ')[1].strip()) for l in out.splitlines() if ' = ' in l}
-        return _pets_stats(vals[HEAP_SCAN]), vals['0x02141338:1'][0]
+        heap = vals[HEAP_SCAN]
+        k = heap.find(struct.pack('<I', 0x53544550))
+        mine = 0x0214DE20 + k - syms['pets_stats'] + syms['mine']
+        hh, mm = vals['0x0214112C:4'][2], vals['0x0214112C:4'][3]
+        return _pets_stats(heap), vals['0x02141338:1'][0], mine, hh * 60 + mm
     mood = lambda st: (st['mood0'] & 0xFF, (st['mood0'] >> 8) & 0xFF)
-    hungry, _ = run_(fast, morning, load + place + [['wait', 700]])
-    fed, left = run_(rom, sav, load + place + treats + feed)
-    no_treats, _ = run_(rom, sav, load + place + feed)
-    h0, f0 = mood(hungry)
+    _, _, _, t0 = run_(fast, morning, load + place)
+    day, _, mine, t1 = run_(fast, morning, load + place + [['wait', 1200]])
+    h0, f0 = mood(day)
+    minutes = t1 - t0
+    expect = 80 - minutes // 20
+    # moping: hunger 10 (mine[0].hunger, mypet_t +9; this build's address)
+    _, _, mine, _ = run_(rom, sav, load + place)
+    hungry, _, _, _ = run_(rom, sav, load + place + [['poke', '0x%08X=0a' % (mine + 9)], ['wait', 900]])
     mopes = [a for k, a in enumerate(PET_ACTIONS) if hungry['act_mask'] >> k & 1]
+    fed, left, _, _ = run_(rom, sav, load + place + [['poke', '0x%08X=1e' % (mine + 9)]] + treats + feed)
+    no_treats, _, _, _ = run_(rom, sav, load + place + feed)
     h1, _ = mood(fed)
     h2, _ = mood(no_treats)
-    ok = h0 < 25 and bool(set(mopes) & {'sad', 'sit', 'lie'}) and fed['last_pick'] == 3 and h1 > 95 and left == 0 \
-        and no_treats['last_pick'] == 3 and h2 <= 80
-    return ok, 'after ~700 fast minutes from 08:00: hunger 80 -> %d, happiness 80 -> %d, it did: %s; Feed with ' \
-        'treats: hunger %d, treats left %d; Feed without treats: hunger %d (refused)' % (h0, f0, ', '.join(mopes), h1,
-                                                                                         left, h2)
+    ok = abs(h0 - expect) <= 2 and abs(f0 - expect) <= 2 and bool(set(mopes) & {'sad', 'sit', 'lie'}) and \
+        fed['last_pick'] == 3 and h1 == 90 and left == 0 and no_treats['last_pick'] == 3 and h2 <= 80
+    return ok, 'after %d fast minutes by day: hunger 80 -> %d, happiness 80 -> %d (expect %d); at hunger 10 it did: %s; ' \
+        'Feed with treats at 30: %d, treats left %d; Feed without treats: hunger %d (refused)' % (
+            minutes, h0, f0, expect, ', '.join(mopes), h1, left, h2)
 
 
 SHOP_9 = 0x021414F0       # shop list 9's slots (Bayou Bazaar, the Farmer's Market clerk 15) in pet-shop.sav
@@ -2007,6 +2019,151 @@ def _player_poke(rom, sav, script, where):
     player = [e for e, t, *_ in ents if t == 0][0]
     x, y = where(ents)
     return ['poke', '0x%08X=%s' % (player + 0x18, struct.pack('<iiii', x << 16, y << 16, x << 16, y << 16).hex())]
+
+
+# ---- the pets test-play fixes (2026-10-09) ----------------------------------------------------------------
+APARTMENT = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
+# Walks that put the four beds and the eight pets on free spots of the Small Brownstone, one after another
+# (found by trying, verify-pets-session 2026-10-09; a pet that wandered onto a spot can make one fail).
+MANY_PLACES = [(397, ['DOWN'] * 2), (398, ['RIGHT'] * 3 + ['UP'] * 2), (399, ['UP'] * 2), (400, ['UP'] * 3 + ['RIGHT'] * 3),
+               (386, ['RIGHT'] * 4), (389, ['DOWN'] * 4), (390, ['DOWN'] * 2), (391, ['DOWN'] * 3 + ['RIGHT'] * 2),
+               (392, ['RIGHT'] * 4), (393, ['DOWN'] * 3 + ['RIGHT'] * 2), (394, ['DOWN'] * 4), (395, ['DOWN'] * 3 + ['RIGHT'] * 2)]
+PET_GROUPS = {7: 'pets1', 9: 'pets1', 12: 'pets1', 8: 'pets2', 13: 'pets2', 10: 'pets3', 11: 'pets3', 14: 'pets3'}
+
+
+def _rested(script):
+    return [['poke', '0x02141204=' + '00000060' * 8]] + script
+
+
+def p_pets_colours():
+    """Colours for everyone (2026-10-09): the DS has 7 sprite colour rows free at home and each pet and bed took
+    one, so with 4 beds and 3 pets out the others were drawn in the Bunny's black and white. Pets of one
+    pets.json "palette" group, and the beds (objects.json "beds"), now share one palette file and so one row.
+    From the apartment save, the 4 beds and the 8 pets put down: rows per group; Options > Mods > Pets, R x4
+    scrolls the page, which lists all 8 (build/proofs/pets-colours.png, pets-page-scroll.png)."""
+    rom = build('pets-play', [os.path.join(KIT, 'mods', 'pets')])[0]
+    script = _load()
+    for obj, steps in MANY_PLACES:
+        script += _rested(_pocket_place(obj, steps))
+    script += [['wait', 120], ['shot', 'many']]
+    taps = [['touch', 128, 180, 8], ['wait', 60], ['touch', 61, 120, 8], ['wait', 60], ['touch', 64, 28, 8], ['wait', 60],
+            ['shot', 'page0']] + [['press', 'R', 4], ['wait', 30]] * 4 + [['shot', 'page4']]
+    vals, ev = _ram_run(rom, APARTMENT, script + taps, WORLD)
+    _shot(ev, 'many', 'pets-colours.png')
+    _shot(ev, 'page4', 'pets-page-scroll.png')
+    mem = vals[WORLD]
+    rows = {}
+    for e, t, k, x, y in _world(mem):
+        if (t == 9 and k in PET_GROUPS) or (t == 5 and 397 <= k <= 401):
+            w = struct.unpack_from('<I', mem, e + 0x90 - 0x02100000)[0]
+            rows.setdefault(PET_GROUPS.get(k, 'beds') if t == 9 else 'beds', set()).add((w >> 12) & 15)
+    st = _pets_stats(vals[HEAP_SCAN])
+    one_each = all(len(r) == 1 for r in rows.values())
+    used = sorted(set().union(*rows.values())) if rows else []
+    ok = st['n'] >= 6 and one_each and len(used) == len(rows) and 15 not in used and st['page_lines'] >= 9
+    return ok, 'pets out %d; colour rows: %s (one per group, none sharing: %s); Pets page lines printed %d; ' \
+        'build/proofs/pets-colours.png, pets-page-scroll.png' % (
+            st['n'], ', '.join('%s %s' % (g, sorted(r)) for g, r in sorted(rows.items())), one_each and len(used) == len(rows),
+            st['page_lines'])
+
+
+def p_pets_night():
+    """A night's sleep (2026-10-09): a pet whose bed it couldn't reach tried again every 5 s and started its sleep
+    over each time, so it never woke (still asleep at 2 pm), and the others got up every half hour. Now it
+    sleeps where it is until morning, nobody gets up at night, and they're up after 7. From the apartment save
+    at 21:30: the four beds and the Puppy; at 02:00 and 05:00 it's asleep (and did nothing else in between), by
+    09:30 up; its hunger went down by about 15 (needs drop by about 60 a day, half as fast asleep)."""
+    rom = build('pets-play', [os.path.join(KIT, 'mods', 'pets')])[0]
+    work = tempfile.mkdtemp(prefix='urbz-proof-')
+    night = os.path.join(work, 'night.sav')
+    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', APARTMENT, night, '--clock', '21:30'])
+    place = _load() + sum((_rested(_pocket_place(o, st)) for o, st in MANY_PLACES[:5]), [])   # the 4 beds, the Puppy
+    res = []
+    for until in ('02:00', '05:00', '09:30'):
+        h, m = map(int, until.split(':'))
+        mins = ((h * 60 + m) - (21 * 60 + 30)) % (24 * 60) - 20
+        s = place + sum(([['poke', '0x02141204=' + '00000060' * 8], ['wait', 1200]] for _ in range(mins * 40 // 1200)), [])
+        vals, _ = _ram_run(rom, night, s, '0x0214112C:4')
+        st = _pets_stats(vals[HEAP_SCAN])
+        a = st['mood0'] >> 24
+        res.append((until, PET_ACTIONS[a] if a < len(PET_ACTIONS) else a, st['mood0'] & 0xFF, st['acts']))
+        if not st['n']:
+            return False, 'the Puppy was not put down'
+    sleep_ok = all(r[1] in ('sleep', 'bedsleep') for r in res[:2]) and res[2][1] not in ('sleep', 'bedsleep')
+    quiet = res[1][3] - res[0][3] <= 2                   # no getting up between 02:00 and 05:00
+    ok = sleep_ok and quiet and 80 - 25 <= res[2][2] < 80
+    return ok, '; '.join('%s: %s (hunger %d, actions so far %d)' % r for r in res)
+
+
+def p_pets_come_back():
+    """Pets stay with you (2026-10-09): the game only runs critters near the screen, so a pet that wandered into
+    the next room stood frozen there for good. Now one that strays more than 100 px while wandering walks back the
+    way it came, and one out of sight is brought back. From the apartment save: the Puppy put down, then moved into
+    the bedroom (where the Guinea Pig got stuck in the test-play); a few seconds later it's back by you."""
+    rom = build('pets-play', [os.path.join(KIT, 'mods', 'pets')])[0]
+    base = _load() + _pocket_place(386, ['DOWN'] * 2)
+    vals, _ = _ram_run(rom, APARTMENT, base, WORLD)
+    pup = [e for e, t, k, *_ in _world(vals[WORLD]) if t == 9 and k == 7][0]
+    xy = struct.pack('<iiii', 308 << 16, 256 << 16, 308 << 16, 256 << 16).hex()
+    vals, _ = _ram_run(rom, APARTMENT, base + [['poke', '0x%08X=%s' % (pup + 0x18, xy)], ['wait', 600]], WORLD)
+    st = _pets_stats(vals[HEAP_SCAN])
+    ents = _world(vals[WORLD])
+    px, py = [(x, y) for _, t, k, x, y in ents if t == 9 and k == 7][0]
+    me = [(x, y) for _, t, k, x, y in ents if t == 0][0]
+    d = ((px - me[0]) ** 2 + (py - me[1]) ** 2) ** 0.5
+    ok = st['brought'] >= 1 and d < 100
+    return ok, 'put in the bedroom (308, 256); 10 s later at (%d, %d), %d px from you; brought back %d time(s)' % (
+        px, py, d, st['brought'])
+
+
+def p_pets_not_yours():
+    """Only your own pets go to Pockets (Jonathan, 2026-10-09: after the strays quest he pocketed the Puppy its new
+    owner, Gramma Hattie, had adopted). The game's pick-up (critter state 0x12) now gives back a pet only when
+    it's one of yours. After the quest (strays-trust's steps), the adopted Kitten is put in the pick-up state:
+    it stays, Pockets don't change; your own Puppy, let loose at home, the same way: back in Pockets."""
+    rom = build('strays', [os.path.join(KIT, 'mods', 'pets')])[0]
+    arrive, near, feed1, feed2, take, _ = _strays_script(rom)
+    quest = arrive + near + feed1 + feed2 + take
+    vals, _ = _ram_run(rom, URBANIA, quest, WORLD, '0x02141338:1')
+    kit = [e for e, t, k, *_ in _world(vals[WORLD]) if t == 9 and k == 8][0]
+    n0 = vals['0x02141338:1'][0]
+    pick = lambda e: [['poke', '0x%08X=0000' % (e + 0x108)], ['poke', '0x%08X=120E' % (e + 0x104)], ['wait', 120]]
+    # the case Jonathan hit: the adopted stray no longer followed by the quest (stray_live[1].e = 0), so the game's
+    # own wandering and pick-up run on it
+    syms = json.load(open(os.path.join(KIT, 'code', 'pets-kit', 'build', 'patch.json')))['symbols']
+    heap = vals[HEAP_SCAN]
+    base = 0x0214DE20 + heap.find(struct.pack('<I', 0x53544550)) - syms['pets_stats']
+    loose = [['poke', '0x%08X=00000000' % (base + syms['stray_live'] + 16)], ['wait', 30]]
+    vals, _ = _ram_run(rom, URBANIA, quest + loose + pick(kit), WORLD, '0x02141338:1')
+    still = [e for e, t, k, *_ in _world(vals[WORLD]) if t == 9 and k == 8]
+    n1 = vals['0x02141338:1'][0]
+    base = _load() + _pocket_place(386, ['DOWN'] * 2)
+    v2, _ = _ram_run(rom, APARTMENT, base, WORLD)
+    pup = [e for e, t, k, *_ in _world(v2[WORLD]) if t == 9 and k == 7][0]
+    lb = 0x0214DE20 + v2[HEAP_SCAN].find(struct.pack('<I', 0x53544550)) - syms['pets_stats'] + syms['live']
+    wander = [['poke', '0x%08X=0000ff7f' % (lb + 4)]]        # live[0]: mode wander, a long wander (the game's own update)
+    v3, _ = _ram_run(rom, APARTMENT, base + wander + pick(pup), WORLD, '0x02141338:1', '0x0214188C:2')
+    mine_back = struct.unpack('<H', v3['0x0214188C:2'])[0] == 386 and not [1 for _, t, k, *_ in _world(v3[WORLD]) if t == 9 and k == 7]
+    ok = bool(still) and n1 == n0 and mine_back
+    return ok, 'adopted Kitten picked up: still there %s, Pockets %d -> %d; your own Puppy: back in Pockets %s' % (
+        bool(still), n0, n1, mine_back)
+
+
+def p_pets_play():
+    """Play (2026-10-09): you only stood there; now you crouch and bounce (player animation 0x90) while the pet
+    plays. From the apartment save, next to the Puppy: A, Play (build/proofs/pets-play.png)."""
+    rom = build('pets-play', [os.path.join(KIT, 'mods', 'pets')])[0]
+    base = _load() + _pocket_place(386, ['DOWN'] * 2)
+    at = _player_poke(rom, APARTMENT, base, lambda es: [(x + 18, y) for _, t, k, x, y in es if t == 9 and k == 7][0])
+    s = base + [at, ['press', 'LEFT', 2], ['wait', 5], ['press', 'A', 4], ['wait', 40], ['press', 'DOWN', 4], ['wait', 10],
+                ['press', 'A', 4], ['wait', 80], ['shot', 'play']]
+    vals, ev = _ram_run(rom, APARTMENT, s, WORLD)
+    _shot(ev, 'play', 'pets-play.png')
+    me = [e for e, t, *_ in _world(vals[WORLD]) if t == 0][0]
+    state = vals[WORLD][me + 0x104 - 0x02100000]           # 0 while playing along (0x10 = walking about)
+    st = _pets_stats(vals[HEAP_SCAN])
+    return st['last_pick'] == 2 and state == 0, 'picked %d (2 = Play), your state while playing %#x; ' \
+        'build/proofs/pets-play.png' % (st['last_pick'], state)
 
 
 def p_pets_gate2():
@@ -2434,7 +2591,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
           ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
-          ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall),
+          ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
           ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 

@@ -222,14 +222,57 @@ static void page_print(mod_page_t *p, const char *s)
         n_lines = k + 1;
 }
 
+static int info_scroll, info_total;
+
 static void build_info_page(int mod)
 {
     mod_row_t *r = &mod_table->rows[mod];
-    mod_page_t p = { page_print, 0, 0, 0, 0 };
+    mod_page_t p = { page_print, 0, 0, info_scroll, 0 };
     n_lines = 0;
     if (r->ev[EV_PAGE])
         ((void (*)(mod_page_t *))r->ev[EV_PAGE])(&p);
+    info_total = p.line;
+    if (info_scroll + INFO_LINES < info_total) {     /* more below: the last line says so */
+        const char *more = "(R: more, L: back)";
+        int n = 0;
+        while (more[n]) {
+            lines[INFO_LINES - 1][n] = more[n];
+            n++;
+        }
+        lines[INFO_LINES - 1][n] = 0;
+        n_lines = INFO_LINES;
+    }
     info_menu.count = 1;                             /* just Back; the lines are drawn below */
+}
+
+/* Every tick: on an info page longer than 5 lines, R / L scroll it (2026-10-09: it never did; the D-pad walks
+   you about while a menu is open). */
+void core_page_tick(void)
+{
+    menu_ui_t *m = menu_ui;
+    if (!m || m->menu != MENU_INFO || info_total <= INFO_LINES)
+        return;
+    u16 keys = *(volatile u16 *)(ADDR_input_state + 10);
+    int s = info_scroll;
+    if (keys & 0x100)
+        s++;
+    if (keys & 0x200)
+        s--;
+    if (s > info_total - INFO_LINES)
+        s = info_total - INFO_LINES;
+    if (s < 0)
+        s = 0;
+    if (s == info_scroll)
+        return;
+    info_scroll = s;
+    /* the world tick runs with the top screen current: draw the menu as its own (bottom) screen, as a tap would */
+    volatile u32 *scr = (volatile u32 *)ADDR_screen_index;
+    u32 was = *scr;
+    *scr = 1;
+    build_info_page(info_mod);
+    menu_redraw();
+    ui_sound(4);
+    *scr = was;
 }
 
 /* After the game drew a menu's text: titles and info lines for our menus, icon colours. */
@@ -279,6 +322,7 @@ int core_menu_hit(void)
         page = (page + 1) * (PER_PAGE - 1) < total ? page + 1 : 0;
     } else if (items[s].kind == IT_INFO) {
         info_mod = items[s].mod;
+        info_scroll = 0;
         build_info_page(info_mod);
         m->menu = MENU_INFO;
         menu_redraw();

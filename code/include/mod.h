@@ -71,7 +71,7 @@ struct mod_page {
     void (*print)(mod_page_t *page, const char *text);   /* one line, advances down */
     int line;
     u32 keys_down;               /* keys pressed this frame (KEY_* below), for paging */
-    int scroll;                  /* lines to skip (the core changes it with UP/DOWN) */
+    int scroll;                  /* lines to skip (the core changes it with R / L) */
     void *core;
 };
 enum { KEY_A = 1, KEY_B = 2, KEY_SELECT = 4, KEY_START = 8, KEY_RIGHT = 16, KEY_LEFT = 32,
