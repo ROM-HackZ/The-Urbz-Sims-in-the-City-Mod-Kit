@@ -1,5 +1,6 @@
 """NPC Life soak: every player mod on, a save, N snapshots; flags people who look stuck or wrong.
-Usage: soak_probe.py ROM SAVE_NAME STEPS EVERY [AREA]   (SAVE_NAME from verify/saves; AREA: --goto first)
+Usage: soak_probe.py ROM SAVE_NAME STEPS EVERY [AREA]   (SAVE_NAME from verify/saves; AREA: --goto first;
+       env CLOCK=HH:MM sets the time first, PLAYER_AT=x,y puts you somewhere, NACT=1 prints NPC Life's counters)
 Prints per snapshot: clock, people here (id state/action x,y), NPC Life's actors; then the suspects:
   orphan    action 0x30 (NPC Life drives them) but no actor holds them
   stuck     walking somewhere (state 0x26) without moving for 3 snapshots
@@ -38,6 +39,9 @@ def run_snaps(n_steps=None, player_at=None):
     import urbz_verify as V
     out = tempfile.mkdtemp(prefix='urbz-soak-')
     script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]]
+    if os.environ.get('CLOCK'):                   # CLOCK=HH:MM: set the time of day first (the day stays)
+        hh, mm = (int(v) for v in os.environ['CLOCK'].split(':'))
+        script += [['poke', '0x0214112E=%02x%02x' % (hh, mm)], ['wait', 30]]
     if area is not None:                          # (the loader's own goto only works once the game settled)
         script += P._area_goto(area) + [['wait', 120]]
     if player_at:
@@ -85,13 +89,13 @@ for n, (mem, clock) in enumerate(snaps):
             if ea:
                 actors.append((ea, who, need, kind, partner, pwho, phase, since, until))
         nact = struct.unpack_from('<8I', rd(base + SYM['npc_act'], 32))
-        more = struct.unpack_from('<10I', rd(base + SYM['npc_act'] + 36, 40))  # rounds, seen, cand, no_object, chats, loose, forced, kept, walked_off, looks
+        more = struct.unpack_from('<12I', rd(base + SYM['npc_act'] + 36, 48))  # rounds, seen, cand, no_object, chats, loose, forced, kept, walked_off, looks, taken_skips, strolls
         if os.environ.get('NACT'):
-            print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d loose %d forced %d kept %d walked_off %d looks %d' % (nact[1:] + more))
+            print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d loose %d forced %d kept %d walked_off %d looks %d taken %d strolls %d' % (nact[1:] + more))
     held = {a[0] for a in actors} | {a[4] for a in actors if a[3] == 1}
     print('%02d day %d %02d:%02d  %s | actors %s' % (n, day, hh, mm, ' '.join(
         '%s %x/%x %d,%d' % (name(w), st, ac, x, y) for _, w, st, ac, fl, x, y in people),
-        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'look %d' % a[5] if a[3] == 2 else 'obj need %d %d..%d' % (a[2], a[7], a[8]), '') for a in actors]))
+        ['%s %s%s' % (name(a[1]), 'chat ' + name(a[5]) if a[3] == 1 else 'look %d' % a[5] if a[3] == 2 else 'obj need %d %d..%d @%x' % (a[2], a[7], a[8], a[4]), '') for a in actors]))
     if k >= 0:
         print('   act_ticks %d' % struct.unpack('<I', rd(base + SYM['act_ticks'], 4))[0])
     for e_, w, st, ac, fl, x, y in people:

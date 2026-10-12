@@ -411,6 +411,18 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   205-207): path to a spot 26/13 px off a corner of it (the other corners if that fails), face it, gesture
   now and then for 10-20 s. The game's own activity isn't started (it would wait for animations they don't
   have).
+- **NPC Life test-play fixes (2026-10-12, proof `npc-testplay`):** Café Z-Bach's two invisible love seats (156)
+  seat their sitters on shared spots: the game gives a sitter the first free place, so two people sent at once
+  got the same one and were drawn on top of each other. NPC Life now sends one person to an object at a time,
+  never two of its own to one object, learns where each object seats people (this visit) and skips it while that
+  spot is taken; whoever sits down on someone else gets up again (the game then ends the shared object's use for
+  both). The walk back after a use ends when they're within 8 px of the spot or stop moving (it waited out its
+  15 s). Chats: the partner must be standing (one walking about kept walking off), may be up to 500 px away and
+  isn't held back by the 10 s "already looked at" pause; socialising people try a chat before a seat. Urbania
+  Park has only a grill (1), 168 and two pay phones (206): free time now picks a chat, a stroll (`K_STROLL`: a
+  path 80-200 px off, a look round) or a look in random order. Rest between actions 15-35 s (was 20-50).
+  Toilet 10-15 s, shower 15-25 s (were up to 60 s). People still wander Urbania Park at 3 am, as the original
+  timetables have them (Jonathan: leave it).
 - **The player using an object (2026-10-09, research/objects/use_probe.py, face_scan.py):** every tick of
   the city (`world_tick` 0x02084104), with the player standing (state 0x10), the tile in front (facing +0x12,
   0-7, offsets at 0x02113B68) is checked against each object's bounds (node +0x7C..+0x82); a hit becomes the

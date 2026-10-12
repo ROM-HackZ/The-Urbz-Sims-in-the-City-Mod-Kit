@@ -23,7 +23,8 @@
 #define ACT_SIT    0x38                      /* chairs, sofas, benches */
 enum { NEED_HUNGER, NEED_HYGIENE, NEED_ENERGY, NEED_SOCIAL, NEED_COMFORT, NEED_BLADDER, NEED_FUN };
 
-enum { K_OBJECT, K_CHAT, K_LOOK };     /* K_LOOK: at an object anyone can enjoy without its animations */
+enum { K_OBJECT, K_CHAT, K_LOOK, K_STROLL };   /* K_LOOK: at an object anyone can enjoy without its animations;
+                                                   K_STROLL: a walk to another spot of the place */
 enum { CH_WALK, CH_TALK };
 #define ACT_OURS   0x30                      /* an action the wander state ignores: we drive them */
 
@@ -31,7 +32,7 @@ typedef struct {
     u8 *e;                    /* entity (0 = free slot) */
     u8 who, need, obj_number, kind;
     u32 since, until;         /* ticks */
-    u8 *partner;              /* chat: the other person */
+    u8 *partner;              /* chat: the other person; object: the object; look: the thing looked at */
     u8 partner_who, phase, turn, ract;      /* ract: their routine's activity when this started */
     u32 next_gesture;
 } actor_t;
@@ -39,10 +40,12 @@ typedef struct {
 static actor_t actors[MAX_ACTORS];
 static s32 needs_block[SIM_PEOPLE][16];      /* entity+0x114 for people we send (64 bytes each) */
 static u32 rest_until[SIM_PEOPLE];           /* no new action before this tick */
+static u32 after_act[SIM_PEOPLE];            /* just did something: not asked to chat before this tick */
 static u32 walk_off[SIM_PEOPLE];             /* after a use: walk away from it at this tick (0 = no) */
 static s32 came_from[SIM_PEOPLE][2];         /* where they were when sent to an object (reachable: they walked) */
 static u8 off_result[SIM_PEOPLE];            /* path_request's result byte for that walk */
 static u32 off_until[SIM_PEOPLE];            /* walking away until this tick (0 = not walking away) */
+static s32 off_x[SIM_PEOPLE], off_y[SIM_PEOPLE];   /* where they were at the last check of that walk */
 static u32 act_ticks;
 
 struct {
@@ -53,6 +56,8 @@ struct {
     u32 kept;                                /* routine moved on, the use still serves it: carried on */
     u32 walked_off;                          /* stepped away from an object after using it */
     u32 looks;                               /* went to look at / dance by / watch something */
+    u32 taken_skips;                         /* an object someone of ours is already on (2026-10-12) */
+    u32 strolls;                             /* walked to another spot of the place (2026-10-12) */
 } npc_act = { 0x5443414E };                  /* 'NACT' (tests read this) */
 
 #define path_count   GAME_VAR(ADDR_path_count, u8)
@@ -111,8 +116,9 @@ static void finish(actor_t *a, int why)
     if (a->kind == K_CHAT) {
         resume(e, a->who);
         resume(a->partner, a->partner_who);
-        rest_until[a->partner_who - 31] = act_ticks + 600 + (act_rnd() % 900);
-    } else if (a->kind == K_LOOK) {
+        rest_until[a->partner_who - 31] = act_ticks + 450 + (act_rnd() % 600);
+        after_act[a->partner_who - 31] = rest_until[a->partner_who - 31];
+    } else if (a->kind == K_LOOK || a->kind == K_STROLL) {
         resume(e, a->who);
     } else if (alive(e, a->who)) {
         if (E8(e, 0x104) == ST_USING) {
@@ -134,7 +140,8 @@ static void finish(actor_t *a, int why)
         npc_act.rescued++;
     else
         npc_act.aborted++;
-    rest_until[a->who - 31] = act_ticks + 600 + (act_rnd() % 900);   /* 20-50 s before the next */
+    rest_until[a->who - 31] = act_ticks + 450 + (act_rnd() % 600);   /* 15-35 s before the next (was 20-50: a café stayed still for minutes) */
+    after_act[a->who - 31] = rest_until[a->who - 31];
     if (a->kind == K_OBJECT)
         walk_off[a->who - 31] = act_ticks + 45;
     a->e = 0;
@@ -235,6 +242,47 @@ static int dist2(u8 *a, u8 *b)
     return dx * dx + dy * dy;
 }
 
+/* Where people end up sitting on each object (learned this visit): Café Z-Bach's two invisible love seats put
+   their sitter on the same spot, so "a free seat" could still be on top of someone (2026-10-12). */
+#define N_SPOTS 12
+static struct { u8 *obj; s16 x, y; } spots[N_SPOTS];
+
+static u8 *someone_using_at(u8 *self, int x, int y)
+{
+    for (u8 *p = world_first(); p; p = *(u8 **)p) {
+        if (p == self || E16(p, 8) != 7 || E8(p, 0x104) != ST_USING)
+            continue;
+        int dx = ((s32)E32(p, 0x18) >> 16) - x, dy = ((s32)E32(p, 0x1C) >> 16) - y;
+        if (dx * dx + dy * dy < 8 * 8)
+            return p;
+    }
+    return 0;
+}
+
+static int spot_taken(u8 *obj)
+{
+    for (int k = 0; k < N_SPOTS; k++)
+        if (spots[k].obj == obj)
+            return someone_using_at(0, spots[k].x, spots[k].y) != 0;
+    return 0;
+}
+
+static void spot_learn(u8 *obj, u8 *person)
+{
+    int free = -1;
+    for (int k = 0; k < N_SPOTS; k++) {
+        if (spots[k].obj == obj)
+            return;
+        if (!spots[k].obj && free < 0)
+            free = k;
+    }
+    if (free >= 0) {
+        spots[free].obj = obj;
+        spots[free].x = (s16)((s32)E32(person, 0x18) >> 16);
+        spots[free].y = (s16)((s32)E32(person, 0x1C) >> 16);
+    }
+}
+
 /* An object here offering an activity for `need` that this person may start (picked at random). */
 static u8 *find_object(u8 *person, int need, int *activity, int *number)
 {
@@ -257,6 +305,14 @@ static u8 *find_object(u8 *person, int need, int *activity, int *number)
                townspeople seats (activity 0x38) and snacks without 0x7F (press the button), which
                nobody has; with the sit / eat animation they look right, so those two are skipped. */
             int lenient = acts[k] == ACT_SIT || anim == 0x41;
+            int ours = 0;                                 /* someone we sent is on it already (two people drawn on
+                                                             one armchair, 2026-10-12) */
+            for (int j = 0; j < MAX_ACTORS; j++)
+                ours |= actors[j].e && actors[j].kind == K_OBJECT && actors[j].partner == ent;
+            if (ours || spot_taken(ent)) {
+                npc_act.taken_skips++;
+                break;
+            }
             if (((int (*)(void *, void *))CLASS(num, 0x1C))(node, person) != 1 ||
                 (!lenient && ((int (*)(void *, void *, int))CLASS(num, 8))(node, person, acts[k]) != 1))
                 continue;
@@ -272,34 +328,42 @@ static u8 *find_object(u8 *person, int need, int *activity, int *number)
     return best;
 }
 
-static int may_act(u8 *e, int who)
+static int may_act_now(u8 *e, int who, int rested)
 {
     if (who < 31 || who >= 31 + SIM_PEOPLE || !sim.orig[who - 31])
         return 0;
-    if (E8(e, 0x104) != ST_WANDER || E8(e, 0x105) != 7 || (E8(e, 0x107) & 2))
-        return 0;                                    /* busy, scripted, or about to leave */
+    if (E8(e, 0x104) != ST_WANDER || (E8(e, 0x105) != 7 && E8(e, 0x105) != 0x19) || (E8(e, 0x107) & 2))
+        return 0;                                    /* busy, scripted, or about to leave (standing or strolling
+                                                        about may: only standing used to, so few ever chatted) */
     if (*(u32 *)ADDR_talk_partner == (u32)who || acting(e))
         return 0;
-    return act_ticks >= rest_until[who - 31];
+    return rested ? act_ticks >= rest_until[who - 31] : act_ticks >= after_act[who - 31];
+}
+
+static int may_act(u8 *e, int who)
+{
+    return may_act_now(e, who, 1);
 }
 
 /* A chats with someone else here who is free: A walks up to them. Social people chat more. */
 static int start_chat(int slot, u8 *e, int who)
 {
-    if (!gesture_of(who, 0) || (sim_act_at(&sim, who - 31, week_minute()) != A_SOCIAL && (act_rnd() % 3)))
-        return 0;
+    if (sim_act_at(&sim, who - 31, week_minute()) != A_SOCIAL && (act_rnd() & 1))
+        return 0;                                    /* (anyone may chat: without gestures they just face each
+                                                        other; only 20 people have gestures) */
     u8 *best = 0;
     int best_d = 0x7FFFFFFF;
     for (u8 *p = world_first(); p; p = *(u8 **)p) {
-        if (p == e || E16(p, 8) != 7 || !may_act(p, E16(p, 10)))
-            continue;
+        if (p == e || E16(p, 8) != 7 || E8(p, 0x105) != 7 || !may_act_now(p, E16(p, 10), 0))
+            continue;                                /* (standing: one walking about kept walking off) */
         int d = dist2(e, p);
         if (d < best_d) {
             best = p;
             best_d = d;
         }
     }
-    if (!best || best_d > 160 * 160)
+    if (!best || best_d > 500 * 500)                  /* (160 px: nobody ever chatted in Urbania Park, people are
+                                                         hundreds of pixels apart there) */
         return 0;
     /* stand next to them, on their side facing us */
     s32 xy[2];
@@ -515,6 +579,72 @@ static void look_tick(actor_t *a)
     }
 }
 
+/* A stroll (2026-10-12): in a park or out for fun, a walk to another spot 80-200 px away, a look round there,
+   then back to their own wandering. Urbania Park has only a grill and two phones, so everyone's free time was
+   standing at those one after another. */
+static int start_stroll(int slot, u8 *e, int who)
+{
+    int ang = act_rnd() & 7, len = 80 + act_rnd() % 120;
+    static const s8 dirs[8][2] = { { 2, 0 }, { 1, 1 }, { 0, 2 }, { -1, 1 }, { -2, 0 }, { -1, -1 }, { 0, -2 }, { 1, -1 } };
+    s32 xy[2] = { (s32)E32(e, 0x18) + ((dirs[ang][0] * len / 2) << 16), (s32)E32(e, 0x1C) + ((dirs[ang][1] * len / 4) << 16) };
+    E8(e, 0x10B) = 0;
+    if (path_request(e, xy, (u8 *)(e + 0x10B), 0) != 1)
+        return 0;
+    actor_t *a = &actors[slot];
+    a->e = e;
+    a->who = who;
+    a->kind = K_STROLL;
+    a->partner = 0;
+    a->phase = CH_WALK;
+    a->since = act_ticks;
+    a->need = NEED_FUN;
+    a->obj_number = 0;
+    a->turn = 0;
+    a->ract = (u8)sim_act_at(&sim, who - 31, week_minute());
+    set_action(e, ACT_OURS);
+    play_anim(e, 0x0A);
+    npc_act.sent++;
+    npc_act.strolls++;
+    npc_act.last_who = who;
+    return 1;
+}
+
+static void stroll_tick(actor_t *a)
+{
+    u8 *e = a->e;
+    if (E8(e, 0x104) != ST_WANDER || E8(e, 0x105) != ACT_OURS) {
+        finish(a, 0);
+        return;
+    }
+    if (E8(e, 0x107) & 2) {
+        finish(a, 2);
+        return;
+    }
+    if (a->phase == CH_WALK) {
+        int r = E8(e, 0x10B);
+        if (r == 1 || r == 3 || act_ticks - a->since > 450) {
+            path_cancel(e);
+            play_anim(e, 4);
+            a->phase = CH_TALK;
+            a->until = act_ticks + 90 + act_rnd() % 150;    /* a look round: 3-8 s */
+            a->next_gesture = act_ticks + 30;
+        }
+        return;
+    }
+    if (act_ticks >= a->until) {
+        finish(a, 1);
+        return;
+    }
+    if (act_ticks >= a->next_gesture && !a->turn) {
+        int g = gesture_of(a->who, act_rnd());
+        if (g)
+            play_anim(e, g);
+        else
+            face(e, 1 + (act_rnd() & 7));                  /* no gestures: looks about */
+        a->turn = 1;
+    }
+}
+
 static void start_one(void)
 {
     if (path_count >= 2) {                           /* leave a path slot for the game */
@@ -539,7 +669,14 @@ static void start_one(void)
         int i = who - 31;
         u8 want[6];
         rest_until[i] = act_ticks + 300;             /* look again in 10 s whatever happens */
-        int n = wants(i, want);
+        if (sim_act_at(&sim, i, week_minute()) == A_SOCIAL && act_rnd() % 3 && start_chat(slot, e, who))
+            return;                                  /* socialising: a chat before a seat (they sat alone instead) */
+        int n = wants(i, want), walking = 0;
+        for (int k = 0; k < MAX_ACTORS; k++)          /* one of ours on the way to something at a time: two sent
+                                                         at once to Café Z-Bach's love seats got the same place */
+            walking |= actors[k].e && actors[k].kind == K_OBJECT && E8(actors[k].e, 0x104) == ST_GOTO;
+        if (walking)
+            n = 0;
         for (int w = 0; w < n; w++) {
             int activity, number;
             u8 *obj = find_object(e, want[w], &activity, &number);
@@ -556,17 +693,20 @@ static void start_one(void)
                 npc_act.refused++;
                 continue;
             }
-            came_from[i][0] = (s32)E32(e, 0x18);
-            came_from[i][1] = (s32)E32(e, 0x1C);
+            /* (a little off where they were: two people who came in the same door walked back onto one spot) */
+            came_from[i][0] = (s32)E32(e, 0x18) + (s32)((act_rnd() % 25) - 12) * 0x10000;
+            came_from[i][1] = (s32)E32(e, 0x1C) + (s32)((act_rnd() % 13) - 6) * 0x10000;
             actor_t *a = &actors[slot];
             a->e = e;
             a->who = who;
+            a->partner = obj;
             a->need = want[w];
             a->obj_number = number;
             a->kind = K_OBJECT;
             a->ract = (u8)sim_act_at(&sim, i, week_minute());
             a->since = act_ticks;
-            a->until = act_ticks + (want[w] == NEED_BLADDER || want[w] == NEED_HYGIENE ? 1800 :
+            a->until = act_ticks + (want[w] == NEED_BLADDER ? 300 + act_rnd() % 150 :     /* 10-15 s: 8-11 game minutes */
+                                    want[w] == NEED_HYGIENE ? 450 + act_rnd() % 300 :     /* a shower, 11-19 minutes */
                                     300 + act_rnd() % 450);           /* sit for 10-25 s (about 15-35 game minutes) */
             npc_act.sent++;
             npc_act.last_who = who;
@@ -576,12 +716,18 @@ static void start_one(void)
         }
         int act = sim_act_at(&sim, i, week_minute());     /* free time: look at things here, or chat */
         int free = act == A_FUN || act == A_PARK || act == A_HOME || act == A_SOCIAL || act == A_EAT;
-        if (free && act != A_SOCIAL && (act_rnd() & 1) && start_look(slot, e, who))
-            return;                                   /* (socialising: a chat first) */
-        if (start_chat(slot, e, who))                /* nothing to use here they can show: a chat */
-            return;
-        if (free && start_look(slot, e, who))
-            return;
+        /* free time, in a random order: a chat, a walk round the place (parks, fun), a look at something
+           (socialising: a chat first) */
+        int first = act == A_SOCIAL ? 0 : (int)(act_rnd() % 3);
+        for (int t = 0; t < 3; t++) {
+            int c = (first + t) % 3;
+            if (c == 0 && start_chat(slot, e, who))
+                return;
+            if (c == 1 && (act == A_PARK || act == A_FUN) && start_stroll(slot, e, who))
+                return;
+            if (c == 2 && free && start_look(slot, e, who))
+                return;
+        }
     }
 }
 
@@ -621,7 +767,14 @@ static void watch_loose(void)
            the table), which looked like someone who never got up. */
         if (off_until[i]) {
             int r = off_result[i];
-            if (r == 1 || r == 3 || act_ticks >= off_until[i] || E8(e, 0x105) != ACT_OURS) {
+            s32 x = (s32)E32(e, 0x18), y = (s32)E32(e, 0x1C);
+            int dx = (x - came_from[i][0]) >> 16, dy = (y - came_from[i][1]) >> 16;
+            /* there, or standing still (they used to wait out the 15 s at the spot: frozen 10-20 game minutes) */
+            int still = off_until[i] - act_ticks < 420 && x == off_x[i] && y == off_y[i];
+            off_x[i] = x;
+            off_y[i] = y;
+            if (r == 1 || r == 3 || act_ticks >= off_until[i] || E8(e, 0x105) != ACT_OURS ||
+                dx * dx + dy * dy < 8 * 8 || still) {
                 if (E8(e, 0x104) == ST_WANDER && E8(e, 0x105) == ACT_OURS) {
                     path_cancel(e);
                     play_anim(e, 4);
@@ -704,6 +857,10 @@ static void act_tick(void)
             look_tick(a);
             continue;
         }
+        if (a->kind == K_STROLL) {
+            stroll_tick(a);
+            continue;
+        }
         int st = E8(e, 0x104);
         if (E8(e, 0x107) & 2)
             finish(a, 2);                            /* the game wants them elsewhere */
@@ -711,10 +868,22 @@ static void act_tick(void)
             finish(a, 3);                            /* 30 s and not there: stuck */
         else if (st == ST_USING && act_ticks >= a->until)
             finish(a, 1);
+        else if (st == ST_USING && a->partner) {
+            spot_learn(a->partner, e);
+            u8 *other = someone_using_at(e, (s32)E32(e, 0x18) >> 16, (s32)E32(e, 0x1C) >> 16);
+            int newer = 0;                               /* the other sat down after us: they get up, not us */
+            for (int j = 0; j < MAX_ACTORS; j++)
+                newer |= other && actors[j].e == other && actors[j].since > a->since;
+            if (other && !newer && act_ticks - a->since > 30) {
+                npc_act.taken_skips++;                   /* sat down on someone: up again */
+                finish(a, 0);
+                continue;
+            }
+        }
         else if (st != ST_GOTO && st != ST_USING) {  /* done by itself (or the use failed) */
             a->e = 0;
             npc_act.finished++;
-            rest_until[a->who - 31] = act_ticks + 600 + (act_rnd() % 900);
+            rest_until[a->who - 31] = act_ticks + 450 + (act_rnd() % 600);
             walk_off[a->who - 31] = act_ticks + 45;
         }
     }
@@ -737,6 +906,8 @@ static void act_release_all(void)
     }
     for (int i = 0; i < SIM_PEOPLE; i++)
         off_until[i] = walk_off[i] = 0;
+    for (int k = 0; k < N_SPOTS; k++)
+        spots[k].obj = 0;                            /* another place, other objects */
 }
 
 /* A new area: its people are new entities. */

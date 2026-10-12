@@ -606,7 +606,7 @@ def p_npc_act():
     shots = sorted(glob.glob(os.path.join(out, '*.png')))
     if len(shots) > 4:
         shutil.copy(shots[4], os.path.join(OUT, 'npc-act.png'))
-    mems, cout = _area_snaps(rom, 'cafe', 42, 24, 150)
+    mems, cout = _area_snaps(rom, 'cafe', 42, 40, 150)
     states = [_people_in(m) for m in mems]
     talk = [p for p in states if sum(1 for st, ac, an in p.values() if st == 0x23 and ac == 0x30 and an != 0x0A) >= 2]
     gest = sorted({an for p in states for st, ac, an in p.values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
@@ -2334,6 +2334,80 @@ def p_npc_seat_turns():
     return ok, '; '.join(report) + '; build/proofs/npc-seat-turns-*.png'
 
 
+def _npc_snaps(rom, save, area, steps, every, clock=None, player_at=None):
+    """Snapshots of RAM (WORLD) every `every` frames in an area (NPC Life tests)."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    out = tempfile.mkdtemp(prefix='urbz-proof-')
+    script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60]]
+    if clock:
+        script += [['poke', '0x0214112E=%02x%02x' % clock], ['wait', 30]]
+    if area is not None:
+        script += _area_goto(area) + [['wait', 120]]
+    script += sum(([['wait', every], ['shot', 's%02d' % k]] for k in range(steps)), [])
+    job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+           'state': V.city_state(os.path.abspath(rom), None, save), 'snap': [WORLD]}
+    res = V.run_child(job, timeout=3000)
+    return [open(files[0], 'rb').read() for _, files in res['snaps'][-steps:]], out
+
+
+def _npc_people(mem):
+    rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+    out, e = [], struct.unpack('<I', rd(0x02121AF0, 4))[0]
+    while e and 0x02100000 <= e < 0x02200000 and len(out) < 200:
+        t, who = struct.unpack('<HH', rd(e + 8, 4))
+        if t == 7 and 31 <= who < 80:
+            x, y = struct.unpack('<ii', rd(e + 0x18, 8))
+            out.append((e, who, rd(e + 0x104, 1)[0], rd(e + 0x105, 1)[0], x >> 16, y >> 16))
+        e = struct.unpack('<I', rd(e, 4))[0]
+    return out
+
+
+def p_npc_testplay():
+    """NPC Life test-play fixes (2026-10-12; Claude watched ~30 game hours, Jonathan chose the fixes):
+    - Café Z-Bach (cafe.sav): its two invisible love seats put their sitter on one spot, so two people sat on
+      one armchair, drawn on top of each other. Now one of ours per object, sit spots are learned, and someone
+      who sits down on someone gets up again: never two people using things on one spot.
+    - After a use people walked back to where they came from and then stood frozen 10-20 game minutes: now
+      they carry on when they're there or stop moving. Nobody held by NPC Life without an actor for 3+
+      snapshots in a row (10 s apart).
+    - Urbania Park at 19:30: there were no chats in 4 game hours and free time was standing at the grill or a
+      phone. Now chat partners may be up to 500 px away and walking about, free time picks a chat, a stroll
+      round the place or a look at something in a random order: chats and strolls happen."""
+    rom = npc_life_rom('npc-testplay')
+    syms = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'code', 'build', 'patch.json')))['symbols']
+    cafe, _ = _npc_snaps(rom, 'cafe', 42, 40, 300)
+    stacked, held = 0, {}
+    longest_held = 0
+    for mem in cafe:
+        ppl = _npc_people(mem)
+        using = [(x, y) for _, _, st, _, x, y in ppl if st == 0x11]
+        stacked += sum(1 for i in range(len(using)) for j in range(i + 1, len(using))
+                       if abs(using[i][0] - using[j][0]) < 8 and abs(using[i][1] - using[j][1]) < 8)
+        k = mem.find(struct.pack('<I', 0x5443414E))
+        base = 0x02100000 + k - syms['npc_act']
+        ours = set()                                         # actors and their chat partners (actor_t: 28 bytes)
+        for a in range(4):
+            ent, _w, _n, _o, kind, _s, _u, partner = struct.unpack_from('<IBBBBIII', mem, base + syms['actors'] + 28 * a - 0x02100000)
+            ours |= {ent} | ({partner} if kind == 1 else set())
+        for e, who, st, ac, x, y in ppl:
+            if ac == 0x30 and e not in ours:
+                held[who] = held.get(who, 0) + 1
+                longest_held = max(longest_held, held[who])
+            else:
+                held[who] = 0
+    park, _ = _npc_snaps(rom, 'urbania', None, 40, 300, clock=(19, 30))
+    mem = park[-1]
+    k = mem.find(struct.pack('<I', 0x5443414E))
+    base = 0x02100000 + k - syms['npc_act']
+    more = struct.unpack_from('<12I', mem, base + syms['npc_act'] + 36 - 0x02100000)
+    chats, looks, strolls = more[4], more[9], more[11]
+    ok = stacked == 0 and longest_held < 3 and chats >= 2 and strolls >= 2
+    return ok, 'Café Z-Bach, 40 snapshots: two people using things on one spot %d time(s); longest held with no actor: ' \
+        '%d snapshot(s) (under 3); Urbania Park from 19:30: %d chats, %d strolls, %d looks' % (
+            stacked, longest_held, chats, strolls, looks)
+
+
 def p_npc_poses():
     """Borrowed poses (urbz_poses.py, mods/npc-life/poses.json): 27 townspeople had no sit, eat, toilet, shower
     or sleep animation, so NPC Life could only walk them about. The build now makes each missing one from the
@@ -2593,7 +2667,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

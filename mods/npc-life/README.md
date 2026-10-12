@@ -56,10 +56,14 @@ In the area you're in, people act out their routine with the game's own objects 
 - everyone, in their free time, also goes to things they can enjoy standing up: the grill, a pay phone,
   the graffiti wall, museum exhibits, the crystal ball, a TV, a drinking fountain, the jukebox and dance
   pad, the DJ desk. They face it and gesture now and then for 10-20 s (busier by the jukebox);
-- or they chat: one walks up to another, they face each other and take turns gesturing (people who
-  are socialising chat first);
-- seats are picked at random among the free ones (everyone used to take the one nearest the door), and
-  after a sit people walk back the way they came (they used to stand trapped between chair and table);
+- or they chat: one walks up to another (anyone standing about up to ~500 px away), they face each other and
+  take turns gesturing (people who are socialising chat first, before sitting down);
+- in a park or out for fun, they also stroll: a walk to another spot of the place and a look round;
+- seats are picked at random among the free ones (everyone used to take the one nearest the door), one person
+  per seat (where two objects seat people on the same spot, the second one gets up again), and after a sit
+  people walk back the way they came (they used to stand trapped between chair and table) and carry on as
+  soon as they're there;
+- a toilet visit takes about 10 game minutes, a shower about 15;
 - at most 4 actions at once; when their routine moves on (breakfast time), they stop and go, unless what
   they're using still fits (socialising -> eating at the same table: they stay seated); a sit lasts 10-25 s,
   then they get up and wander a while before sitting again;
