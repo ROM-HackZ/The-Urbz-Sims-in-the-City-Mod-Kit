@@ -48,6 +48,9 @@ You need:
 5. Put the full path of your emulator's `.exe` in a file called `emulator.txt` in the kit folder.
 6. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**.
 
+<img width="811" height="587" alt="Screenshot 2026-10-13 150057" src="https://github.com/user-attachments/assets/bf05a2fc-87cb-472b-a69f-a8ee01a5bbd3" />
+
+
 The first build takes a few minutes (it renders the pets, furniture and borrowed animations); later builds
 take seconds. Your save lives next to the built ROM (`build\Urbz Mod.sav`), and rebuilding never touches it.
 
