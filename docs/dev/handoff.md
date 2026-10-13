@@ -132,7 +132,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   city states are made one at a time per ROM (parallel soaks had loaded each other's saves).
 - 2026-10-13, getting ready to publish (Jonathan: no outfits/hair/characters; perfect what's there, then make the
   repo easy for others, e.g. Reddit). Chosen: MIT license, same GitHub account with a clearer name
-  (`urbz-ds-mod-kit`), history kept with Jonathan as author (Claude as co-author). Done: the tools moved into
+  (`The-Urbz-Sims-in-the-City-Mod-Kit`), history kept with Jonathan as author (Claude as co-author). Done: the tools moved into
   `kit/` with one entry point `urbz.py` (`python urbz.py build`, `... mod list`, ...); README rewritten for
   newcomers, `docs/playing.md`, `docs/modding.md` (the old README's guide), `docs/README.md`, `CONTRIBUTING.md`,
   `LICENSE`, `.github/` templates; dev notes in `docs/dev/`. All 88 commits re-authored (Jonathan
@@ -150,7 +150,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - Later phases (docs/dev/plan.md): outfits, hair styles, characters.
 
 ## Setup in a fresh environment
-1. Clone https://github.com/ROM-HackZ/urbz-ds-mod-kit ; the person you work with supplies their own ROM (never in git).
+1. Clone https://github.com/ROM-HackZ/The-Urbz-Sims-in-the-City-Mod-Kit ; the person you work with supplies their own ROM (never in git).
 2. `pip install -r requirements.txt` (`--break-system-packages` if needed); `apt install clang lld llvm`.
 3. `python urbz.py extract <rom> project` then `python urbz.py build --vanilla` → `[IDENTICAL to original]`.
 4. `python3 tests/proofs.py` (about an hour; **never two proof runs at once**, they share `build/proofs/`),
