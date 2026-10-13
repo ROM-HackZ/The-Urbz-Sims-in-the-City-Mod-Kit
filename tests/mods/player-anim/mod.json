@@ -1,0 +1,6 @@
+{
+  "name": "player-anim",
+  "description": "Test: plays a poked animation on the player (to look at the player's own animations; research/objects/player_anims.py)",
+  "version": "1.0",
+  "author": "Urbz kit"
+}

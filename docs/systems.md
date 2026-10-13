@@ -486,6 +486,13 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   stop byte at +9). Stop byte 3 = abort: the person stands up and resumes wandering next tick (proven);
   2 had no visible effect.
 
+## The player's animations (2026-10-13, research/objects/player_anims.py, tests/mods/player-anim)
+- Every id 0x00-0xE3 played on the player and looked at: 0xCC-0xE3 draw nothing usable (a green blob), 0xC4-0xCB
+  garbage; these are the "PLACEHOLDER" sign (a pose that was never made): 0x25 0x2B 0x57 0x5C 0x5D 0x6E 0x77
+  0x78 0x87 0x8C 0x8D 0xA6. 0x6F/0x70 lie on a sofa (nap), 0x71 get up from it. 0x82/0x83 hold a sheet of paper
+  in front of the chest, standing. **There is no seated reading animation**, so "Read a Book" (more-furniture
+  430) keeps the seated loop; a real one would need new art.
+
 ## Player body on a person (Phase 6 prototype, mod `npc-body-proto`)
 
 - An entity draws either one sprite (people: slot 0, records set by their animation list) or, with
