@@ -301,6 +301,14 @@ Rendering verified pixel-identical to the emulator (EA logo, asset 10747).
   `FUN_020656a4` spawns), people present whose schedule says elsewhere walk out (`FUN_020655c0`).
   The call at **0x0206665C** is where our code answers instead. Proven: `npc-visit` hooks it and
   Bayou Boo walks onto the roof at 10:40 (from a loaded save, schedules active).
+- **Walking out (2026-10-13):** `npc_walk_out` sets entity +0x107 bit 1 and the target way point (+0x38/+0x3C).
+  The wander state (`FUN_0200a1f0`, +0x105 = 7) then asks `path_request` for it and walks (+0x105 = 0x2D). On
+  arrival (result byte +0x10B = 1): `path_cancel`, `entity_set_state(e, 1)` (gone), `npc_walked_out` (0x02065768).
+  If the walk fails (result 3) off screen (+0xC bit 30 clear), they're removed the same way; **on screen, they go
+  back to wandering with the bit cleared**, and the next relocation (5 s) tries again. P (`research/npc/who_where.py`,
+  original game, Waters' Gym from 4:50 on day 2, you standing at the left lift): Sue Pirnova's walk out failed
+  every time from 6:10 to past 8:30. NPC Life lets such people out (`watch_leaving`: after 20 s of trying, within
+  64 px of the way point; after 60 s anywhere); same run with it: gone by 6:42.
 - Byte 0x02142234 = 0 at the very start of a new game makes everyone always present (schedules
   off); a loaded save has it at 1.
 - `npc_present(id, area, time)` (0x02065AD0) decides if a person appears:

@@ -582,6 +582,39 @@ def p_npc_life_stays():
         usual, live, [r['present'] for r in res])
 
 
+SUE = 58
+
+
+def p_npc_life_leave():
+    """Nobody is left pacing by a door: the game walks people out to a way point, and when that walk fails on
+    screen (you standing at the lift) it puts them back to wandering and tries again, which in the original game
+    kept Sue Pirnova in Waters' Gym from 6:00 to past 8:30 (research/npc/who_where.py, docs/systems.md "Walking
+    out"). With NPC Life's watch_leaving she goes. Day 2 from 4:40 in the gym (area 64, entry 0, by the left lift):
+    Sue comes at 5:00 (her timetable), is sent out at 6:00, and must be gone by 6:50."""
+    rom = npc_life_rom('npc-life-leave')
+    clock = struct.pack('<hbbbb', 2, 4, 40, 0, 0).hex()
+    snaps, _ = snapshots(rom, 'lobby', 30, 240, ['0x02100000:0x300000'], pokes=['0x0214112C=' + clock], goto=64)
+    B, seen = 0x02100000, []
+    for (mem,) in snaps:
+        rd = lambda a, f='<I': struct.unpack_from(f, mem, a - B)[0]
+        h, m = rd(0x0214112E, '<b'), rd(0x0214112F, '<b')
+        e, sue = rd(0x02121AF0), None
+        while e and B <= e < B + len(mem):
+            if rd(e + 8, '<H') == 7 and rd(e + 10, '<H') == SUE:
+                sue = rd(e + 0x107, '<B')
+            e = rd(e)
+        seen.append((h * 60 + m, sue))
+    k = mem.find(struct.pack('<I', NACT_MAGIC))
+    let_out = struct.unpack_from('<I', mem, k + 104)[0]
+    came = any(t < 6 * 60 and f is not None for t, f in seen)
+    sent = any(t >= 6 * 60 and f is not None and f & 2 for t, f in seen)
+    gone = all(f is None for t, f in seen if t >= 6 * 60 + 50)
+    last = max((t for t, f in seen if f is not None), default=0)
+    return came and sent and gone, ('Sue in the gym before 6:00: %s, sent out: %s, last seen %d:%02d, gone from 6:50 '
+                                   'to %d:%02d: %s; let out by NPC Life: %d') % (
+        came, sent, last // 60, last % 60, seen[-1][0] // 60, seen[-1][0] % 60, gone, let_out)
+
+
 PHOEBE = 54
 
 
@@ -2787,7 +2820,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-leave', p_npc_life_leave), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),

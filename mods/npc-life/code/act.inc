@@ -61,6 +61,7 @@ struct {
     u32 strolls;                             /* walked to another spot of the place (2026-10-12) */
     u32 chat_end[4];                         /* chats ended: why (0 taken over, 1 done, 2 leaving, 3 no way) */
     u8 chat_end_st[4];                       /* the last one taken over: states and actions (e, partner) */
+    u32 let_out;                             /* watch_leaving: someone who couldn't get out, let out (2026-10-13) */
 } npc_act = { 0x5443414E };                  /* 'NACT' (tests read this) */
 
 #define path_count   GAME_VAR(ADDR_path_count, u8)
@@ -69,6 +70,7 @@ struct {
 #define set_action   GAME_FN(ADDR_entity_set_action, void (*)(void *e, int action))
 #define play_anim    GAME_FN(ADDR_entity_play_anim, void (*)(void *e, int anim))
 #define path_cancel  GAME_FN(ADDR_path_cancel, void (*)(void *e))
+#define walked_out   GAME_FN(ADDR_npc_walked_out, void (*)(void *e))
 #define face         GAME_FN(ADDR_entity_face, void (*)(void *e, int dir))
 #define has_anim     GAME_FN(ADDR_npc_has_anim, int (*)(int id, int anim))
 #define path_request GAME_FN(ADDR_path_request, int (*)(void *e, s32 *xy, u8 *result, int flags))
@@ -852,6 +854,45 @@ static void watch_loose(void)
     }
 }
 
+/* Someone the game is sending out of the area (entity +0x107 bit 1) walks to the way point toward their next
+   place. When the walk fails while they're on screen (you, or someone, standing on the way point), the game
+   puts them back to wandering and tries again at its next relocation, for ever: Sue Pirnova stayed in Waters'
+   Gym from 6:00 to past 8:30 by the lift you were standing at (the original game does it too; NPC Life's comings
+   and goings made it show). The game lets them go at once when the walk fails off screen. Here: after 20 s of
+   trying, someone near their way point (64 px) goes through it as if they'd arrived; after 60 s, wherever they
+   are. Only people calmly wandering (not talking to you, not in a story scene, not ours). */
+#define LEAVE_NEAR  (64 * 64)
+static u32 leave_since[SIM_PEOPLE], leave_seen[SIM_PEOPLE];
+
+static void watch_leaving(void)
+{
+    for (u8 *e = world_first(); e; e = *(u8 **)e) {
+        int i = E16(e, 10) - 31;
+        if (E16(e, 8) != 7 || i < 0 || i >= SIM_PEOPLE)
+            continue;
+        if (E8(e, 0x107) & 2) {                       /* the bit goes off after each failed walk: count from the first */
+            if (!leave_since[i] || act_ticks - leave_seen[i] > 600)
+                leave_since[i] = act_ticks;
+            leave_seen[i] = act_ticks;
+        } else if (!leave_since[i] || act_ticks - leave_seen[i] > 600) {
+            leave_since[i] = 0;                       /* not asked again for 20 s: they stay after all */
+            continue;
+        }
+        u32 t = act_ticks - leave_since[i];
+        int a = E8(e, 0x105);
+        if (t < 600 || E8(e, 0x104) != ST_WANDER || (a != 2 && a != 7 && a != 0x19) || acting(e))
+            continue;
+        int dx = ((s32)E32(e, 0x18) - (s32)E32(e, 0x38)) >> 16, dy = ((s32)E32(e, 0x1C) - (s32)E32(e, 0x3C)) >> 16;
+        if (!E32(e, 0x38) || (dx * dx + dy * dy > LEAVE_NEAR && t < 1800))
+            continue;
+        path_cancel(e);                               /* as the game does on arriving at the way point */
+        set_state(e, 1);
+        walked_out(e);
+        leave_since[i] = 0;
+        npc_act.let_out++;
+    }
+}
+
 /* Every tick from mod_on_tick (NPC Life on, city running). */
 static void act_tick(void)
 {
@@ -859,6 +900,7 @@ static void act_tick(void)
     if (act_ticks & 15)
         return;
     watch_loose();
+    watch_leaving();
     for (int k = 0; k < MAX_ACTORS; k++) {
         actor_t *a = &actors[k];
         if (!a->e)
@@ -948,7 +990,7 @@ static void act_area_reset(void)
     for (int k = 0; k < MAX_ACTORS; k++)
         actors[k].e = 0;
     for (int i = 0; i < SIM_PEOPLE; i++)
-        off_until[i] = walk_off[i] = 0;
+        off_until[i] = walk_off[i] = leave_since[i] = 0;
 }
 
 /* For the info page: what this person is doing here, or 0. */

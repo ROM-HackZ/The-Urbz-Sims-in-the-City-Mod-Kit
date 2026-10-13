@@ -164,6 +164,7 @@ spawn_record_group = 0x020125C0   # spawn one record group of the current area (
 swap_record_groups = 0x02012690   # swap_record_groups(show, hide): scripts and objects switch groups 2+
 npc_walk_out       = 0x020655C0   # person heads for the type-29 way point toward their next area
 npc_walk_in        = 0x020656A4   # person appears on a type-29 way point (facing 4)
+npc_walked_out     = 0x02065768   # (e): what the game does when someone reaches their way point out (with path_cancel and entity_set_state(e, 1)): leaving flag off, their visit done
 spawn_in_zone      = 0x020644FC   # spawn_in_zone(id, key): random spot in the type-30 zone with that key
 
 # --- player look (docs/player-look.md)
