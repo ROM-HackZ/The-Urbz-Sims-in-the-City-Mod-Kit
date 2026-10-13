@@ -107,8 +107,13 @@ def standing(cid, view):
     return to_index(A.sheet_frames(gfx, lay, pal)[0], pal), pal
 
 
+# Who is a man and who a woman (from the game's bios, string 471 + id, and the art): a pose is borrowed from
+# someone of the same sex when there is anyone (a woman's body in the shower on Gary looked wrong).
+WOMEN = {35, 43, 45, 46, 48, 50, 52, 54, 55, 57, 58, 59, 61, 66}
+
+
 def choose_donor(cid, donors):
-    """The donor whose standing silhouette is closest (feet aligned): height, width, overlap."""
+    """The donor whose standing silhouette is closest (feet aligned): height, width, overlap; same sex first."""
     np = _np()
     t, _ = standing(cid, 'front')
     tb = bbox(t)
@@ -125,6 +130,7 @@ def choose_donor(cid, donors):
         cost = 1 - inter / max(union, 1) + abs((tb[2] - tb[0]) - (sb[2] - sb[0])) / 40
         # and as covered up: a donor in a swimsuit made everyone they lent a pose to bare-legged
         cost += 2 * abs(_skin_share(t, SKIN.get(cid)) - _skin_share(s, SKIN.get(d)))
+        cost += 1.5 * ((cid in WOMEN) != (d in WOMEN))
         if best is None or cost < best[0]:
             best = (cost, d)
     return best[1]

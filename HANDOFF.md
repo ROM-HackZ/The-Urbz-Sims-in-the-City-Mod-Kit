@@ -123,6 +123,9 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   Chats: when the spot beside the other person can't be reached (café tables) the walker tries the other three
   sides, or talks from where the walk stopped if within 72 px; npc-act's chat check falls back to Urbania Park
   at 19:30 (the café's three people are rarely free together).
+- 2026-10-13 (Jonathan: do all of chairs, poses up close, reading animation, test-play; Mokey dropped): extra seats
+  (`seats.json`, `urbz_seats.py`, proof npc-new-seats: Café Z-Bach booth benches + sofa; research/areas/area_map.py
+  stitches a whole place), borrowed poses from someone of the same sex (`WOMEN` in urbz_poses.py).
 - Furniture (2026-10-09, Jonathan: "address furni"; chose own strength + brand-new actions + a set picked by
   Claude): copies and imports already worked (sit, sleep). `objects.json` now has `"quality"` (1-5) and
   `"actions"` (new menu items that play like Sit/Sleep plus their own effects, until a need is full or for some

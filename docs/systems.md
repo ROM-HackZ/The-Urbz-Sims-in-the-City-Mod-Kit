@@ -456,7 +456,8 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   one) makes the builder add a hidden mod `build/new-poses`: for each townsperson missing a group (sit
   0x6B-0x6D, eat 0x41, toilet 0x7B, shower 0x69, sleep 0x21/0x20, gestures 0x87/0x78/0xDB for the 8 who
   have none), the donor = whoever has it with the closest standing silhouette (feet aligned, scaled to the
-  same height: overlap + width + how much skin shows). Each donor sheet is scaled about the feet to the
+  same height: overlap + width + how much skin shows; someone of the same sex first, `WOMEN`, from the bios: Gary
+  had borrowed Phoebe's body in the shower). Each donor sheet is scaled about the feet to the
   person's height and recoloured (`colour_map`, 2026-10-12): palettes are ramps (one hue light to dark);
   black (max channel <= 0x20) stays black; skin -> skin by brightness (`SKIN`, hand-checked per person, since
   brown clothes look like skin to any rule; in the shower `BODY_SKIN`, all of the donor's bare skin); every
