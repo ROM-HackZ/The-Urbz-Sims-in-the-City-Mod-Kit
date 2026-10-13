@@ -1,0 +1,10 @@
+{
+  "_about": "Extra seats: chairs and sofas that are only drawn into a place's background become real seats townspeople can sit on (urbz_seats.py adds the game's own Invisible Park Bench, 134, to the place at build time). Positions are world pixels (research/areas/area_map.py draws a place with them); facing 1 = up-right, 3 = down-right, 5 = down-left, 7 = up-left. A bench seats its sitter about 42 px to the side for facing 3 and 5, 63 px for 1 and 7 (research/areas/seat_probe.py shows where). Tried and left out: Cafe Z-Bach's middle booth and front sofa, and the Cinema Theater's rows (the game can't walk anyone to them).",
+  "areas": {
+    "42": [
+      {"object": 134, "x": 85, "y": 235, "facing": 3, "note": "Cafe Z-Bach: the left booth's red bench"},
+      {"object": 134, "x": 220, "y": 141, "facing": 3, "note": "Cafe Z-Bach: the back booth's red bench"},
+      {"object": 134, "x": 388, "y": 306, "facing": 7, "note": "Cafe Z-Bach: the blue sofa by the rug"}
+    ]
+  }
+}

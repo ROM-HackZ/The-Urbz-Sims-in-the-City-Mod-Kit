@@ -50,6 +50,11 @@ I = inferred (read from the decompile, not exercised).
     each area is not mapped, it is Phase 7 work).
 - Types that matter:
   - 7 = person `{.., u8 char, u8 facing}` (spawn_from_record).
+  - **5 = object** `{u16 5, u16 0, s16 x, s16 y, u16 object, u8 facing, u8 0, 3 zero bytes, u8 0xFF}` (16 bytes;
+    docs/objects.md lists which). The entity's position is snapped to the floor grid (Café Z-Bach: record (85, 235) ->
+    (64, 232), (241, 263) -> (224, 264)). Records can be added: `urbz_seats.py` rebuilds section 0's group 0 and
+    moves everything after it (section 0's list offsets, later group and section offsets; the lists' own offsets are
+    relative to the list); proof `npc-new-seats` (2026-10-13).
   - **3 = door** `{.., u8 w, u8 h, u8 entry, u8 to_area, u8 style}` (behaviour 0x0204CB50). Proven: walking into
     a Coffee Shop door loaded area 4 at entry 12; no button press is needed.
   - 20 = door variant.
@@ -66,6 +71,17 @@ I = inferred (read from the decompile, not exercised).
     enter that area, everyone listed for it with state 1 is placed in zone `key` (`FUN_02066708`), and
     `npc_present` keeps them out of their normal schedule meanwhile. `FUN_02064768` puts someone in zone 0 for
     3,600 ticks (I: a phone invite). Read from the code, not yet seen at runtime.
+
+## Seeing a place whole (research/areas/area_map.py, 2026-10-13)
+- `0x02122888` `{s32 x, s32 y} << 16`: the world point at the top-left of the top screen (kept inside the place's
+  edges). `0x02122D48`: where the camera aims (the player's feet, y - 28). World units are screen pixels, so a
+  screenshot is pasted at (view x, view y). `area_map.py ROM SAVE AREA OUT.png` moves the player across a place
+  (not onto doors) and stitches the shots, with object records and a 50 px grid.
+- Seats on benches (Invisible Park Bench 134, `research/areas/seat_probe.py`): the sitter is 42 px to the side for
+  facing 3 (+x) and 5 (-x), 63 px for 1 (+x) and 7 (-x), 3-4 px up. Seats whose walk-to spot the game's path
+  search can't reach fail at once (path result 3): Café Z-Bach's middle booth and front sofa, the Cinema Theater's
+  rows. People with entity +0x107 bit 0 set (brought by a changed timetable) are refused by seats' free-to-use
+  check.
 
 ## Travel in normal play
 - P, all without pokes, from `--city`:

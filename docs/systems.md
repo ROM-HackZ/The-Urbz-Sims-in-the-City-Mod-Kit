@@ -401,6 +401,11 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   at 30 a second), and `watch_loose` stands up anyone still using an object with our needs block and no actor
   (stop byte 3 after 10 s, then back to wandering). Café Z-Bach (42) has 2 invisible love seats (156) and 2
   invisible computers (116) among its drawn booths; the Coffee Shop (34) has only invisible computers.
+- **Extra seats (2026-10-13, proof `npc-new-seats`, `urbz_seats.py`):** a mod's `seats.json` adds object records
+  (type 5) to a place's area file at build time (hidden generated mod `build/new-seats`). NPC Life ships three
+  Invisible Park Benches (134) in Café Z-Bach: the left and back booths' red benches (facing 3) and the blue sofa by
+  the rug (facing 7). With NPC Life the sofa is used often; the booths' walk-to spots are often out of the path
+  search's reach. Positions and what can't be reached: docs/areas.md "Seeing a place whole".
 - **Standing up again / using more of a place (2026-10-09, proofs `npc-seat-turns`, `npc-look`):** after a
   sit the game's wander left people standing between chair and table for a game hour (its random walks
   start blocked there): NPC Life now walks them back to where they were when it sent them (`came_from`).

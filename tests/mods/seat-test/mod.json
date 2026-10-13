@@ -1,0 +1,6 @@
+{
+  "name": "seat-test",
+  "description": "Test: sends the people here, one at a time, to every seat object (Sit, activity 56) so a proof sees where each seats people (proof npc-new-seats, research/areas/seat_probe.py)",
+  "version": "1.0",
+  "author": "Urbz kit"
+}

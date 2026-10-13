@@ -432,6 +432,54 @@ def snapshots(rom, start_save, steps, every, ranges, pokes=(), goto=None, pokes_
     return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
 
 
+def p_npc_new_seats():
+    """Extra seats (mods/npc-life/seats.json, urbz_seats.py): chairs only drawn into a place become real seats.
+    Built into Cafe Z-Bach's area file at build time (two booth benches and a sofa, as Invisible Park Benches,
+    134). Checked with NPC Life over 3.5 game hours in the café: the three benches are in its object list where
+    seats.json puts them, and townspeople sit on them (build/proofs/npc-new-seats.png: the café at the first
+    snapshot of each, wherever the camera is; research/areas/seat_probe.py shows the sitters close up)."""
+    from PIL import Image
+    rom, log = build('npc-new-seats', [os.path.join(KIT, 'mods', 'npc-life')])[:2]
+    line = [l for l in log.splitlines() if l.startswith('seats:')]
+    want = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'seats.json')))['areas']['42']
+    mems, out = _area_snaps(rom, 'cafe', 42, 80, 150)
+    rd = lambda mem, a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+    benches, spots, first = set(), {}, {}
+    for n, mem in enumerate(mems):
+        node = struct.unpack('<I', rd(mem, 0x0214490C, 4))[0]          # the place's objects
+        while node and 0x02100000 <= node < 0x02200000:
+            num, ent = struct.unpack('<H', rd(mem, node + 8, 2))[0], struct.unpack('<I', rd(mem, node + 0x24, 4))[0]
+            if num == 134 and 0x02100000 <= ent < 0x02200000:
+                benches.add(tuple(v >> 16 for v in struct.unpack('<ii', rd(mem, ent + 0x18, 8))))
+            node = struct.unpack('<I', rd(mem, node, 4))[0]
+        e = struct.unpack('<I', rd(mem, 0x02121AF0, 4))[0]
+        while e and 0x02100000 <= e < 0x02200000:
+            t, who = struct.unpack('<HH', rd(mem, e + 8, 4))
+            if t == 7 and rd(mem, e + 0x104, 1)[0] == 0x11 and rd(mem, e + 0xC7, 1)[0] in (0x6C, 0x6D) and benches:
+                x, y = (v >> 16 for v in struct.unpack('<ii', rd(mem, e + 0x18, 8)))
+                b = min(benches, key=lambda p: abs(p[0] - x) + abs(p[1] - y))
+                if abs(b[0] - x) + abs(b[1] - y) < 80:                 # (a bench seats 42-63 px to its side)
+                    spots.setdefault(b, set()).add(who)
+                    first.setdefault(b, n)
+            e = struct.unpack('<I', rd(mem, e, 4))[0]
+    shots = [Image.open(os.path.join(out, 'snap_s%02d.png' % n)).crop((0, 0, 256, 160)) for n in sorted(first.values())]
+    if shots:
+        sheet = Image.new('RGB', (256 * len(shots), 160))
+        for i, im in enumerate(shots):
+            sheet.paste(im, (256 * i, 0))
+        sheet.resize((sheet.width * 2, 320), Image.NEAREST).save(os.path.join(OUT, 'npc-new-seats.png'))
+    names = A_names()
+    ok = bool(line) and len(benches) == len(want) and len(spots) >= 1
+    return ok, '%s; benches in the cafe: %s; sat on: %s; build/proofs/npc-new-seats.png' % (
+        line[0] if line else 'no seats line', sorted(benches),
+        '; '.join('%s by %s' % (b, ', '.join(names[w].split()[0] for w in sorted(ws))) for b, ws in sorted(spots.items())) or 'none')
+
+
+def A_names():
+    import urbz_anims as A
+    return A.names()
+
+
 def p_npc_pose_gallery(save=None):
     """The borrowed poses in the game itself (tests/mods/pose-gallery: poses.json copied from NPC Life, and a
     little code that brings six townspeople at a time into Urbania Park, stands them in a row by you and plays
@@ -2743,7 +2791,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-new-seats', p_npc_new_seats), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

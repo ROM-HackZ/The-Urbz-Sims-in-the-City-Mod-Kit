@@ -49,6 +49,8 @@ In the area you're in, people act out their routine with the game's own objects 
 - someone eating walks to a vending machine, grill or fridge and eats; with no food object there,
   they sit down at a table; relaxing at home, they sit on a bench or sofa; now and then, the
   toilet; at night a bed, at washing time a shower (written, but not seen in a test yet);
+- extra seats (`seats.json`): sofas and booth benches only drawn into a place become real seats (built into the
+  place at build time with `urbz_seats.py`);
 - a person only does what they have the animation for. In the original game only Kris can eat and 8
   people can sit, shower, sleep and use the toilet; `poses.json` gives everyone else borrowed ones
   (built by `urbz_poses.py` from the closest-looking person who has them, in their own colours and with
@@ -79,5 +81,7 @@ In the area you're in, people act out their routine with the game's own objects 
 
 The borrowed poses (`poses.json`) are made by machine from someone else's animation: up close they look a
 little off-model (the donor's build, the person's colours and head). Drawing them by hand (`urbz_anims.py`)
-replaces them person by person. Many chairs drawn in public places aren't seats
-in the game's data at all (Café Z-Bach has two invisible love seats among its booths), so nobody can use them.
+replaces them person by person. Many chairs drawn in public places aren't seats in the game's data at all.
+`seats.json` turns some into real ones (Café Z-Bach: two booth benches and the sofa by the rug, besides the game's
+own two armchairs); others can't be reached by the game's walking (the café's middle booth and front sofa, the
+cinema's rows), and the booths are often out of reach too, so people mostly use the sofa.
