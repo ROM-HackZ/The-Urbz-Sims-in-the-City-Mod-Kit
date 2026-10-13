@@ -5,9 +5,10 @@ Usage: python urbz.py build project_dir out.nds
 
 The original cartridge image (base.nds) is patched in place: rom.bin and
 SoundData.rom are rewritten, the file allocation table, used-ROM-size field
-and header CRC are updated, and everything else (code, banner, secure area)
-is left byte-for-byte untouched. With no edits the output is identical to
-the original dump.
+and header CRC are updated, and everything else (code, secure area) is left
+byte-for-byte untouched. A build with mods also gets the hack's own banner
+title (what emulators and the DS menu show), so it's never mistaken for the
+original. With no mods the output is identical to the original dump.
 
 Asset order comes from manifest.json. To ADD an asset, append an entry at
 the end so existing asset IDs never shift. The ROM grows into the free
@@ -19,6 +20,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from urbzcomp import pack_chunk, compress
 
 ROMBIN_ID, SOUND_ID = 0, 1          # FAT indices (see notes.md)
+NAME = 'Urbz DX'                    # the hack's name: the built ROM's file name and banner title
+BANNER_TITLE = 'Urbz DX\nSims in the City mod\nFan-made, not by EA'
+OLD_NAME = 'Urbz Mod'               # the built ROM's name before the hack had one (saves are moved over)
 ALIGN = 0x200
 
 
@@ -44,6 +48,16 @@ def crc16(data):
         for _ in range(8):
             crc = (crc >> 1) ^ 0xA001 if crc & 1 else crc >> 1
     return crc
+
+
+def stamp_banner(img):
+    """Write BANNER_TITLE into every language's title in the banner and fix the banner's CRC."""
+    b = struct.unpack_from('<I', img, 0x68)[0]
+    title = BANNER_TITLE.encode('utf-16-le')
+    assert len(title) <= 0x100
+    for lang in range(6):
+        img[b + 0x240 + 0x100 * lang:b + 0x340 + 0x100 * lang] = title.ljust(0x100, b'\0')
+    struct.pack_into('<H', img, b + 2, crc16(img[b + 0x20:b + 0x840]))
 
 
 def align(x):
@@ -468,6 +482,8 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
         code_report = apply_to_image(img, mod_dirs)
     except CodeError as e:
         raise BuildError(str(e))
+    if mod_dirs:
+        stamp_banner(img)
     struct.pack_into('<H', img, 0x15E, crc16(img[:0x15E]))
 
     open(out_path, 'wb').write(img)
@@ -487,12 +503,23 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
     return sha
 
 
+def move_old_saves(build_dir):
+    """Saves kept next to the old 'Urbz Mod.nds' follow the ROM to its new name (the emulator looks for a save
+    with the ROM's own name)."""
+    for ext in ('.sav', '.dsv'):
+        old, new = (os.path.join(build_dir, n + ext) for n in (OLD_NAME, NAME))
+        if os.path.exists(old) and not os.path.exists(new):
+            os.rename(old, new)
+            print('moved your save %s -> %s' % (os.path.basename(old), os.path.basename(new)))
+
+
 def main(argv):
     import argparse
     kit = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo
     ap = argparse.ArgumentParser(description='Build The Urbz DS ROM from project/ plus enabled mods.')
-    ap.add_argument('out', nargs='?', default=os.path.join(kit, 'build', 'Urbz Mod.nds'),
-                    help='output .nds (default: build/Urbz Mod.nds)')
+    default_out = os.path.join(kit, 'build', NAME + '.nds')
+    ap.add_argument('out', nargs='?', default=default_out,
+                    help='output .nds (default: build/%s.nds)' % NAME)
     ap.add_argument('--project', default=os.path.join(kit, 'project'))
     ap.add_argument('--config', help='mods list (default: mods.json in the kit folder)')
     ap.add_argument('--mod', action='append', default=[],
@@ -511,6 +538,8 @@ def main(argv):
         else:
             mods = load_mod_list(kit, a.config)
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+        if a.out == default_out:
+            move_old_saves(os.path.dirname(default_out))
         build(a.project, a.out, mods)
     except BuildError as e:
         sys.exit('BUILD FAILED: %s' % e)

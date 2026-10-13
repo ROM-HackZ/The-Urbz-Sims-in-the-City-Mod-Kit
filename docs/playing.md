@@ -1,6 +1,6 @@
-# Playing the mods
+# Playing Urbz DX
 
-How to get the mods into your game and what each one does. Setting up the kit itself: the
+How to build Urbz DX with the mods you want and what each one does. Setting up the kit itself: the
 [README](../README.md#getting-started).
 
 ## Building and playing
@@ -9,10 +9,10 @@ How to get the mods into your game and what each one does. Setting up the kit it
    kit's `emulator\` folder is ignored by git) and put the full path of its `.exe` in a file called
    `emulator.txt` in the kit folder.
 2. Open **`manager.bat`** (or `python urbz.py manager`): tick the mods you want, change their order if you
-   like, then **Build & Play**. Rebuilding replaces `build\Urbz Mod.nds` but never the save next to it, so your
+   like, then **Build & Play**. Rebuilding replaces `build\Urbz DX.nds` but never the save next to it, so your
    game carries on. **Add mod...** installs a mod someone sent you as a zip (zips with ROMs, saves or programs in
    them are refused).
-3. melonDS keeps the save next to the ROM with the same name: `build\Urbz Mod.sav`. To start somewhere handy,
+3. melonDS keeps the save next to the ROM with the same name: `build\Urbz DX.sav`. To start somewhere handy,
    copy one of the kit's saves there (it replaces your game in that file), then Load Game, slot A:
 
    | save (`verify\saves\`) | where you are |
@@ -28,6 +28,9 @@ How to get the mods into your game and what each one does. Setting up the kit it
 
 4. A fresh melonDS has **no keys set**: Config > Input and hotkeys. For example arrows = D-pad, X = A, Z = B,
    S = X, A = Y, Q = L, W = R, Enter = Start, Backspace = Select, Tab = fast forward; the mouse is the stylus.
+
+Builds from before the hack had a name were called `Urbz Mod.nds`: the next build moves your `Urbz Mod.sav` to
+`Urbz DX.sav` so your game carries on.
 
 Mods with an in-game switch can be turned on and off any time: **Options > Mods** (a 4th button the kit adds).
 The choice is kept for every save.

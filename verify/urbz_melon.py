@@ -164,7 +164,7 @@ def main(argv):
         job = json.loads(argv[1])
         print('RESULT ' + json.dumps(_run_raw(job['rom'], job['script'], job['out'])), flush=True)
         os._exit(0)
-    rom = argv[1] if len(argv) > 1 else os.path.join(os.path.dirname(HERE), 'build', 'Urbz Mod.nds')
+    rom = argv[1] if len(argv) > 1 else os.path.join(os.path.dirname(HERE), 'build', 'Urbz DX.nds')
     if argv[0] == 'boot':
         shots = dict(run(rom, BOOT_SCRIPT))
         mean, spread = screen_stats(shots['boot-20s'])

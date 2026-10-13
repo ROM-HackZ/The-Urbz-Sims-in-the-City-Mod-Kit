@@ -20,7 +20,7 @@ import json, os, shutil, subprocess, sys, zipfile
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 sys.path.insert(0, os.path.join(KIT, 'kit'))
 MODS = os.path.join(KIT, 'mods')
-OUT_ROM = os.path.join(KIT, 'build', 'Urbz Mod.nds')
+OUT_ROM = os.path.join(KIT, 'build', 'Urbz DX.nds')
 EMULATOR_TXT = os.path.join(KIT, 'emulator.txt')
 
 # Never installed from a zip: game files and emulator files.
@@ -175,7 +175,7 @@ def run_window():
     from tkinter import ttk, filedialog, messagebox
 
     root = tk.Tk()
-    root.title('Urbz mod manager')
+    root.title('Urbz DX mod manager')
     root.geometry('820x560')
     root.minsize(640, 420)
     state = {'mods': [], 'busy': False}

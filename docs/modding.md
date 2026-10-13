@@ -34,7 +34,7 @@ references their ID (content wiring comes in a later phase).
 
 ### Build options (`python urbz.py build ...`)
 
-- `[out.nds]`: output path (default `build\Urbz Mod.nds`)
+- `[out.nds]`: output path (default `build\Urbz DX.nds`)
 - `--vanilla`: ignore mods (proves the baseline is identical)
 - `--mod NAME`: build with only this mod (repeatable; a name in `mods\` or a folder path), ignoring `mods.json`
 
@@ -353,7 +353,7 @@ After updating the kit, also run `python urbz.py sprites` (refreshes `sprite_ref
 
 | Path | What it is |
 |---|---|
-| `base.nds` | The untouched original. Code, header and banner are reused from it. |
+| `base.nds` | The untouched original. Code and header are reused from it, and the banner too, except that a build with mods gets the title "Urbz DX". |
 | `assets/NNNNN.bin` | One file per game asset (13,385). Raw bytes: the container for any compressed chunks. |
 | `unpacked/NNNNN/HHHHHH.bin` | Every chunk inside asset NNNNN, **decoded and ready to edit** (EA, LZ77 or raw). `HHHHHH` = the chunk's byte offset (hex) inside the asset. 64,378 chunks in total. |
 | `unpacked/NNNNN/HHHHHH.tiles.bin` | The tile graphics embedded at the end of a screen chunk, decompressed (623 screens). |

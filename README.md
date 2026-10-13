@@ -1,7 +1,8 @@
-# The Urbz: Sims in the City (DS) mod kit
+# Urbz DX
 
-A toolkit for modding *The Urbz: Sims in the City* for the Nintendo DS, and the mods made with it: a city where
-the townspeople live their own lives, pets you can adopt and look after, and new furniture.
+A fan-made ROM hack of *The Urbz: Sims in the City* for the Nintendo DS, and the mod kit it's made with. Urbz DX
+is a city where the townspeople live their own lives, pets you can adopt and look after, and new furniture.
+It's not the original game, and not made by EA: in an emulator's game list it shows as **Urbz DX**.
 
 ![Pets at home, a stray puppy, townspeople eating at the pizza place, a stray adopted in Urbania Park](docs/images/screens.png)
 
@@ -12,7 +13,9 @@ written in C against a documented map of the game's engine.
 
 **No game files are in this repository.** You need your own dump of the USA ROM.
 
-## The mods
+## What's in Urbz DX
+
+Urbz DX is made of mods you can pick from (all of them by default):
 
 | Mod | What it does |
 |---|---|
@@ -46,13 +49,14 @@ You need:
 4. Optional: for the pets' and furniture's own pictures, create `sources.json` in the kit folder:
    `{"aptpets": "C:\\ROMs\\Apartment Pets.nds", "sims3": "C:\\ROMs\\Sims 3.nds"}`.
 5. Put the full path of your emulator's `.exe` in a file called `emulator.txt` in the kit folder.
-6. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**.
+6. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**. You get
+   `build\Urbz DX.nds`.
 
 <img width="811" height="587" alt="Screenshot 2026-10-13 150057" src="https://github.com/user-attachments/assets/bf05a2fc-87cb-472b-a69f-a8ee01a5bbd3" />
 
 
 The first build takes a few minutes (it renders the pets, furniture and borrowed animations); later builds
-take seconds. Your save lives next to the built ROM (`build\Urbz Mod.sav`), and rebuilding never touches it.
+take seconds. Your save lives next to the built ROM (`build\Urbz DX.sav`), and rebuilding never touches it.
 
 ### Linux / macOS
 
