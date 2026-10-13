@@ -45,6 +45,55 @@ def view(yaw_deg, pitch_deg=PITCH):
     return Rx @ Ry
 
 
+def _rasterize_flat(parts, R, sc, W, H, ax, ay, L, ambient):
+    """rasterize for models without textures (the kit's own): every triangle at once, with numpy. The same
+    pixels as the triangle-by-triangle loop (up to which of two equally near triangles wins)."""
+    import numpy as np
+    tris = np.concatenate([t[..., :8] for t, _x, _c in parts if len(t)])
+    rgb = np.concatenate([np.broadcast_to(np.array(c, np.float32), (len(t), 3)) for t, _x, c in parts if len(t)])
+    P = tris[..., :3] @ R.T
+    X, Y, Z = P[..., 0] * sc + ax, -P[..., 1] * sc + ay, P[..., 2]
+    N = tris[..., 5:8] @ R.T
+    x0 = np.maximum(0, np.floor(X.min(1))).astype(np.int64)
+    x1 = np.minimum(W - 1, np.ceil(X.max(1))).astype(np.int64)
+    y0 = np.maximum(0, np.floor(Y.min(1))).astype(np.int64)
+    y1 = np.minimum(H - 1, np.ceil(Y.max(1))).astype(np.int64)
+    d = (Y[:, 1] - Y[:, 2]) * (X[:, 0] - X[:, 2]) + (X[:, 2] - X[:, 1]) * (Y[:, 0] - Y[:, 2])
+    ok = (x0 <= x1) & (y0 <= y1) & (np.abs(d) >= 1e-12)
+    idx = np.nonzero(ok)[0]
+    w, h = (x1 - x0 + 1)[idx], (y1 - y0 + 1)[idx]
+    n = w * h
+    col = np.zeros((H, W, 4), np.float32)
+    if not len(idx):
+        return col
+    t = np.repeat(idx, n)                                   # one row per (triangle, pixel of its box)
+    start = np.repeat(np.cumsum(n) - n, n)
+    off = np.arange(len(t)) - start
+    ww = np.repeat(w, n)
+    px, py = x0[t] + off % ww, y0[t] + off // ww
+    gx, gy = px + 0.5, py + 0.5
+    Xt, Yt, dt = X[t], Y[t], d[t]
+    a = ((Yt[:, 1] - Yt[:, 2]) * (gx - Xt[:, 2]) + (Xt[:, 2] - Xt[:, 1]) * (gy - Yt[:, 2])) / dt
+    b = ((Yt[:, 2] - Yt[:, 0]) * (gx - Xt[:, 2]) + (Xt[:, 0] - Xt[:, 2]) * (gy - Yt[:, 2])) / dt
+    c = 1 - a - b
+    m = (a >= -1e-6) & (b >= -1e-6) & (c >= -1e-6)
+    t, px, py, a, b, c = t[m], px[m], py[m], a[m], b[m], c[m]
+    zz = a * Z[t, 0] + b * Z[t, 1] + c * Z[t, 2]
+    pix = py * W + px
+    order = np.lexsort((-t, zz, pix))                       # per pixel: nearest last (the first triangle on a tie)
+    last = np.ones(len(order), bool)
+    last[:-1] = pix[order][1:] != pix[order][:-1]
+    k = order[last]
+    t, a, b, c = t[k], a[k], b[k], c[k]
+    nrm = a[:, None] * N[t, 0] + b[:, None] * N[t, 1] + c[:, None] * N[t, 2]
+    nrm /= np.linalg.norm(nrm, axis=-1, keepdims=True) + 1e-6
+    shade = ambient + (1 - ambient) * np.clip(np.abs(nrm @ L), 0, 1)
+    flat = col.reshape(-1, 4)
+    flat[pix[k], :3] = rgb[t] * shade[:, None]
+    flat[pix[k], 3] = 255
+    return col
+
+
 def rasterize(parts, R, px_per_unit, size, anchor, supersample=3, ambient=0.5):
     """parts: [(tris [N,3,>=8] x y z u v nx ny nz, texture RGBA or None, (r, g, b))].
     The model's floor origin (0, 0, 0) lands on pixel `anchor`. -> RGBA uint8 [h, w, 4]."""
@@ -56,6 +105,9 @@ def rasterize(parts, R, px_per_unit, size, anchor, supersample=3, ambient=0.5):
     L = np.array(LIGHT, np.float32)
     L /= np.linalg.norm(L)
     ax, ay = (anchor[0] + 0.5) * supersample, (anchor[1] + 0.5) * supersample
+    if all(tex is None for _t, tex, _c in parts):
+        col = _rasterize_flat(parts, R, sc, W, H, ax, ay, L, ambient)
+        parts = []
     for tris, tex, rgb in parts:
         if len(tris) == 0:
             continue
@@ -166,6 +218,11 @@ def _rom_path(name, path):
 
 
 def game(name):
+    if name == 'kit':                                  # the kit's own models (urbz_models.py): always there
+        if name not in _GAMES:
+            import urbz_models
+            _GAMES[name] = urbz_models.Game()
+        return _GAMES[name]
     if name not in _GAMES:
         src = dict(sources())
         if name not in src or not os.path.exists(src[name]):
@@ -181,6 +238,31 @@ def game(name):
             import urbz_fullfat
             _GAMES[name] = urbz_fullfat.Game(src[name])
     return _GAMES[name]
+
+
+def make_model(g, info, texture_swap=None, colour=0):
+    """A model ready to render, whichever game it's from (the kit's own: urbz_models.Model)."""
+    if getattr(g, 'id', '') == 'kit':
+        import urbz_models
+        return urbz_models.Model(info)
+    return Model(g, info, texture_swap, colour)
+
+
+def choices(cfg):
+    """An "import" entry may be one source or a list of them, best first."""
+    return list(cfg) if isinstance(cfg, list) else [cfg]
+
+
+def first_available(cfg):
+    """The first source in an "import" entry whose game this computer has (the kit's own always is)."""
+    last = None
+    for c in choices(cfg):
+        try:
+            game(c['from'])
+            return c
+        except SourceMissing as e:
+            last = e
+    raise last or SourceMissing('no source given')
 
 
 class Model:
@@ -391,8 +473,9 @@ def object_art(cfg, like, folder):
     import numpy as np
     from PIL import Image
     import urbz_art as A
+    cfg = first_available(cfg)
     g, info = find_model(cfg['from'], cfg['model'])
-    model = Model(g, info, cfg.get('textures'), cfg.get('colour', 0))
+    model = make_model(g, info, cfg.get('textures'), cfg.get('colour', 0))
     os.makedirs(folder, exist_ok=True)
     ramp = A.object_colours(like)
     recs = A.object_records(like)
@@ -481,12 +564,13 @@ def pet_art(cfg, kind, folder):
     import numpy as np
     import urbz_art as A
     from urbz_anims import script_of
+    cfg = first_available(cfg)
     g, info = find_model(cfg['from'], cfg['model'])
-    animal = ANIMALS.get(info['name'], {}) if cfg['from'] == 'aptpets' else {}
+    animal = ANIMALS.get(info['name'], {}) if cfg['from'] == 'aptpets' else info.get('animal', {})
     swap = dict(cfg.get('textures') or {})
     if cfg.get('coat'):
         swap['@coat'] = cfg['coat']
-    model = Model(g, info, swap or None)
+    model = make_model(g, info, swap or None)
     src = A.critter_slots(kind)
     spal = A.critter_palette(kind)
     os.makedirs(folder, exist_ok=True)
@@ -504,13 +588,16 @@ def pet_art(cfg, kind, folder):
         ppm = ((ref[3] - ref[1]) * 0.9 if ref else 24) / tall
     hop = cfg.get('hop', animal.get('hop', 0))
     stamp = dict(cfg, version=PET_ART_VERSION, kind=kind, animal=animal,
-                 actions=ACTION_ANIMS.get(info['name'], {}))
+                 actions=ACTION_ANIMS.get(info['name'], info.get('actions', {})))
+    if cfg['from'] == 'kit':                        # the art changes with the kit's model code
+        import hashlib, urbz_models
+        stamp['code'] = hashlib.sha1(open(urbz_models.__file__, 'rb').read()).hexdigest()
     try:
         if json.load(open(os.path.join(folder, 'import.json'))) == stamp:
             return folder                           # rendered already (the art is the same every build)
     except (OSError, ValueError):
         pass
-    acts = dict(ACTION_ANIMS.get(info['name'], {}))
+    acts = dict(ACTION_ANIMS.get(info['name'], info.get('actions', {})))
     acts.update(cfg.get('actions', {}))
     for _try in range(6):                  # shrink until every frame fits the critter's sprite memory
         timing, jobs = _pet_frames(model, info, src, spal, anims, ppm, hop, folder)
@@ -569,7 +656,7 @@ _W = None                            # a render worker's model
 def _w_init(spec):
     global _W
     g, info = find_model(spec[0], spec[1])
-    _W = Model(g, info, spec[2])
+    _W = make_model(g, info, spec[2])
 
 
 def _w_render(job):
@@ -669,7 +756,7 @@ def gallery(names):
             key = '%s-%s-%s' % (gname, info['kind'], info['name'])
             path = os.path.join(GALLERY, 'img', key + '.png')
             try:
-                model = Model(g, info)
+                model = make_model(g, info)
                 if not os.path.exists(path):
                     hp = max(model.height() * PX_PER_M, 1e-3)
                     big = min(90.0 / hp, max(1.0, 40.0 / hp))     # tiny things shown bigger
@@ -711,7 +798,7 @@ def gallery(names):
 def show(gname, mname, out=None):
     from PIL import Image
     g, info = find_model(gname, mname)
-    model = Model(g, info)
+    model = make_model(g, info)
     views = [Image.fromarray(render_model(model, yaw)) for yaw in (0, 45, 90, 135, 180)]
     walk = []
     if 'walk' in info['anims']:

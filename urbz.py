@@ -32,6 +32,7 @@ COMMANDS = {
     'objects': 'urbz_objects.py',      # objects.json builder
     'seats': 'urbz_seats.py',          # seats.json: extra seats in places
     'import': 'urbz_import.py',        # models from other Sims DS games
+    'models': 'urbz_models.py',        # the kit's own models (pets, beds, furniture)
     'catalog': 'urbz_catalog.py',      # the asset catalog (catalog/index.html)
     'classify': 'urbz_classify.py',    # asset types
     'sprites': 'urbz_sprites.py',      # sprite layouts

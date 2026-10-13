@@ -21,15 +21,16 @@ Urbz DX is made of mods you can pick from (all of them by default):
 |---|---|
 | **NPC Life** | The 36 townspeople follow daily routines: they eat, sit, wash, sleep, chat with each other and wander the city's cafés, clubs and parks in their free time, where you can see them. Everyone gets the animations they need. |
 | **Pets** | Eight pets (Puppy, Kitten, Bunny, Hamster, Guinea Pig, Cockatoo, Macaw, Snake) with beds and cages. Win over a stray in Urbania Park, buy more at the Farmer's Market, feed, pet and play with them; they're saved and move house with you. |
-| **More Furniture** | 13 pieces from The Sims 3 and Apartment Pets, some with new actions (Read a Book, Nap, Daydream). |
+| **More Furniture** | 13 new pieces (armchairs, sofas, beds, tables...), some with new actions (Read a Book, Nap, Daydream). |
 | **Bug Fixes** | Fixes bugs in the original game, e.g. townspeople left pacing by a door or lift for hours when you stand near it. [List](mods/bug-fixes/README.md). |
 | **Max Needs** | A testing aid, off until you switch it on in the game: your needs stay full while it's on. |
 
 What each one does in detail: [docs/playing.md](docs/playing.md).
 
-The pictures for the pets and furniture are made from your own copies of *The Sims 2: Apartment Pets* and
-*The Sims 3* (DS) when you build. Without them, those mods still work, using the look of a similar thing from
-The Urbz.
+All you need is your Urbz ROM: the pets, their beds and the furniture are the kit's own 3D models
+(`kit/urbz_models.py`), drawn in the Urbz style when you build. If you also own *The Sims 2: Apartment Pets* or
+*The Sims 3* (DS), you can have them drawn from those games' models instead (optional, see
+[docs/modding.md](docs/modding.md#importing-from-other-sims-games)).
 
 ## Getting started
 
@@ -47,10 +48,8 @@ You need:
 2. Double-click **`setup.bat`**: installs the Python packages (once).
 3. Drag your ROM onto **`extract.bat`** (or run `extract.bat "C:\path\to\Urbz.nds"`): unpacks it into
    `project\` (about 40 s, once).
-4. Optional: for the pets' and furniture's own pictures, create `sources.json` in the kit folder:
-   `{"aptpets": "C:\\ROMs\\Apartment Pets.nds", "sims3": "C:\\ROMs\\Sims 3.nds"}`.
-5. Put the full path of your emulator's `.exe` in a file called `emulator.txt` in the kit folder.
-6. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**. You get
+4. Put the full path of your emulator's `.exe` in a file called `emulator.txt` in the kit folder.
+5. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**. You get
    `build\Urbz DX.nds`.
 
 <img width="811" height="587" alt="Screenshot 2026-10-13 150057" src="https://github.com/user-attachments/assets/bf05a2fc-87cb-472b-a69f-a8ee01a5bbd3" />

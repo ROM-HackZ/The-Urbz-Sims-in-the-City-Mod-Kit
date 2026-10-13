@@ -78,14 +78,13 @@ for each.
   **Options > Mods > Pets** shows how each one is doing (R / L scroll).
 - Only your own pets can be picked up.
 
-The pets' pictures are rendered from your own copy of *The Sims 2: Apartment Pets* when you build (see
-"Importing from other Sims games" in [modding.md](modding.md)); without it they wear the look of a game animal.
+The pets and their beds are the kit's own models, drawn when you build (if you own *The Sims 2: Apartment
+Pets*, they can be drawn from its animals instead: "Importing from other Sims games" in [modding.md](modding.md)).
 More: [`mods/pets/README.md`](../mods/pets/README.md).
 
 ### More Furniture (`mods\more-furniture`)
 
-13 pieces from The Sims 3 and Apartment Pets (rendered from your own copies of those games): armchairs, a
-recliner, sofas, a loveseat, beds, a dining chair and tables, sold at the furniture shop (some also at the
+13 new pieces (the kit's own models, drawn when you build): armchairs, a recliner, sofas, a loveseat, beds, a dining chair and tables, sold at the furniture shop (some also at the
 Second Looks Thrift Emporium). Better pieces fill needs faster, and some have their own actions: Read a Book,
 Nap, Daydream, Read in Bed. List: [`mods/more-furniture/README.md`](../mods/more-furniture/README.md).
 

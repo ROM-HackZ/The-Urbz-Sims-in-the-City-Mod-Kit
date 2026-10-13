@@ -233,8 +233,7 @@ Two mods use this, each picked on its own in the mod manager (no in-game switch)
 - **`mods\pets`** adds eight pets from `pets.json` (Puppy, Kitten, Bunny, Hamster, Guinea Pig, Cockatoo,
   Macaw, Snake) and Pet Treats: buy them at the Farmer's Market, let them loose at home and look after them
   ("Looking after pets" below). Their art: see "Drawing a pet" below. Numbers 386 and 389-429.
-- **`mods\more-furniture`** adds 13 pieces from The Sims 3 and Apartment Pets (rendered from your own copies
-  of those games, "Importing from other Sims games" below): armchairs, a recliner, sofas, a loveseat, beds,
+- **`mods\more-furniture`** adds 13 pieces (the kit's own models, "The kit's own models" below): armchairs, a recliner, sofas, a loveseat, beds,
   a dining chair and tables, sold at the furniture shop (some also at the Second Looks Thrift Emporium).
   Some have their own actions: the Club Armchair's Read a Book, the Mission Recliner's Nap, Daydream on the
   Club Sofa and Camelback Loveseat, Read in Bed on the Mission Double Bed. Numbers 430-511.
@@ -270,10 +269,22 @@ the catalog colours) and `icon.png` (32x32, for Pockets and the Catalog) with `i
 128x128; the west corner of the piece's floor tile is pixel (24, 100). Point an object at it with
 `"art": "art/armchair"` in `objects.json`.
 
+## The kit's own models
+
+The pets, the pet beds and the More Furniture pieces are 3D models built from simple shapes in code
+(`kit/urbz_models.py`: a rig and actions for four-legged pets, birds and the snake; a function per piece of
+furniture), drawn the way The Urbz draws its world (below) when you build. They're original, so they ship with
+the kit, and a build needs nothing but your Urbz ROM.
+- `python urbz.py models list` lists them; `python urbz.py models show puppy` draws a sheet of one (every action
+  in 5 turns) into `build\models\`.
+- Use one in a mod like any import: `"import": {"from": "kit", "model": "club_sofa"}`.
+- To add one: a function returning its parts (shapes, each with a colour) in `urbz_models.py`, listed in
+  `FURNITURE` (or a new entry in `QUAD` for a four-legged pet: proportions, ears, tail, colours).
+
 ## Importing from other Sims games
 
-You can bring pets and furniture over from The Sims 2: Apartment Pets, The Sims 2: Castaway, The Sims 3 and
-The Sims 2 (DS). Their worlds are 3D; the kit renders each model the way The Urbz draws (from above at its
+Optional: you can bring pets and furniture over from The Sims 2: Apartment Pets, The Sims 2: Castaway, The Sims 3
+and The Sims 2 (DS), if you own them. Their worlds are 3D; the kit renders each model the way The Urbz draws (from above at its
 angle, its size, 16 colours) every time you build. Your copies of those games stay on your computer:
 1. Create `sources.json` in the kit folder, next to `urbz.py` (it is never committed):
    `{"aptpets": "D:\\ROMS\\Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}`
@@ -291,9 +302,12 @@ angle, its size, 16 colours) every time you build. Your copies of those games st
    which animation for each slot, e.g. `{"0-stand": "sitidle"}`).
 4. Build. Without the source game the mod still builds, with its drawn art if it has some, else the
    starting animal's or object's art (a warning says so).
+5. `"import"` can be a list, best first: the first whose game you have is used. The shipped mods do this, e.g.
+   `"import": [{"from": "aptpets", "model": "dog", "coat": "beagle"}, {"from": "kit", "model": "puppy"}]`: with
+   Apartment Pets in `sources.json` the Puppy is drawn from its dog, otherwise from the kit's own.
 
-`mods\pets` already imports the Apartment Pets animals: Puppy (beagle), Kitten, Bunny, Hamster, Guinea Pig,
-Cockatoo, Macaw and Snake (`"coat"` picks another dog breed or cat coat, see `docs\other-games.md`). To use your own
+`mods\pets` and `mods\more-furniture` use the kit's own models, or the Apartment Pets and Sims 3 ones when you
+have those games (`"coat"` picks another dog breed or cat coat, see `docs\other-games.md`). To use your own
 drawing instead, remove that pet's `"import"` line. In the game: see "Looking after pets" above.
 
 What limits how much you can add: not the ROM file (it grows as needed; DS ROMs go up to 512 MB and

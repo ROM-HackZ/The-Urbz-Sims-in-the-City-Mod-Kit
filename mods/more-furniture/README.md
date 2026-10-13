@@ -1,11 +1,11 @@
 # more-furniture
 
 New furniture for the Catalog (Furniture page) and the furniture shop (shop list 4; some pieces also at
-the Second Looks Thrift Emporium, list 10). The pictures come from The Sims 3 and The Sims 2: Apartment Pets,
-rendered from your own copies of those games when you build (`sources.json`, main README "Importing from
-other Sims games"). Without them a piece keeps the look of the game object it copies.
+the Second Looks Thrift Emporium, list 10). The pictures are the kit's own models (`kit/urbz_models.py`), drawn when you build;
+with `sources.json` naming your own copies of The Sims 3 and The Sims 2: Apartment Pets, they're drawn from
+those games' models instead (the "from" column).
 
-| number | name | from | works like | quality | its own actions |
+| number | name | from (optional) | works like | quality | its own actions |
 |---|---|---|---|---|---|
 | 430 | Club Armchair | Sims 3 | Country Class Chair (136) | 2 | Read a Book (Fun) |
 | 431 | Colonial Bed | Sims 3 | Spartan Special Bed (131) | 2 | |

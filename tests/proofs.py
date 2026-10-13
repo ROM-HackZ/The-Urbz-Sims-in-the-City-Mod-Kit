@@ -582,6 +582,36 @@ def p_npc_life_stays():
         usual, live, [r['present'] for r in res])
 
 
+def p_urbz_rom_only():
+    """Only the Urbz ROM needed (2026-10-13): with no other Sims games set up (no sources.json), the pets, their
+    beds and the More Furniture pieces are drawn from the kit's own models (kit/urbz_models.py), not left with
+    the look of the game animal or object they copy. Built with pets + more-furniture: no "keeps the ... art"
+    warning, and every one of the 8 pets and 18 objects was rendered from "kit"."""
+    import urbz_import
+    saved = urbz_import.SOURCES, dict(urbz_import._GAMES)
+    urbz_import.SOURCES = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'sources.json')   # none
+    urbz_import._GAMES.clear()
+    try:
+        rom, log, _ = build('urbz-rom-only', [os.path.join(KIT, 'mods', m) for m in ('pets', 'more-furniture')])
+    finally:
+        urbz_import.SOURCES = saved[0]
+        urbz_import._GAMES.clear()
+        urbz_import._GAMES.update(saved[1])
+    imports = os.path.join(KIT, 'build', 'imports')
+    froms = {}
+    for d in os.listdir(imports):
+        if d.startswith(('pets-', 'more-furniture-')):
+            try:
+                froms[d] = json.load(open(os.path.join(imports, d, 'import.json')))['from']
+            except (OSError, ValueError, KeyError):
+                froms[d] = None
+    kept = [l for l in log.splitlines() if 'keeps' in l]
+    from_kit = sorted(d for d, f in froms.items() if f == 'kit')
+    ok = not kept and len(from_kit) >= 8 + 5 + 13 and all(f == 'kit' for f in froms.values())
+    return ok, 'drawn from the kit\'s own models: %d (%s ...); from elsewhere: %s; warnings: %s' % (
+        len(from_kit), ', '.join(from_kit[:4]), sorted(d for d, f in froms.items() if f != 'kit') or 'none',
+        kept or 'none')
+
 SUE = 58
 
 
@@ -2834,7 +2864,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-new-seats', p_npc_new_seats), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('fix-stuck-leaving', p_fix_stuck_leaving), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-new-seats', p_npc_new_seats), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('fix-stuck-leaving', p_fix_stuck_leaving), ('urbz-rom-only', p_urbz_rom_only), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

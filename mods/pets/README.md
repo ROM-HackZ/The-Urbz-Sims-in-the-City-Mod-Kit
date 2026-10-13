@@ -27,8 +27,8 @@ Options > Mods > Pets shows how each is doing (R / L to scroll). Only your own p
 **The strays.** Once you're out of jail, a stray Puppy and Kitten hang around Urbania Park. Feed one on two
 different days and it trusts you: then Take Home. A townsperson adopts the other one.
 
-**Pictures.** With `sources.json` (your own copy of The Sims 2: Apartment Pets) the pets and beds are rendered
-from its models; without it they keep the look of the game animal or object they copy. Pets with the same
+**Pictures.** The pets and beds are the kit's own models (`kit/urbz_models.py`), drawn when you build; with
+`sources.json` naming your own copy of The Sims 2: Apartment Pets, they're drawn from its models instead. Pets with the same
 `"palette"` group (and beds with the same group in objects.json) share one set of 16 colours: the DS has only
 about 7 colour sets free at home, and when each thing has its own they run out (the rest come out in the wrong
 colours).
