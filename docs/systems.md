@@ -787,7 +787,7 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   catalog colours). **Icons** (Pockets, Catalog, shops): `ui_sprite_table` 0x020CB134, 16-byte records
   indexed by the object's model number (`object_text_table` +0): chair (model 151) = 0x703/0x704 with its
   own palette 0x705 (~24x32). Pets: `critter_anims` rows are the same records (chicken: stand 6 frames,
-  walk 9, 16x24, own palette). Plan for drawing new art: docs/plan-phase8.md.
+  walk 9, 16x24, own palette). Plan for drawing new art: docs/dev/plan-phase8.md.
 - **Own-palette objects (proven 2026-10-05, proofs `import-furniture`, `import-melonds`):** object setup
   (0x020681F0) normally colours an object with its `object_variants` ramp rows; only object 0x3D (the Personal
   Painting, variants 0xFD) gets a palette of its own from `entity_palette_table` (0x0206D724). The check at

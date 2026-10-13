@@ -27,7 +27,7 @@ and switch them on/off inside the game. Phase 5 delivers both:
 - **5A Mod platform**: in-game switches, per-mod save data, events, an in-game Mods page, a PC mod manager.
 - **5B NPC Life v1**: the first real mod built on the platform.
 
-This replaces the earlier draft in `docs/plan-phase5.md`, with Jonathan's decisions of 2026-10-02:
+This replaces the earlier draft in `docs/dev/plan-phase5.md`, with Jonathan's decisions of 2026-10-02:
 - **Switches are stored once for the whole cartridge**, not per save. They go in the spare 32 bytes at the end
   of the save chip. Each mod's own data is still kept per save.
 - **Platform first**: the order is A1 → A5, then B1 → B2.
@@ -238,18 +238,18 @@ All of these are confirmed in the emulator in step 1 or step 2 before anything i
      places
    - `npc-life-walkin`: RAM + screenshot
    - `npc-life-off`: switching off restores the original literals and people follow their timetables
-8. Docs: `docs/systems.md` (marked proven), `docs/plan-phase5.md` (replaced by this design), PLAN.md status
-   table (Phase 5 = platform + NPC Life), HANDOFF.md, the verify-urbz skill features, README.
+8. Docs: `docs/systems.md` (marked proven), `docs/dev/plan-phase5.md` (replaced by this design), docs/dev/plan.md status
+   table (Phase 5 = platform + NPC Life), docs/dev/handoff.md, the verify-urbz skill features, README.
 
 ## Execution (approved: "do it and complete the entire phase")
-- First commit: this design replaces `docs/plan-phase5.md`.
+- First commit: this design replaces `docs/dev/plan-phase5.md`.
 - Then steps 1–8 in order on branch `claude/compassionate-albattani-e4xegv`.
   - Commit after each step's check passes, and push.
   - Never commit the ROM, `project/`, `build/` or savestates.
-- If a static finding turns out wrong in step 1, fix the design in `docs/plan-phase5.md` and carry on.
+- If a static finding turns out wrong in step 1, fix the design in `docs/dev/plan-phase5.md` and carry on.
 - If the Options page reverse engineering hits a real wall, stop and report to Jonathan. Don't silently swap in a
   key combo.
-- Things only Jonathan can do are listed in HANDOFF.md, not faked:
+- Things only Jonathan can do are listed in docs/dev/handoff.md, not faked:
   - Windows `build.bat` / `manager.bat` test
   - flashcart / melonDS boot
 

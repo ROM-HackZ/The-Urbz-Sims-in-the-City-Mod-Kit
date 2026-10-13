@@ -1898,7 +1898,7 @@ def p_pets_gate():
         'build/proofs/pets-gate-*.png' % (kinds, st['loaded'], hunger, happy, items, money)
 
 
-# ---- Phase 10: beds, moving home, the Pets page, the strays quest (docs/plan-phase10.md) ----------------------
+# ---- Phase 10: beds, moving home, the Pets page, the strays quest (docs/dev/plan-phase10.md) ----------------------
 LOAD_SCRIPT = os.path.join(KIT, 'verify', 'scripts', 'loadgame.json')
 
 

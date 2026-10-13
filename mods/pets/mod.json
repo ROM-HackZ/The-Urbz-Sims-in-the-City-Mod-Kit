@@ -1,6 +1,6 @@
 {
   "name": "pets",
-  "version": "0.1",
-  "description": "A Puppy you buy and place at home like the Chicken; it runs around and can be picked up (rooster art until new art exists)",
+  "version": "1.0",
+  "description": "Eight pets (Puppy, Kitten, Bunny, Hamster, Guinea Pig, Cockatoo, Macaw, Snake), Pet Treats and a bed or cage for each: win over a stray in Urbania Park, buy more at the Farmer's Market, and look after them at home",
   "toggle": false
 }

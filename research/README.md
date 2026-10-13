@@ -1,5 +1,9 @@
 # Research scripts
 
+> A lab notebook, not part of the kit: these scripts aren't maintained, and the older ones use the absolute
+> paths of the machine they were written on (table below). The kit itself is in `kit/`; the facts they found are
+> written up in `docs/`.
+
 The probes and table generators behind `docs/` (areas, player look, objects, composite sprites)
 and the reverse-engineering helpers. They're kept so every documented fact can be re-derived.
 
@@ -8,7 +12,7 @@ those paths (or edit the constants at the top of the script):
 
 | path in the scripts | what it is | how to make it |
 |---|---|---|
-| `/root/urbz/kit9` (also `kit8`, `kit10`) | a kit checkout with `project/` | this repo + `python urbz_extract.py <rom> project` |
+| `/root/urbz/kit9` (also `kit8`, `kit10`) | a kit checkout with `project/` | this repo + `python urbz.py extract <rom> project` |
 | `/root/urbz/work/van.nds` | the original ROM | your own dump (SHA1 3c01cc5c...) |
 | `/root/urbz/arm9.bin` | the game code, loaded at 0x02000000 | `python -c "import ndspy.rom as r; open('arm9.bin','wb').write(r.NintendoDSRom.fromFile('van.nds').arm9)"` |
 | `/root/urbz/itcm.bin` | ITCM code at 0x01FF8000 | the second section of `ndspy.code.MainCodeFile(arm9, 0x02000000, 0x02000ADC)` |

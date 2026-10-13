@@ -1,4 +1,4 @@
-/* The strays quest (Phase 10, docs/plan-phase10.md), included by pets.c.
+/* The strays quest (Phase 10, docs/dev/plan-phase10.md), included by pets.c.
 
    Once you are out of jail (goal m0g5 "Find a Place to Live" is active) a stray puppy and a stray kitten
    (the pets marked "stray" in pets.json) hang about in Urbania Park. They are shy: until you have fed one,

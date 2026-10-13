@@ -21,7 +21,7 @@ pets.json:
             DEFAULT_BED_SPOT: the middle of a bed on one floor tile).
   stray     true: one of the two strays of the Urbania Park quest (code/pets-kit/strays.inc).
 
-A top-level "text" object may change the messages code/pets-kit shows (the strays quest, docs/plan-phase10.md):
+A top-level "text" object may change the messages code/pets-kit shows (the strays quest, docs/dev/plan-phase10.md):
 keys TEXT_KEYS (defaults DEFAULT_TEXT); @1 / @2 are filled in by the game (a pet's or a person's name).
 
 The builder (urbz_build.py) calls pets_mod(): each pet gets a critter kind (7, 8, ...). The game's three

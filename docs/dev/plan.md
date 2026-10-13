@@ -113,7 +113,7 @@ emulator check is possible.
 
 ## Phase 5: mod platform + NPC Life v1 (done 2026-10-02)
 
-Design and per-step results: **`docs/plan-phase5.md`**. In short:
+Design and per-step results: **`docs/dev/plan-phase5.md`**. In short:
 - **Mod platform** (`code/core/`, `code/include/mod.h`): code mods can be switched on/off in the game
   (Options > Mods, a real 4th button); the choice is kept in the cartridge's save memory. Mods get
   events (tick, game minute, area entered, save/load, on/off, info page) and their own data in each
@@ -133,7 +133,7 @@ Still open from Phase 5:
 
 ## Phase 6: NPC Life v2 (visible actions) — done
 
-Plan and status: `docs/plan-phase6.md`. In short:
+Plan and status: `docs/dev/plan-phase6.md`. In short:
 - **Placement:** every hour, each person is where their original timetable puts them; only hours the
   original game has them out of town become visits (cafés, clubs, parks, home). Nobody goes missing.
 - **Visible actions** (`mods/npc-life/code/act.inc`): with the game's own "walk to an object and use it"
@@ -149,15 +149,15 @@ animations can't sit (the player body could fix that), people don't say differen
 
 ## Phase 7: NPC Life v3 (routines) and drawn animations — done
 
-Plan and status: `docs/plan-phase7.md`. People keep their own look; no needs, money or rent; daily routines
+Plan and status: `docs/dev/plan-phase7.md`. People keep their own look; no needs, money or rent; daily routines
 that vary from day to day; `urbz_anims.py` to draw the missing animations per person; the builder now makes
 added assets actually load (the game's asset tables are moved to fit them).
 
-## Phase 8: Pets, furniture and the art tool (plan: docs/plan-phase8.md) — done
+## Phase 8: Pets, furniture and the art tool (plan: docs/dev/plan-phase8.md) — done
 
 **Changed with Jonathan (2026-10-04):** clothes wait; first **pets** (everyday pets: dogs, cats..., bought
 and placed at home like the Chicken) and **functional furniture**, as separate mods picked in the manager.
-Explored first, then planned (`docs/plan-phase8.md`). Done and proven so far: the Catalog only shows, shops
+Explored first, then planned (`docs/dev/plan-phase8.md`). Done and proven so far: the Catalog only shows, shops
 sell (daily stock from per-object masks), buys go to Pockets, placing works only at home (`pet-place`); new
 objects through `objects.json` (`urbz_objects.py`: seven tables moved, new text, `code/objects`;
 `objects-new`); a new pet kind (`mods/pets`, critter kind 7; `pet-new-kind`); furniture copies
@@ -177,7 +177,7 @@ Later (not Phase 8):
 
 **Gate:** buy, place and use the new thing with real taps, in DeSmuME and melonDS.
 
-## Phase 9: Pets, completed (plan: docs/plan-phase9.md)
+## Phase 9: Pets, completed (plan: docs/dev/plan-phase9.md)
 
 Jonathan (2026-10-06): "let's get pets completed in this next phase." Pets you buy in a shop, keep, look after
 and play with: they stay through saves and trips out (a "my pets" list in the mod save data), get their own
@@ -186,17 +186,17 @@ only makes them mope), their own behaviour with many more animations (sleep, sit
 their bed), and are sold in a shop. Caged animals keep roaming with a hop. Gate: one melonDS session with real
 taps from buying to saving and loading.
 
-**Status (2026-10-06): done**, gate `pets-gate` passes in melonDS (details: docs/plan-phase9.md "Status"). Not
+**Status (2026-10-06): done**, gate `pets-gate` passes in melonDS (details: docs/dev/plan-phase9.md "Status"). Not
 done: pet beds, sounds, a Mods-page pets page.
 
-## Phase 10: Pets, the rest (plan: docs/plan-phase10.md)
+## Phase 10: Pets, the rest (plan: docs/dev/plan-phase10.md)
 
 Jonathan (2026-10-06): "lets tackle the rest" (sounds not needed). Beds and cages pets sleep in, pets move with
 you, a Pets page on the Mods page, and, because pets are only sold in the Sim Quarter which opens late, a starter
 quest: two strays in Urbania Park, win one's trust over two days and take it home; a townsperson adopts the
 other. Pet things are sold at Drifter Woods' stall in Urbania Park.
 
-**Status (2026-10-06): done**, gate `pets-gate2` passes in melonDS (details: docs/plan-phase10.md "Status").
+**Status (2026-10-06): done**, gate `pets-gate2` passes in melonDS (details: docs/dev/plan-phase10.md "Status").
 
 ## After Phase 10 (2026-10-07 to 10-09)
 

@@ -1,6 +1,6 @@
 # Handoff (2026-10-12, Phase 10 done + pet and NPC Life fixes, borrowed poses perfected)
 
-For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase10.md`.
+For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `docs/dev/plan.md`, `docs/dev/plan-phase10.md`.
 
 ## The project
 Jonathan's "dream version" of *The Urbz: Sims in the City* (DS, USA, ROM SHA1
@@ -14,7 +14,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   save tool, C code mods, mod platform (switches, mod save data, Options > Mods), headless DeSmuME harness,
   melonDS harness (**melonDS is the gate**: it's what Jonathan uses on his AYN Thor), emulator proofs
   (`tests/proofs.py`).
-- **Phase 6 (this session)**, all proven (details and evidence: `docs/plan-phase6.md`, `docs/systems.md`
+- **Phase 6 (this session)**, all proven (details and evidence: `docs/dev/plan-phase6.md`, `docs/systems.md`
   "People: movement and object use" and "Player body on a person"):
   - Placement: people are always where their original timetable puts them; out-of-town hours become visits.
     Bug fixed: the connector jumped the sim clock and skipped hour decisions.
@@ -66,7 +66,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   389-395); caged animals walk with an idle + hop; `"coat"` for breeds; frames must fit 32 tiles (pet_art
   shrinks). Proof `pet-walk`. Picking up with real inputs is still not found.
 
-- **Phase 9 (2026-10-06): pets completed** (plan + status: `docs/plan-phase9.md`; facts: `docs/systems.md`
+- **Phase 9 (2026-10-06): pets completed** (plan + status: `docs/dev/plan-phase9.md`; facts: `docs/systems.md`
   "Pets"). code/pets-kit keeps "my pets" (saved, respawned at home), each pet has its own icon, 12 rendered
   actions and its own behaviour (idles, sleep at night, greet, mope), hunger and happiness; A at a pet opens the
   game's question box (Pet / Play / Feed / Put in Pocket); Pet Treats (396); pets and treats are sold by the
@@ -74,7 +74,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   `apartment-pets.sav`, `pet-shop.sav`. Proofs pets-persist, pets-icons, pets-menu, pets-life, pets-needs,
   pets-shop, pets-gate (melonDS: buy, save; home; place, Pet, Feed, save; loaded: all kept).
 
-- **Phase 10 (2026-10-06): pets, the rest** (plan + status: `docs/plan-phase10.md`; facts: `docs/systems.md`
+- **Phase 10 (2026-10-06): pets, the rest** (plan + status: `docs/dev/plan-phase10.md`; facts: `docs/systems.md`
   "Pets"). The strays quest in Urbania Park (code/pets-kit/strays.inc: two strays, trust over two days, Take
   Home, a townsperson adopts the other), pet beds and cages (objects 397-401, imported; pets sleep on them),
   pets follow you when you move house, Options > Mods > Pets page, pet things at Drifter Woods' stall
@@ -90,11 +90,11 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 
 ## Next
 - **Jonathan:** set up `sources.json`, run the gallery, pick furniture (and pets); test on the Thor.
-- Pet rough edges done 2026-10-07 (draw order, plain message boxes, saves without the mod, A near a townsperson: docs/plan-phase10.md).
+- Pet rough edges done 2026-10-07 (draw order, plain message boxes, saves without the mod, A near a townsperson: docs/dev/plan-phase10.md).
 - Pets test-play fixes 2026-10-09 (Jonathan: "perfect pets and npc-life", pets first; he chose all 9 fixes, a treat a
   day): shared palettes (pets.json/objects.json "palette" groups), sleep through the night, no endless sleep, slower
   needs, Pets page scrolls (R/L, core), pets stay with you, greeting, Play gesture, only your own pets can be pocketed
-  (his bug report). docs/plan-phase10.md "Test-play fixes".
+  (his bug report). docs/dev/plan-phase10.md "Test-play fixes".
 - NPC Life test-play 2026-10-12 (~30 game hours, all four mods; research/npc/soak_probe.py, now with CLOCK=):
   fixed two people on one seat (Café Z-Bach's two invisible love seats share a spot: one of ours per object,
   learned spots, one walk to an object at a time), frozen standing after a sit (walk-back ends when there or
@@ -139,10 +139,10 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   Jonathan said no to the player-body prototype (it stays a test mod).
 - Still open: The Sims 2 DS skinning/animations and its 16 black models; fold `urbz_anims.py` into
   `urbz_art.py`; a reading animation for "Read a Book" (it plays Sit).
-- Later phases (PLAN.md): outfits, hair styles, characters.
+- Later phases (docs/dev/plan.md): outfits, hair styles, characters.
 
 ## Setup in a fresh environment
-1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
+1. Clone https://github.com/ROM-HackZ/urbz-ds-mod-kit ; the person you work with supplies their own ROM (never in git).
 2. `pip install -r requirements.txt` (`--break-system-packages` if needed); `apt install clang lld llvm`.
 3. `python urbz.py extract <rom> project` then `python urbz.py build --vanilla` → `[IDENTICAL to original]`.
 4. `python3 tests/proofs.py` (about an hour; **never two proof runs at once**, they share `build/proofs/`),

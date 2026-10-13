@@ -148,7 +148,7 @@ and have a page that shows how they're doing.
 6. The Pets page shows the Puppy.
 
 Then: full `tests/proofs.py`, docs (systems.md "Pets", README "Looking after pets" + the stray quest, areas.md
-saves, `docs/plan-phase10.md`, PLAN, HANDOFF), commit, sync to the PC, Jonathan plays.
+saves, `docs/dev/plan-phase10.md`, PLAN, HANDOFF), commit, sync to the PC, Jonathan plays.
 
 ## Files
 - `code/pets-kit/pets.c`: beds, moving, page, strays quest. Maybe split into `strays.inc`; `hooks.txt` and

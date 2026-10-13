@@ -11,7 +11,7 @@ To bring a model over, name it in a mod: objects.json {"id": 440, "like": 136, .
 "aptpets", "model": "armchair4"}} or pets.json {"name": "Puppy", ..., "import": {"from": "aptpets", "model":
 "dog"}}. The builder renders it every build (README "Importing from other Sims games").
 
-sources.json (next to this file; local, never committed) names your own copies of the games (.nds, or a
+sources.json (in the kit folder, next to urbz.py; local, never committed) names your own copies of the games (.nds, or a
 .zip holding one, unpacked once into build/sources):
   {"aptpets": "D:/ROMS/Sims 2 - Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}
 

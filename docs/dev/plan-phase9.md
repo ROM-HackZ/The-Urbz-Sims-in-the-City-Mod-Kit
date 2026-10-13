@@ -136,7 +136,7 @@ melonDS with real taps.
 - **The other seven pets:** the `pet-walk` / `pets-life` proofs loop over every pet in pets.json.
 - **Wrap-up:**
   - full `tests/proofs.py`;
-  - docs: `docs/systems.md` "Pets", `docs/plan-phase9.md`, README "Pets", PLAN, HANDOFF;
+  - docs: `docs/systems.md` "Pets", `docs/dev/plan-phase9.md`, README "Pets", PLAN, HANDOFF;
   - commit and sync to the PC;
   - Jonathan plays it on the PC and the Thor.
 
@@ -148,7 +148,7 @@ melonDS with real taps.
   helpers).
 - `mods/pets/pets.json`: Pet Treats.
 - `tests/proofs.py`: pets-persist, pets-menu, pets-shop, pets-life, pets-needs; extend pet-walk.
-- Docs as above. Plan copy: `docs/plan-phase9.md`; `PLAN.md` gets a Phase 9 section.
+- Docs as above. Plan copy: `docs/dev/plan-phase9.md`; `docs/dev/plan.md` gets a Phase 9 section.
 
 ## Risks
 - **The dialog / menu:** the game's dialog may be limited to 2 options. Fallback: a bottom-screen menu like the

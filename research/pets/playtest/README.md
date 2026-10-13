@@ -10,4 +10,4 @@ pet's mode, action, timer, position, needs, from code/pets-kit's symbols).
 - `s10.py`: a pet put in the next room comes back. `steal.py`: the strays quest, then the adopted stray.
 - `survey2.py <anim hex> ...`: the player's animation while playing (pets_play_anim poked), 6 frames each.
 
-Findings and fixes: docs/plan-phase10.md "Test-play fixes".
+Findings and fixes: docs/dev/plan-phase10.md "Test-play fixes".
