@@ -130,6 +130,14 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   Book" keeps the seated loop. Test-play with all four mods (café, Urbania Park evening, pizza, apartment with
   pets; ~5 game hours each): nothing stuck; soak_probe's "frozen" flags were 20 s chats and looks. Harness:
   city states are made one at a time per ROM (parallel soaks had loaded each other's saves).
+- 2026-10-13, getting ready to publish (Jonathan: no outfits/hair/characters; perfect what's there, then make the
+  repo easy for others, e.g. Reddit). Chosen: MIT license, same GitHub account with a clearer name
+  (`urbz-ds-mod-kit`), history kept with Jonathan as author (Claude as co-author). Done: the tools moved into
+  `kit/` with one entry point `urbz.py` (`python urbz.py build`, `... mod list`, ...); README rewritten for
+  newcomers, `docs/playing.md`, `docs/modding.md` (the old README's guide), `docs/README.md`, `CONTRIBUTING.md`,
+  `LICENSE`, `.github/` templates; dev notes in `docs/dev/`. All 88 commits re-authored (Jonathan
+  <ROM-HackZ@users.noreply.github.com>). Left for Jonathan: rename the repo on GitHub, `git push --force`, make it
+  public. 77/77 proofs on the new layout (pets-gate2 on a rerun: melonDS sometimes misses a tap).
 - Furniture (2026-10-09, Jonathan: "address furni"; chose own strength + brand-new actions + a set picked by
   Claude): copies and imports already worked (sit, sleep). `objects.json` now has `"quality"` (1-5) and
   `"actions"` (new menu items that play like Sit/Sleep plus their own effects, until a need is full or for some
