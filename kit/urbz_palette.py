@@ -5,10 +5,10 @@ Sprites on the DS use 16-colour palettes. Most of the game's sprites don't carry
 own colours: the game loads separate palette files at runtime (docs/systems.md,
 "Sprite palettes"). Edit the right file and everything drawn with it changes colour.
 
-  python urbz_palette.py list                      the palette files we know, and what uses them
-  python urbz_palette.py who <character>           a person's palette file (name or id 31-75)
-  python urbz_palette.py edit <mod> <asset>        copy a palette into mods/<mod>/palette/NNNNN.png
-  python urbz_palette.py export <asset> <out.png>
+  python urbz.py palette list                      the palette files we know, and what uses them
+  python urbz.py palette who <character>           a person's palette file (name or id 31-75)
+  python urbz.py palette edit <mod> <asset>        copy a palette into mods/<mod>/palette/NNNNN.png
+  python urbz.py palette export <asset> <out.png>
 
 The PNG is a grid of 16x16-pixel swatches, 16 per row (one row per 16-colour palette).
 Paint a swatch with a new colour and build. The first colour of each row is see-through
@@ -16,7 +16,7 @@ in sprites. Colours are stored as 15-bit (5 bits per channel), so close colours 
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 SW = 16                                          # swatch size in pixels
 
 # What we know uses which palette file (file number = game id - 1). See docs/systems.md.
@@ -116,7 +116,7 @@ def npc_palettes(proj=None):
 
 
 def _names():
-    sys.path.insert(0, KIT)
+    sys.path.insert(0, os.path.join(KIT, 'kit'))
     from urbz_text import project_strings
     s = project_strings(_proj())
     return {cid: s[481 + cid].decode('latin-1') for cid in range(31, 67)}
@@ -148,7 +148,7 @@ def main(argv):
     elif cmd == 'edit' and len(args) == 2:
         md = os.path.join(KIT, 'mods', args[0])
         if not os.path.isdir(md):
-            sys.exit('error: no mod named "%s" (create it: python urbz_mod.py new %s)' % (args[0], args[0]))
+            sys.exit('error: no mod named "%s" (create it: python urbz.py mod new %s)' % (args[0], args[0]))
         idx = int(args[1])
         data = _asset(idx)
         if len(data) % 32:

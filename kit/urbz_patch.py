@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Write C code for the game: compile a mod's code/ folder into a blob the builder places.
 
-  python urbz_patch.py new <mod>        add code/main.c + code/hooks.txt to a mod (from a template)
-  python urbz_patch.py build <mod>      compile code/*.c and *.s -> code/build/patch.bin + patch.json
-  python urbz_patch.py build --dir PATH  same, for a mod folder anywhere (tests/mods/...)
-  python urbz_patch.py syms             list named game addresses (code/game.sym)
+  python urbz.py patch new <mod>        add code/main.c + code/hooks.txt to a mod (from a template)
+  python urbz.py patch build <mod>      compile code/*.c and *.s -> code/build/patch.bin + patch.json
+  python urbz.py patch build --dir PATH  same, for a mod folder anywhere (tests/mods/...)
+  python urbz.py patch syms             list named game addresses (code/game.sym)
 
 Needs LLVM (clang + ld.lld) only to *compile*. Built mods carry their compiled
 blob, so building the ROM never needs a compiler. On Windows: winget install LLVM.
@@ -16,7 +16,7 @@ the blob's real address to them. Call game functions through code/include/game.h
 """
 import glob, hashlib, json, os, shutil, struct, subprocess, sys, tempfile
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 CODE = os.path.join(KIT, 'code')
 PROBE = 0x10000000
 CFLAGS = ['--target=armv5te-none-eabi', '-marm', '-mfloat-abi=soft', '-Os', '-ffreestanding',
@@ -195,7 +195,7 @@ def build(mod):
 def new(mod):
     md = os.path.join(KIT, 'mods', mod)
     if not os.path.isdir(md):
-        sys.exit('error: no mod named "%s" (create it: python urbz_mod.py new %s)' % (mod, mod))
+        sys.exit('error: no mod named "%s" (create it: python urbz.py mod new %s)' % (mod, mod))
     cdir = os.path.join(md, 'code')
     os.makedirs(cdir, exist_ok=True)
     for name, text in (('main.c', TEMPLATE_C), ('hooks.txt', TEMPLATE_HOOKS)):
@@ -205,14 +205,14 @@ def new(mod):
         else:
             open(p, 'w', newline='\n').write(text)
             print('wrote ' + p)
-    print('next: edit them, then python urbz_patch.py build %s' % mod)
+    print('next: edit them, then python urbz.py patch build %s' % mod)
 
 
 def main(argv):
     if not argv or argv[0] in ('-h', '--help', 'help'):
         print(__doc__)
         return
-    sys.path.insert(0, KIT)
+    sys.path.insert(0, os.path.join(KIT, 'kit'))
     cmd, args = argv[0], argv[1:]
     if cmd == 'build' and args:
         build(args[1] if args[0] == '--dir' and len(args) > 1 else args[0])

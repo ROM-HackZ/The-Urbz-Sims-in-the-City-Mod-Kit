@@ -14,12 +14,12 @@ them, whose offsets match their chunks exactly.
 The builder uses project/sprite_refs.json to re-point layouts when an edited
 chunk grows and the chunks after it move.
 
-  python urbz_sprites.py [project_dir]     (re)write project/sprite_refs.json
+  python urbz.py sprites [project_dir]     (re)write project/sprite_refs.json
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 
 
 def layout_offsets(a):

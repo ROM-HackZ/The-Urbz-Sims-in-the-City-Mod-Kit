@@ -4,7 +4,7 @@ save), and a sheet shows 4 moments of each, zoomed on the player.
   python research/objects/player_anims.py OUT.png 0x5c 0x5d 0x6f ..."""
 import os, struct, sys, tempfile
 KIT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'verify')); sys.path.insert(0, os.path.join(KIT, 'tests'))
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit')); sys.path.insert(0, os.path.join(KIT, 'verify')); sys.path.insert(0, os.path.join(KIT, 'tests'))
 out_png, ids = sys.argv[1], [int(a, 0) for a in sys.argv[2:]]
 sys.argv = sys.argv[:1]
 import urbz_verify as V, proofs as P

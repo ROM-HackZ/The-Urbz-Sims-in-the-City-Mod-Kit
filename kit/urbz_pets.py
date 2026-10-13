@@ -35,7 +35,7 @@ import json, os, struct
 
 DEFAULT_BED_SPOT = [30, 4]           # pets.json "bed_spot": a one-tile bed's middle, from its position
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 ARM9_BASE = 0x02000000
 MAIN_END = 0x02121AC0
 CRIT_TABLE, CRIT_ANIMS, CRIT_PALETTES = 0x020C3400, 0x020C348C, 0x020C2FD4

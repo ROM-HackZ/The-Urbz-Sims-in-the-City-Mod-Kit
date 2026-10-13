@@ -14,7 +14,7 @@ import glob, json, os, random, shutil, struct, subprocess, sys, tempfile
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(TESTS)
-sys.path.insert(0, KIT)
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 sys.path.insert(0, os.path.join(KIT, 'verify'))
 PROJ = os.path.join(KIT, 'project')
 OUT = os.path.join(KIT, 'build', 'proofs')
@@ -32,7 +32,7 @@ def build(name, mods):
     for d in dirs:
         cdir = os.path.join(d, 'code')
         if os.path.isdir(cdir) and any(f.endswith('.c') for f in os.listdir(cdir)):
-            run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', d])
+            run([sys.executable, os.path.join(KIT, 'kit', 'urbz_patch.py'), 'build', '--dir', d])
     rom = os.path.join(OUT, name + '.nds')
     import io, contextlib
     buf = io.StringIO()
@@ -811,9 +811,9 @@ def p_npc_anims():
     (the game's asset tables are moved to fit them). Sent to a chair, she sits with it: state 0x11,
     animation 0x6B, and the game has loaded the new sheet."""
     work = os.path.join(tempfile.mkdtemp(prefix='urbz-proof-'), 'anim-proof')
-    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'placeholder', work, '43', 'sit'])
-    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'build', work])
-    run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', os.path.join(work, 'code')])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_anims.py'), 'placeholder', work, '43', 'sit'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_anims.py'), 'build', work])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_patch.py'), 'build', '--dir', os.path.join(work, 'code')])
     rom = build('npc-anims', ['obj-probe', work])[0]
     _, probe = find_magic(rom, 1, OBJP_MAGIC, 4)
     pokes = ['0x0214112E=1105',                                          # 17:05: Hattie is in area 51
@@ -920,7 +920,7 @@ def p_save_edit():
     src = os.path.join(KIT, 'verify', 'saves', 'lobby.sav')
     dst = os.path.join(OUT, 'edited.sav')
     os.makedirs(OUT, exist_ok=True)
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', src, dst, '--money', '4321',
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', src, dst, '--money', '4321',
          '--motive', 'hunger=12.5'])
     rom, _, _ = build('vanilla', [])
 
@@ -1344,10 +1344,10 @@ def p_pets_art(extra=(), name='pets-art'):
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     pets, anims = os.path.join(work, 'pets'), os.path.join(work, 'anim-proof')
     shutil.copytree(os.path.join(KIT, 'mods', 'pets'), pets)
-    run([sys.executable, os.path.join(KIT, 'urbz_art.py'), 'placeholder', pets, 'kitten'])
-    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'placeholder', anims, '43', 'sit'])
-    run([sys.executable, os.path.join(KIT, 'urbz_anims.py'), 'build', anims])
-    run([sys.executable, os.path.join(KIT, 'urbz_patch.py'), 'build', '--dir', os.path.join(anims, 'code')])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_art.py'), 'placeholder', pets, 'kitten'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_anims.py'), 'placeholder', anims, '43', 'sit'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_anims.py'), 'build', anims])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_patch.py'), 'build', '--dir', os.path.join(anims, 'code')])
     n_game0 = len(json.load(open(os.path.join(PROJ, 'manifest.json')))['entries'])
     n_anims0 = len([f for f in os.listdir(os.path.join(anims, 'assets')) if f.endswith('.bin')])
     extra = extra(n_game0 + n_anims0) if callable(extra) else list(extra)
@@ -1539,7 +1539,7 @@ def p_pet_walk():
         res.append('%s %d/%d' % (pet['name'], walk, stand))
     import numpy as np
     from PIL import Image
-    sys.path.insert(0, KIT)
+    sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
     import urbz_import as I
     big = []
     for d in glob.glob(os.path.join(KIT, 'build', 'imports', 'pets-*')):
@@ -1682,7 +1682,7 @@ def p_pets_life():
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
     night = os.path.join(work, 'night.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, night, '--clock', '23:30'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', sav, night, '--clock', '23:30'])
     load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
     place = _pocket_place(386, ['DOWN'] * 3)
 
@@ -1711,7 +1711,7 @@ def p_pets_needs():
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
     morning = os.path.join(work, 'morning.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, morning, '--clock', '07:00'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', sav, morning, '--clock', '07:00'])
     load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
     place = _pocket_place(386, ['DOWN'] * 3)[:-1] + [['wait', 20]]
     feed = [['press', 'A', 4], ['wait', 40], ['press', 'DOWN', 4], ['wait', 10], ['press', 'DOWN', 4], ['wait', 10],
@@ -1949,7 +1949,7 @@ def p_pets_beds():
     rom = build('pets-beds', [os.path.join(KIT, 'mods', 'pets')])[0]
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     night = os.path.join(work, 'night.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
          night, '--clock', '23:30'])
     res = []
     for pet, bed, second in ((386, 397, True), (389, 398, False)):
@@ -2192,7 +2192,7 @@ def p_pets_night():
     rom = build('pets-play', [os.path.join(KIT, 'mods', 'pets')])[0]
     work = tempfile.mkdtemp(prefix='urbz-proof-')
     night = os.path.join(work, 'night.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', APARTMENT, night, '--clock', '21:30'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', APARTMENT, night, '--clock', '21:30'])
     place = _load() + sum((_rested(_pocket_place(o, st)) for o, st in MANY_PLACES[:5]), [])   # the 4 beds, the Puppy
     res = []
     for until in ('02:00', '05:00', '09:30'):
@@ -2366,7 +2366,7 @@ def p_pets_gate2():
             ['wait', 200]]
     s3b = desmume(s3, load + [['wait', 900]] + _area_goto(19, 0) + rent + _area_goto(22) + [['wait', 200]], 'home')
     night = os.path.join(work, 'night.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', s3b, night, '--clock', '23:00'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', s3b, night, '--clock', '23:00'])
     # 4. melonDS: place the basket, then the Puppy; it sleeps in its basket; the Pets page
     place = lambda steps: [["touch", 236, 166, 8], ["wait", 90], ["touch", 84, 75, 8], ["wait", 90],
                            ["touch", 131, 36, 8], ["wait", 30], ["touch", 131, 36, 8], ["wait", 90],
@@ -2736,7 +2736,7 @@ def p_game_intact():
     counts = {}
     sav = os.path.join(KIT, 'verify', 'saves', 'apartment.sav')
     late = os.path.join(work, 'late.sav')
-    run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, late, '--clock', '23:55'])
+    run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', sav, late, '--clock', '23:55'])
     heads = [('0x%08X:8' % (0x02141280 + 8 * L)) for L in seen]
     vals, _ = _ram_run(rom, late, _load() + [['wait', 60]], *heads)
     slots = {L: struct.unpack('<BBHI', vals['0x%08X:8' % (0x02141280 + 8 * L)])[3] for L in seen}

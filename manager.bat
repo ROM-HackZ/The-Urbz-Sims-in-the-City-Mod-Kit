@@ -4,4 +4,4 @@ setlocal
 cd /d "%~dp0"
 set PY=pythonw
 where pyw >nul 2>nul && set PY=pyw -3
-start "" %PY% mod_manager.py
+start "" %PY% urbz.py manager

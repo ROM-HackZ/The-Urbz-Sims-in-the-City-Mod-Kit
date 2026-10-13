@@ -11,7 +11,7 @@ written into the kit; the report only lists names, sizes and counts.
 import collections, hashlib, os, struct, sys
 
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, KIT)
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 
 MAGICS = {b'NARC': 'NARC archive', b'RGCN': 'NCGR graphics', b'RLCN': 'NCLR palette', b'RECN': 'NCER cells',
           b'RNAN': 'NANR animation', b'RCSN': 'NSCR screen', b'BMD0': 'NSBMD 3D model',

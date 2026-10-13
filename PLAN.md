@@ -211,8 +211,8 @@ other. Pet things are sold at Drifter Woods' stall in Urbania Park.
 
 1. Clone the repo; put your ROM somewhere outside git (e.g. `~/roms/urbz.nds`).
 2. `pip install -r requirements.txt`; `apt install clang lld llvm` for code mods.
-3. `python3 urbz_extract.py ~/roms/urbz.nds project` (about 40 s).
-4. `python3 urbz_build.py --vanilla` → `[IDENTICAL to original]`.
+3. `python urbz.py extract ~/roms/urbz.nds project` (about 40 s).
+4. `python urbz.py build --vanilla` → `[IDENTICAL to original]`.
 5. `python3 tests/proofs.py` (about an hour; one emulator at a time) → all PASS.
 6. Read `CLAUDE.md`, then the `verify-urbz` skill in `.claude/skills/`.
 

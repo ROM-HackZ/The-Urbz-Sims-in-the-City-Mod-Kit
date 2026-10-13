@@ -21,8 +21,8 @@ Formats (worked out 2026-10-05; details in docs/other-games.md):
            0x15: rotation keys {u32 frame, s16 x, y, z, w quaternion fx12}, 0x16: position keys
            {u32 frame, s32 x, y, z fx12}}.
 
-  python urbz_fullfat.py list ROM [filter]     every file in the game's archives
-  python urbz_fullfat.py models ROM            the renderable models (pets, objects, accessories)
+  python urbz.py fullfat list ROM [filter]     every file in the game's archives
+  python urbz.py fullfat models ROM            the renderable models (pets, objects, accessories)
 """
 import os, struct, sys
 

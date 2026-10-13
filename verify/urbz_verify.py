@@ -337,7 +337,7 @@ def _install_watches(emu, watches, limit=4000, stack=False, only_r0=None):
 
 def _check_rom(job):
     if not os.path.exists(job['rom']):
-        sys.exit('error: ROM not found: %s (build it first: python urbz_build.py)' % job['rom'])
+        sys.exit('error: ROM not found: %s (build it first: python urbz.py build)' % job['rom'])
     if job.get('state') and not os.path.exists(job['state']):
         sys.exit('error: savestate not found: %s' % job['state'])
     if job.get('sav') and not os.path.exists(job['sav']):
@@ -413,7 +413,7 @@ def header_check(rom):
 def cmd_doctor(args):
     rom = args[0] if args else DEFAULT_ROM
     if not os.path.exists(rom):
-        sys.exit('DOCTOR FAIL: %s not found (build first: python urbz_build.py)' % rom)
+        sys.exit('DOCTOR FAIL: %s not found (build first: python urbz.py build)' % rom)
     code, title = header_check(rom)
     print('header: %s / %s' % (title, code))
     if code != 'ASIE':

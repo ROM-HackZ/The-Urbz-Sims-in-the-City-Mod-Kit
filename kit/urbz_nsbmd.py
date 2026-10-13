@@ -9,7 +9,7 @@ colour, texture and palette by name), polygons (GX display lists, run with the n
 textures in every DS format including 4x4 compressed. Not: skinning (NODEMIX), billboards, texture
 matrices, animations (BCA0).
 
-  python urbz_nsbmd.py models ROM          the models in The Sims 2 (DS)
+  python urbz.py nsbmd models ROM          the models in The Sims 2 (DS)
 """
 import struct, sys
 

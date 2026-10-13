@@ -4,8 +4,8 @@ All 8,311 strings live in the Huffman text bank, asset 00054. A mod's `text/stri
 
 ## Sub-features
 
-- `text-find`: `python urbz_text.py find "<words>"` lists matching IDs.
-- `text-edit`: `python urbz_text.py edit <mod> <ID>...` copies lines into the mod.
+- `text-find`: `python urbz.py text find "<words>"` lists matching IDs.
+- `text-edit`: `python urbz.py text edit <mod> <ID>...` copies lines into the mod.
 - `text-build`: the build summary says `text bank re-encoded`.
 - `text-errors`: a bad ID, a line over 1,023 bytes, an unknown escape, a non-ASCII character, or a mod that both edits text and replaces assets/00054.bin each fail with `BUILD FAILED`.
 
@@ -16,7 +16,7 @@ All 8,311 strings live in the Huffman text bank, asset 00054. A mod's `text/stri
 ## Driving it with the kit CLI and urbz_verify
 
 - **Title prompt.**
-  - In mod `text-test`, run `python urbz_text.py edit text-test 27` and change it to `Welcome to the Living City! Spin the record, then touch the check box.`
+  - In mod `text-test`, run `python urbz.py text edit text-test 27` and change it to `Welcome to the Living City! Spin the record, then touch the check box.`
   - Build and run `python verify/urbz_verify.py smoke <rom>`. `step4` shows the new prompt, word-wrapped (~1.5% changed).
 - **Real dialogue.**
   - Edit 5870 (Kris: "What are you doing just sitting around?…") to `Hey @1! The whole city runs on rent and noodles now. Even I need a lunch break!` and 5873 to `Me too. Let's grab some grub!`.

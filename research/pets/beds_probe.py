@@ -7,7 +7,7 @@ import proofs as P
 rom = sys.argv[1] if len(sys.argv) > 1 else P.build('pets-beds', [os.path.join(P.KIT, 'mods', 'pets')])[0]
 work = tempfile.mkdtemp(prefix='beds-')
 night = os.path.join(work, 'night.sav')
-P.run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
+P.run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
        night, '--clock', '23:30'])
 load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
 script = load + P._pocket_place(397, ['RIGHT'] * 2) + [['shot', 'basket']] + P._pocket_place(386, ['DOWN'] * 3) + \

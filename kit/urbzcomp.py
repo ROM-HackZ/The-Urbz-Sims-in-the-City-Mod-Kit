@@ -658,7 +658,7 @@ def chunk_codec(flags):
     return (flags >> 4) & 7
 
 
-_CHUNK_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'cache', 'chunks')
+_CHUNK_CACHE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'build', 'cache', 'chunks')
 
 
 def _cached_compress(raw, flags):

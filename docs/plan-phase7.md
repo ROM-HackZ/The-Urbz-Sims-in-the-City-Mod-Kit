@@ -44,5 +44,5 @@ Decided with Jonathan (2026-10-02):
   vending machine. `npc-act`, `npc-act-release` still pass.
 
 ## What Jonathan can do now
-- Draw animations: `python urbz_anims.py template my-anims <person> sit` (README "New animations").
+- Draw animations: `python urbz.py anims template my-anims <person> sit` (README "New animations").
 - See anyone's day: `python mods/npc-life/sim/run_test.py day <id> [week] [weekday]`.

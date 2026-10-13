@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Read and edit The Urbz DS save files (8 KB EEPROM, .sav as written by emulators).
 
-  python urbz_save.py info game.sav                   header, both slots, clock, money, needs
-  python urbz_save.py set game.sav out.sav [--slot 1|2] [--money N] [--motive NAME=0..100 ...]
+  python urbz.py save info game.sav                   header, both slots, clock, money, needs
+  python urbz.py save set game.sav out.sav [--slot 1|2] [--money N] [--motive NAME=0..100 ...]
                                            [--clock HH:MM]  (time of day; the day stays)
-  python urbz_save.py fix game.sav out.sav            recompute checksums (after editing by hand)
+  python urbz.py save fix game.sav out.sav            recompute checksums (after editing by hand)
 
 Layout (see docs/systems.md):
   0x0000  0x20-byte header: "URBZ0010" ...; u16 at 0x1E makes the u16 sum of the header 0
@@ -71,7 +71,7 @@ def switch_record(buf):
 def _mod_names():
     import os
     from urbz_code import name_hash
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mods')
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'mods')
     names = os.listdir(root) if os.path.isdir(root) else []
     return {name_hash(n): n for n in names}
 

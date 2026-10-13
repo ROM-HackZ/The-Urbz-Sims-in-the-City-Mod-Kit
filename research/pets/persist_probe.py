@@ -46,4 +46,4 @@ json.dump(base + place(obj) + json.load(open(os.path.join(KIT, 'verify', 'script
 P.run(P.VERIFY + ['play', ROM, '--sav', SAV, '--script', s, '--save', os.path.join(tempfile.mkdtemp(), 'x.dst'),
                   '--export-sav', sav])
 print('saved, power-off, load:', run(LOAD + [['press', 'B', 6], ['wait', 300]], sav=sav))
-print(subprocess.run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'info', sav], capture_output=True, text=True).stdout)
+print(subprocess.run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'info', sav], capture_output=True, text=True).stdout)

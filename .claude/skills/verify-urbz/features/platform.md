@@ -22,7 +22,7 @@ the Mods page (Options > Mods). `mods/npc-life` is the first mod built on it.
 
 - Build with any code mod (e.g. `--mod tests/mods/clock-speed`). In the city tap Options (128,180), then Mods
   (61,120). Rows: slot k at x = 64 (even k) / 192 (odd k), y = 28 + 46 * (k / 2).
-- `manager.bat` (Windows) or `python mod_manager.py` opens the manager.
+- `manager.bat` (Windows) or `python urbz.py manager` opens the manager.
 
 ## Driving it
 

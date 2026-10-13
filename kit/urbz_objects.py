@@ -23,11 +23,11 @@ objects.json:
   model     the art (model) number; default: like's.
   sell      {"shop list": "common" | "uncommon" | "rare"}: shops that may stock it each day.
 
-  python urbz_objects.py show 225 [389 ...]     print rows (with the project's game data)
+  python urbz.py objects show 225 [389 ...]     print rows (with the project's game data)
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 ARM9_BASE = 0x02000000
 MAIN_END = 0x02121AC0                      # end of the main code+data (BSS follows)
 SHAPE = 0x020E6954                         # u32 per placeable object: footprint data

@@ -45,7 +45,7 @@ API
 import os, struct, sys
 from dataclasses import dataclass, field
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 KIT_PROJECT = os.path.join(KIT, 'project')
 
 # FUN_020ae17c's table at 0x020c22bc: tiles per [shape*4 + size]
@@ -301,7 +301,7 @@ def palette_for(gfx, proj=KIT_PROJECT):
     import json
     key = ('pal', proj, int(gfx))
     if key not in _CACHE:
-        sys.path.insert(0, KIT)
+        sys.path.insert(0, os.path.join(KIT, 'kit'))
         from urbz_png import sprite_palette
         m = _manifest(proj)
         refs = json.load(open(os.path.join(proj, 'sprite_refs.json')))['gfx']

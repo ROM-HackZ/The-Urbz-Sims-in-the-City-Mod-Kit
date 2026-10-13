@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(KIT, 'tests')); sys.argv = sys.argv[:1]
 import proofs as P
 work = tempfile.mkdtemp(prefix='bedshot-')
 night = os.path.join(work, 'night.sav')
-P.run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
+P.run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', os.path.join(KIT, 'verify', 'saves', 'apartment.sav'),
        night, '--clock', '23:30'])
 load = json.load(open(os.path.join(KIT, 'verify', 'scripts', 'loadgame.json'))) + [['press', 'B', 6], ['wait', 60]]
 p = os.path.join(work, 's.json')

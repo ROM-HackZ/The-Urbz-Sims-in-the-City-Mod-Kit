@@ -14,8 +14,8 @@ how the engine works.
 
 ```
 pip install -r requirements.txt          # ndspy, Pillow, py-desmume, capstone
-python3 urbz_extract.py "Urbz.nds" project
-python3 urbz_build.py --vanilla          # -> [IDENTICAL to original]
+python urbz.py extract "Urbz.nds" project
+python urbz.py build --vanilla          # -> [IDENTICAL to original]
 python3 tests/proofs.py vanilla clock-speed   # emulator checks (headless)
 ```
 For C code mods install LLVM (clang, ld.lld, llvm-objcopy/nm/readelf), e.g. `apt install clang lld llvm`.
@@ -27,8 +27,8 @@ For C code mods install LLVM (clang, ld.lld, llvm-objcopy/nm/readelf), e.g. `apt
 3. `build.bat --vanilla`: should print `[IDENTICAL to original]`.
 4. Make a mod:
    ```
-   python urbz_mod.py new my-mod "what it does"
-   python urbz_mod.py edit my-mod 10747        (copies asset 10747's files into the mod)
+   python urbz.py mod new my-mod "what it does"
+   python urbz.py mod edit my-mod 10747        (copies asset 10747's files into the mod)
    ...edit the files under mods\my-mod\ ...
    ```
 5. `build.bat`: builds `build\Urbz Mod.nds` with your enabled mods. If you put your
@@ -57,7 +57,7 @@ Extract takes about 40 s. A build takes a few seconds, plus recompression time f
 | `catalog\` | Generated asset gallery (`catalog.bat`). Safe to delete and regenerate. |
 | `.claude\skills\verify-urbz\` | Verification recipes Claude follows (also readable by you). |
 
-### Mod commands (`python urbz_mod.py ...`)
+### Mod commands (`python urbz.py mod ...`)
 
 | Command | Does |
 |---|---|
@@ -72,7 +72,7 @@ Extract takes about 40 s. A build takes a few seconds, plus recompression time f
 They're appended after the original 13,385. Nothing in the game uses them until something
 references their ID (content wiring comes in a later phase).
 
-### Build options (`python urbz_build.py ...`)
+### Build options (`python urbz.py build ...`)
 
 - `[out.nds]`: output path (default `build\Urbz Mod.nds`)
 - `--vanilla`: ignore mods (proves the baseline is identical)
@@ -84,8 +84,8 @@ Every line in the game (8,311 strings: dialogue, menus, item and place names) is
 in one compressed text bank. You edit it as plain text:
 
 ```
-python urbz_text.py find "sitting around"        search (prints string IDs)
-python urbz_text.py edit my-mod 5870 5873        copy lines into mods\my-mod\text\strings.tsv
+python urbz.py text find "sitting around"        search (prints string IDs)
+python urbz.py text edit my-mod 5870 5873        copy lines into mods\my-mod\text\strings.tsv
 ```
 Open `mods\my-mod\text\strings.tsv` in any text editor and change the text after the tab.
 - **Accents:** type é, ñ, ü, ç, ¿, ¡, … and ™ directly; they're in the game's fonts. Anything
@@ -98,7 +98,7 @@ Open `mods\my-mod\text\strings.tsv` in any text editor and change the text after
 ## Editing pictures (PNG)
 
 ```
-python urbz_png.py edit my-mod 10747             screens / sprite frames -> mods\my-mod\png\10747\*.png
+python urbz.py png edit my-mod 10747             screens / sprite frames -> mods\my-mod\png\10747\*.png
 ```
 Paint on the PNGs, save, and build.
 - **Screens:** you can use any colours. Edited tiles that need new colours get them
@@ -117,9 +117,9 @@ Paint on the PNGs, save, and build.
 Most sprites get their colours from separate palette files. Edit the file and everything
 drawn with it changes colour:
 ```
-python urbz_palette.py list                      known palette files and what uses them
-python urbz_palette.py who kris                  a person's palette (Kris Thistle: 09160)
-python urbz_palette.py edit my-mod 9160          -> mods\my-mod\palette\09160.png (16x16 swatches)
+python urbz.py palette list                      known palette files and what uses them
+python urbz.py palette who kris                  a person's palette (Kris Thistle: 09160)
+python urbz.py palette edit my-mod 9160          -> mods\my-mod\palette\09160.png (16x16 swatches)
 ```
 Repaint swatches and build. The player's skin, hair and shoe colours are in 11543, the 32
 clothing colours in 11542 (`docs\player-look.md`).
@@ -128,8 +128,8 @@ clothing colours in 11542 (`docs\player-look.md`).
 
 The game has 8 fonts (different sizes). Edit them as PNG sheets:
 ```
-python urbz_font.py edit my-mod          -> mods\my-mod\font\fontN_NNNNN.png + .json (all 8)
-python urbz_font.py edit my-mod 0 2      just fonts 0 and 2
+python urbz.py font edit my-mod          -> mods\my-mod\font\fontN_NNNNN.png + .json (all 8)
+python urbz.py font edit my-mod 0 2      just fonts 0 and 2
 ```
 Glyph pixels use colours 1-15 (0 = see-through); the red bar under each glyph is its width.
 Empty cells after the last glyph are free codes (up to 0xEF): draw a glyph and its bar there
@@ -148,14 +148,14 @@ data 0x02113B60 01 0F         # or raw bytes
 Example: `tests\mods\clock-speed` (the kit's own test mod) makes in-game days last twice as long; copy it
 into `mods\` to use it, then edit the two numbers in its `hooks.txt` (the table in that file shows the options).
 
-**C code.** `python urbz_patch.py new my-mod` adds `code\main.c` and `code\hooks.txt`. Write C
+**C code.** `python urbz.py patch new my-mod` adds `code\main.c` and `code\hooks.txt`. Write C
 using `code\include\game.h` (the clock, needs, money, people...), say where it runs in `hooks.txt`:
 ```
 wrap world_tick on_tick            # run on_tick 30 times a second, then carry on
 call time_update_call my_time_add  # make one existing call go to my function
 jump motive_get my_motive_get      # replace a whole game function
 ```
-then `python urbz_patch.py build my-mod` and build as usual. Compiling needs LLVM
+then `python urbz.py patch build my-mod` and build as usual. Compiling needs LLVM
 (`winget install LLVM`); building the ROM doesn't, because each mod keeps its compiled
 `code\build\patch.bin`. A small example is `tests\mods\npc-visit` (a test mod): it answers
 the game's "where should this person be?" question so that Bayou Boo walks onto the King Tower roof
@@ -197,7 +197,7 @@ NPC Life; the original game can't load such a save.
 
 ## Mod manager (window)
 
-`manager.bat` (or `python mod_manager.py`) shows every mod with a tick box, its version and
+`manager.bat` (or `python urbz.py manager`) shows every mod with a tick box, its version and
 description. Tick the ones you want, change their order, then **Build**, **Play** (opens the
 ROM in the emulator named in `emulator.txt`) or **Build & Play**. **Add mod...** installs a
 mod from a zip file (it refuses zips with ROMs, saves or programs in them).
@@ -249,7 +249,7 @@ closest-looking person who has it, recoloured to the person's own colours and gi
 look a little off-model up close, but everyone can now sit at a table, eat, wash and sleep. The first
 build makes them from your game (about a minute; kept in `build\cache` after that). Which groups, and who
 to leave alone: `mods\npc-life\poses.json` (Lottie Cash is left out: she uses a wheelchair). To look at
-them first: `python urbz_poses.py preview <folder> hattie` (contact sheets, the original pose above each
+them first: `python urbz.py poses preview <folder> hattie` (contact sheets, the original pose above each
 borrowed one).
 
 ## New animations for the townspeople (drawn by you)
@@ -258,15 +258,15 @@ Only 8 townspeople have the game's sit/toilet/shower/sleep animations (and only 
 borrowed poses above fill in the rest. `urbz_anims.py` lets you draw your own for anyone, in their own
 look (a person you draw for keeps your drawings instead of the borrowed ones):
 ```
-python urbz_anims.py list                         who has which animation
-python urbz_anims.py template my-anims hattie sit # Gramma Hattie: frames to draw + a guide
+python urbz.py anims list                         who has which animation
+python urbz.py anims template my-anims hattie sit # Gramma Hattie: frames to draw + a guide
 ```
 Then draw `mods\my-anims\people\43-gramma\sit_6b\front\NN.png` and `...\back\NN.png`: each starts
 as her own standing frame, and `guide\sit_6b\...` shows the same frame on Kris (pose and timing to
 copy). Every PNG is 96x96 with the feet on pixel (40, 72); use her own colours. Then:
 ```
-python urbz_anims.py build my-anims               new sprite sheets + the game data
-python urbz_patch.py build my-anims               (needs LLVM)
+python urbz.py anims build my-anims               new sprite sheets + the game data
+python urbz.py patch build my-anims               (needs LLVM)
 ```
 and build the ROM with `my-anims` enabled. NPC Life then sends her to chairs like the others. Groups:
 sit, eat, toilet, shower, sleep. The frames come from the game's art, so keep your mod to yourself.
@@ -286,7 +286,7 @@ A mod adds or changes objects with an `objects.json`:
 ```
 `like` is the object to copy (art and behaviour); `page` is the Catalog page (0 Appliances ...
 5 Utilities, 7 = not shown); `sell` = shop lists that may stock it. The builder makes room for
-the new rows by itself. `python urbz_objects.py show 225` prints an object's row.
+the new rows by itself. `python urbz.py objects show 225` prints an object's row.
 New numbers: 386 and 389-511. A new object can have its own art: `"art": "art/<folder>"` (your drawings,
 "Drawing furniture" below) or `"import": {...}` (a model from another Sims DS game, "Importing from other Sims
 games" below). Without either it wears the copied object's art.
@@ -346,8 +346,8 @@ Pets live in `mods\pets\pets.json` (eight so far; add more the same way). Each s
 an animal of the game (`"from"`: chicken, rooster or nutria): it moves like that animal and wears its art
 until you draw your own:
 ```
-python urbz_art.py template pets puppy      mods\pets\art\puppy\: the rooster's frames to draw over
-python urbz_art.py preview pets puppy       art\puppy\preview.png: every frame, big, off-colour pixels pink
+python urbz.py art template pets puppy      mods\pets\art\puppy\: the rooster's frames to draw over
+python urbz.py art preview pets puppy       art\puppy\preview.png: every frame, big, off-colour pixels pink
 ```
 In the folder: `0-stand\dir0\00.png ...` (slot 0 = standing, 1 = walking, 2-4 = other moves; dir0 faces
 away, dir2 side-on (facing right), dir4 faces you, the game mirrors the rest), `palette.png` (the pet's 16 colours: the
@@ -362,7 +362,7 @@ The template pictures are the game's own: keep the `art` folder to yourself unti
 ## Drawing furniture
 
 ```
-python urbz_art.py object-template mods\more-furniture\art\armchair 136    start from object 136's art
+python urbz.py art object-template mods\more-furniture\art\armchair 136    start from object 136's art
 ```
 The folder holds `view-away.png` (the piece facing up-right; the game shows it for 3 of its turns),
 `view-toward.png` (facing down-left), extra state frames `view-away-1.png ...` (e.g. a slept-in bed; missing
@@ -379,8 +379,8 @@ angle, its size, 16 colours) every time you build. Your copies of those games st
 1. Create `sources.json` next to `urbz_build.py` (it is never committed):
    `{"aptpets": "D:\\ROMS\\Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}`
    (a `.zip` holding the `.nds` works too; it is unpacked once into `build\sources`)
-2. `python urbz_import.py gallery` renders every model into `catalog\imports\index.html`: pick from there.
-   `python urbz_import.py show aptpets dog` shows one model in 5 turns and walking.
+2. `python urbz.py import gallery` renders every model into `catalog\imports\index.html`: pick from there.
+   `python urbz.py import show aptpets dog` shows one model in 5 turns and walking.
 3. Name your pick in a mod:
    - furniture, `objects.json`: `{"id": 440, "like": 136, "name": "Green Lounger", "price": 140, "page": 3,
      "import": {"from": "aptpets", "model": "armchair4"}}` (`like`: the object it behaves like; choose one
@@ -405,8 +405,8 @@ Formats and findings: `docs\other-games.md`.
 ## Save files
 
 ```
-python urbz_save.py info "my game.sav"                         clock, money and needs per slot
-python urbz_save.py set "my game.sav" edited.sav --money 5000 --motive hunger=100 --clock 16:30
+python urbz.py save info "my game.sav"                         clock, money and needs per slot
+python urbz.py save set "my game.sav" edited.sav --money 5000 --motive hunger=100 --clock 16:30
 ```
 `info` also lists mod data in each slot and the in-game mod switches.
 `set` fixes the checksums, so the game accepts the edited save.
@@ -433,10 +433,10 @@ nothing else moves. If an edit doesn't fit:
 - **Anything else** that would move data with no known referencer stops with a
   `BUILD FAILED` message saying how big the edit packs versus its slot.
 
-Got an older project? `python urbz_extract.py --upgrade project` adds the tile files, the
+Got an older project? `python urbz.py extract --upgrade project` adds the tile files, the
 LZ77/raw chunks and `sprite_refs.json` in place (about a minute).
-After updating the kit, also run `python urbz_sprites.py` (refreshes `sprite_refs.json`: all
-4,006 sheets can grow) and `python urbz_text.py export` (the reference text now shows é, ñ, ...).
+After updating the kit, also run `python urbz.py sprites` (refreshes `sprite_refs.json`: all
+4,006 sheets can grow) and `python urbz.py text export` (the reference text now shows é, ñ, ...).
 
 ## Inside project\
 

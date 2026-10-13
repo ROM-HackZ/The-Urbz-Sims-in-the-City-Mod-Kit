@@ -11,14 +11,14 @@ Build turns `project/` plus enabled mods into `build/Urbz Mod.nds`. It patches t
 
 ## How to get to it (user POV)
 
-- Run `python urbz_build.py` (default output `build/Urbz Mod.nds`) or `build.bat`.
-- Run `python urbz_build.py --vanilla <out>` for the original game.
+- Run `python urbz.py build` (default output `build/Urbz Mod.nds`) or `build.bat`.
+- Run `python urbz.py build --vanilla <out>` for the original game.
 
 ## Driving it with the kit CLI
 
-- **Vanilla.** Run `python urbz_build.py --vanilla /tmp/v.nds`. The output ends `[IDENTICAL to original]`.
+- **Vanilla.** Run `python urbz.py build --vanilla /tmp/v.nds`. The output ends `[IDENTICAL to original]`.
 - **Grow.** In a scratch mod, append bytes to `unpacked/10747/000000.bin` (the EA logo screen, a trailing chunk). Build: it prints `1 changed` and a different SHA, and `verify/urbz_verify.py smoke /tmp/x.nds` passes.
-- **Refuse.** In a disabled scratch mod, put random bytes in `unpacked/10368/000114.bin` (one of the 4 multi-chunk assets with no known referencer). Run `python urbz_build.py --mod <scratch> /tmp/x.nds`. It exits 1 with `no known sprite layout points at them`, and `/tmp/x.nds` is not created.
+- **Refuse.** In a disabled scratch mod, put random bytes in `unpacked/10368/000114.bin` (one of the 4 multi-chunk assets with no known referencer). Run `python urbz.py build --mod <scratch> /tmp/x.nds`. It exits 1 with `no known sprite layout points at them`, and `/tmp/x.nds` is not created.
 
 ## Gotchas
 

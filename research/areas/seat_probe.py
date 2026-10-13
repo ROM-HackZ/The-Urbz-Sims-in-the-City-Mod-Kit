@@ -5,7 +5,7 @@ area's picture MAP (from area_map.py, with its .json for the origin), with the a
   python research/areas/seat_probe.py SEATS.json SAVE AREA MAP.png OUT.png [STEPS]"""
 import json, os, shutil, struct, sys, tempfile
 KIT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'tests'))
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit')); sys.path.insert(0, os.path.join(KIT, 'tests'))
 seats, save, area, map_png, out_png = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4], sys.argv[5]
 steps = int(sys.argv[6]) if len(sys.argv) > 6 else 60
 sys.argv = sys.argv[:1]

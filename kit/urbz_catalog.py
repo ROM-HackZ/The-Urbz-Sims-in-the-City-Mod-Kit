@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build a browsable catalog of every asset: type, size, scene labels, thumbnail.
 
-  python urbz_catalog.py            -> catalog/index.html (open it in a browser)
-  python urbz_catalog.py --no-thumbs  (fast, data only)
+  python urbz.py catalog            -> catalog/index.html (open it in a browser)
+  python urbz.py catalog --no-thumbs  (fast, data only)
 
 Types come from static signatures (see urbz_classify.py). Scene labels come
 from emulator traces in verify/traces/*.json (made with `urbz_verify.py trace`),
@@ -11,8 +11,8 @@ Game asset ID = file number + 1 (the game's own numbering, used by its code).
 """
 import json, os, sys, time
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 from urbz_classify import classify_all
 from urbz_gfx import find_screen, render_screen, tiles_preview, render_palette
 

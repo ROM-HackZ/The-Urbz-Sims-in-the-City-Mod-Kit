@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unpack The Urbz DS ROM into an editable project folder.
 
-Usage: python3 urbz_extract.py "Urbz.nds" project_dir
+Usage: python urbz.py extract "Urbz.nds" project_dir
 
 Layout written:
   project_dir/
@@ -20,7 +20,7 @@ Don't edit project/ directly: put changes in a mod (see urbz_mod.py), then run
 urbz_build.py. Untouched chunks are reused byte-for-byte.
 
 Upgrade an older project (adds tiles files + sprite_refs.json, keeps everything else):
-  python3 urbz_extract.py --upgrade project
+  python urbz.py extract --upgrade project
 """
 import hashlib, json, os, struct, sys
 
@@ -122,7 +122,7 @@ def upgrade(proj):
             raw = open(os.path.join(proj, 'assets', rec['file']), 'rb').read()
             if sha1(raw) != rec['sha1']:
                 sys.exit('error: assets/%s was edited inside project/. Run '
-                         '"python urbz_mod.py rescue <mod>" first, then upgrade.' % rec['file'])
+                         '"python urbz.py mod rescue <mod>" first, then upgrade.' % rec['file'])
             cdir = os.path.join(proj, 'unpacked', '%05d' % i)
             old = {c['off']: c for c in rec.get('chunks', [])}
             new_list = []
@@ -132,7 +132,7 @@ def upgrade(proj):
                 if c is not None:
                     path = os.path.join(cdir, c['file'])
                     if sha1(open(path, 'rb').read()) != c['sha1']:
-                        sys.exit('error: %s was edited inside project/. Run "python urbz_mod.py '
+                        sys.exit('error: %s was edited inside project/. Run "python urbz.py mod '
                                  'rescue <mod>" first, then upgrade.' % path)
                     if c['slot'] != slot or c['sha1'] != sha1(content):
                         sys.exit('error: asset %05d chunk %s does not match a fresh scan; '

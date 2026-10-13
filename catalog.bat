@@ -4,6 +4,6 @@ setlocal
 cd /d "%~dp0"
 set PY=python
 where py >nul 2>nul && set PY=py -3
-%PY% urbz_catalog.py
+%PY% urbz.py catalog
 if exist catalog\index.html start "" "catalog\index.html"
 pause

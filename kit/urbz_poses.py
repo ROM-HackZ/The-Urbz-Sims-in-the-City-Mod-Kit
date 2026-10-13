@@ -17,7 +17,7 @@ Lincoln Broadsheet (47) is in a wheelchair: he eats sitting in his own chair (th
 seated frame, restyle_in_chair), borrows sleep, and gets no sit, toilet or shower (poses.json "skip"). He is
 never used as a donor.
 
-  python urbz_poses.py preview <out_dir> [person ...] [--group sit]   contact sheets to look at
+  python urbz.py poses preview <out_dir> [person ...] [--group sit]   contact sheets to look at
   (the build does the rest: a mod with "poses.json" gets a generated mod build/new-poses; the sets are
   kept in build/cache/poses, so only the first build takes long)
 
@@ -25,8 +25,8 @@ The frames come from the game's art: they are made at build time from your extra
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 import urbz_anims as A
 
 HEAD = 0.17                      # the top of a standing person that is their head (fraction of their height)
@@ -627,7 +627,7 @@ def _cache_key():
     import hashlib
     h = hashlib.sha1()
     for f in ('urbz_poses.py', 'urbz_anims.py', 'urbz_composite.py'):
-        h.update(open(os.path.join(KIT, f), 'rb').read())
+        h.update(open(os.path.join(KIT, 'kit', f), 'rb').read())
     h.update(A.arm9())
     return h.hexdigest()[:16]
 

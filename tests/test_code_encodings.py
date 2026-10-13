@@ -6,7 +6,7 @@ can't be tested in-game; these tests decode every stub with capstone instead.
 Run: python tests/test_code_encodings.py
 """
 import os, struct, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'kit'))
 import capstone
 import urbz_code as C
 

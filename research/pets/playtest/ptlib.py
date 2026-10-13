@@ -1,7 +1,7 @@
 """Pets test-play helpers: run a script from a save in DeSmuME, snapshot RAM at every shot."""
 import sys, os, json, struct, tempfile, glob
 KIT = '/root/urbz/repo'
-sys.path.insert(0, KIT + '/tests'); sys.path.insert(0, KIT + '/verify'); sys.path.insert(0, KIT)
+sys.path.insert(0, KIT + '/tests'); sys.path.insert(0, KIT + '/verify'); sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 _argv = sys.argv; sys.argv = sys.argv[:1]
 import proofs as P, urbz_verify as V
 sys.argv = _argv
@@ -49,7 +49,7 @@ def place(obj, steps):
     return P._pocket_place(obj, steps)
 
 def setclock(sav, hhmm, out):
-    P.run([sys.executable, os.path.join(KIT, 'urbz_save.py'), 'set', sav, out, '--clock', hhmm])
+    P.run([sys.executable, os.path.join(KIT, 'kit', 'urbz_save.py'), 'set', sav, out, '--clock', hhmm])
     return out
 
 def tile(files, out, cols=4, crop=True):

@@ -2,10 +2,10 @@
 """Bring pets and furniture over from other Sims DS games: render their 3D models the way The Urbz
 draws its world (2D sprites seen from above at a fixed angle), at Urbz size, in 16 colours.
 
-  python urbz_import.py sources                        which source games are set up (sources.json)
-  python urbz_import.py gallery [game ...]             render every model -> catalog/imports/index.html
+  python urbz.py import sources                        which source games are set up (sources.json)
+  python urbz.py import gallery [game ...]             render every model -> catalog/imports/index.html
                                                        (naming games lists only those; images are cached)
-  python urbz_import.py show GAME MODEL [out.png]      one model: 5 directions (+ walk frames for pets)
+  python urbz.py import show GAME MODEL [out.png]      one model: 5 directions (+ walk frames for pets)
 
 To bring a model over, name it in a mod: objects.json {"id": 440, "like": 136, ..., "import": {"from":
 "aptpets", "model": "armchair4"}} or pets.json {"name": "Puppy", ..., "import": {"from": "aptpets", "model":
@@ -21,8 +21,8 @@ only the "import" entries, and the art is made from your ROMs when you build.
 """
 import json, os, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 SOURCES = os.path.join(KIT, 'sources.json')
 GALLERY = os.path.join(KIT, 'catalog', 'imports')
 
@@ -169,7 +169,7 @@ def game(name):
     if name not in _GAMES:
         src = dict(sources())
         if name not in src or not os.path.exists(src[name]):
-            raise SourceMissing('no copy of "%s" set up in sources.json (python urbz_import.py help)' % name)
+            raise SourceMissing('no copy of "%s" set up in sources.json (python urbz.py import help)' % name)
         src[name] = _rom_path(name, src[name])
         if name == 'sims3':
             import urbz_sims3
@@ -295,7 +295,7 @@ def find_model(gname, mname):
     for m in g.models():
         if m['name'] == mname or m['folder'].endswith('/' + mname):
             return g, m
-    raise KeyError('no model "%s" in %s (see the gallery: python urbz_import.py gallery)' % (mname, gname))
+    raise KeyError('no model "%s" in %s (see the gallery: python urbz.py import gallery)' % (mname, gname))
 
 
 def render_model(model, yaw, anim=None, frame=0, size=(96, 96), anchor=(48, 80), scale=1.0):
@@ -743,7 +743,7 @@ def main(argv):
     elif cmd == 'show' and len(argv) >= 3:
         show(argv[1], argv[2], argv[3] if len(argv) > 3 else None)
     else:
-        sys.exit('usage: see python urbz_import.py help')
+        sys.exit('usage: see python urbz.py import help')
 
 
 if __name__ == '__main__':

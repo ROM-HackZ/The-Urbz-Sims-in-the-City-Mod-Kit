@@ -12,8 +12,8 @@ The "app" is the Nintendo DS ROM this kit builds (`build/Urbz Mod.nds`). A playe
 There is no long-lived server. Each drive is one emulator in its own subprocess.
 
 1. Dependencies (once): `pip install -r requirements.txt` (ndspy, Pillow, py-desmume). On Linux, set `SDL_VIDEODRIVER=dummy`; the harness sets it itself.
-2. Build the ROM under test: `python urbz_build.py`. It prints `built ... sha1=...`, the ready signal. `--vanilla` ignores mods; `--mod <name>` builds only that mod.
-3. A vanilla build must print `[IDENTICAL to original]`. If it doesn't, someone edited `project/` directly. Run `python urbz_mod.py rescue <mod>` before anything else.
+2. Build the ROM under test: `python urbz.py build`. It prints `built ... sha1=...`, the ready signal. `--vanilla` ignores mods; `--mod <name>` builds only that mod.
+3. A vanilla build must print `[IDENTICAL to original]`. If it doesn't, someone edited `project/` directly. Run `python urbz.py mod rescue <mod>` before anything else.
 
 Teardown: nothing to stop. Each `urbz_verify.py` command spawns its emulator child and it exits when the command returns.
 
@@ -66,16 +66,16 @@ Stable handles: the smoke script's screens are fixed points (`step0` legal, `ste
 
 - Delete only scratch you created: temporary ROMs (e.g. `/tmp/*.nds`) and savestates you don't want to keep.
 - Never delete `verify/evidence/`. Proof outlives the run.
-- Never delete or edit `project/`. To undo a mod, `python urbz_mod.py disable <mod>`.
+- Never delete or edit `project/`. To undo a mod, `python urbz.py mod disable <mod>`.
 - No processes outlive a command. If one does hang, kill only the PID it printed, never every python process.
 
 ## Helpers
 
-- `python urbz_build.py [out.nds] [--vanilla | --mod NAME ...]`: build
-- `python urbz_mod.py list|new|edit|status|enable|disable|rescue`: manage mods
-- `python urbz_patch.py new|build <mod>`: compile a code mod; `python urbz_save.py info|set|fix`: save files
+- `python urbz.py build [out.nds] [--vanilla | --mod NAME ...]`: build
+- `python urbz.py mod list|new|edit|status|enable|disable|rescue`: manage mods
+- `python urbz.py patch new|build <mod>`: compile a code mod; `python urbz.py save info|set|fix`: save files
 - `python verify/urbz_verify.py doctor|smoke|ram|play`: drive and observe
-- `python urbz_extract.py <rom.nds> project`: regenerate `project/` from a ROM
+- `python urbz.py extract <rom.nds> project`: regenerate `project/` from a ROM
 
 ## Regression proofs
 

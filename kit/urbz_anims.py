@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """New animations for the townspeople, drawn as PNG frames, in their own look.
 
-  python urbz_anims.py template <mod> <person> [group ...]   frames to draw over + a guide sequence
-  python urbz_anims.py placeholder <mod> <person> [group ...] fill a template with the guide (tests)
-  python urbz_anims.py build <mod>                            PNGs -> new sheets + the game data
-  python urbz_anims.py list                                   groups and who already has them
+  python urbz.py anims template <mod> <person> [group ...]   frames to draw over + a guide sequence
+  python urbz.py anims placeholder <mod> <person> [group ...] fill a template with the guide (tests)
+  python urbz.py anims build <mod>                            PNGs -> new sheets + the game data
+  python urbz.py anims list                                   groups and who already has them
 
 <person> is a character id (31-66) or a name ("hattie"). Groups: sit, eat, toilet, shower, sleep.
 
@@ -28,8 +28,8 @@ The frames are derived from the game's art: keep the mod local (mods/ is not in 
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 PROJ = os.path.join(KIT, 'project')
 ANIM_LISTS = 0x0211CDF4                    # npc_anim_lists: u8 *[character id], 12-byte rows, ends 0xC4
 PALETTES = 0x020D0054                     # npc_palette_table: palette game id per character id

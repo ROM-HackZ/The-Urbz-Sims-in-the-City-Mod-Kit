@@ -7,7 +7,7 @@ screen, kept inside the area's edges; 0x02122D48 is where the camera aims: the p
 World units are screen pixels. Use it to find where things are drawn (e.g. chairs that aren't objects)."""
 import json, os, struct, sys, tempfile
 KIT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'verify')); sys.path.insert(0, os.path.join(KIT, 'tests'))
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit')); sys.path.insert(0, os.path.join(KIT, 'verify')); sys.path.insert(0, os.path.join(KIT, 'tests'))
 rom, save, area, out_png = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
 step = int(sys.argv[5]) if len(sys.argv) > 5 else 96
 sys.argv = sys.argv[:1]

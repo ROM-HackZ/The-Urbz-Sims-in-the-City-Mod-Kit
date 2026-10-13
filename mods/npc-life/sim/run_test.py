@@ -9,7 +9,7 @@ are written to orig_tables.h here at test time; that file is never committed."""
 import os, shutil, struct, subprocess, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
-sys.path.insert(0, KIT)
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 SCHEDULE_TABLE = 0x020E4FD8
 
 

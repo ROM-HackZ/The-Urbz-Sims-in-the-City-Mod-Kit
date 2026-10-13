@@ -5,7 +5,7 @@ The maintained source for proving the kit works from the player's and modder's p
 ## Baseline preconditions
 
 - Kit root contains `project/` (pristine, made by `urbz_extract.py`) and `project/base.nds` with SHA1 `3c01cc5cf3491b5d0ab626ccfb5bcad370662f2f`.
-- `python urbz_build.py --vanilla build/vanilla.nds` prints `[IDENTICAL to original]`.
+- `python urbz.py build --vanilla build/vanilla.nds` prints `[IDENTICAL to original]`.
 - `python verify/urbz_verify.py doctor build/vanilla.nds` prints `DOCTOR OK`.
 
 ## Driving conventions

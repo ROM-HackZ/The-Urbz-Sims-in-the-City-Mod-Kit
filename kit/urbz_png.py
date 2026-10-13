@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Edit screens and sprite frames as PNG images.
 
-  python urbz_png.py edit <mod> <asset>     write PNGs for an asset into mods/<mod>/png/
-  python urbz_png.py export <asset> <dir>   write PNGs anywhere (just to look)
+  python urbz.py png edit <mod> <asset>     write PNGs for an asset into mods/<mod>/png/
+  python urbz.py png export <asset> <dir>   write PNGs anywhere (just to look)
 
 Then paint on the PNGs in any editor and build. The builder converts every
 mods/<mod>/png/NNNNN/HHHHHH.png back into chunk HHHHHH of asset NNNNN.
@@ -22,8 +22,8 @@ exported as a plain 16-tile-wide strip of their tiles; edit the tiles in place.
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 from urbz_gfx import bgr555, find_screen
 from urbzcomp import decompress, compress
 
@@ -510,7 +510,7 @@ def main(argv):
     elif cmd == 'edit' and len(argv) == 3:
         md = os.path.join(KIT, 'mods', argv[1])
         if not os.path.isdir(md):
-            sys.exit('error: no mod named "%s" (create it: python urbz_mod.py new %s)' % (argv[1], argv[1]))
+            sys.exit('error: no mod named "%s" (create it: python urbz.py mod new %s)' % (argv[1], argv[1]))
         written, src = export_asset(int(argv[2]), os.path.join(md, 'png', '%05d' % int(argv[2])))
     else:
         sys.exit('usage: urbz_png.py edit <mod> <asset>  |  urbz_png.py export <asset> <dir>')

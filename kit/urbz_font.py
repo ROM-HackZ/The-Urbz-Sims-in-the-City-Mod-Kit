@@ -31,7 +31,7 @@ import json, os, struct, sys
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-KIT = HERE
+KIT = os.path.dirname(HERE)   # the repo (this file is in kit/)
 PROJECT = os.path.join(KIT, 'project')
 # slot -> asset file number (game id - 1), colour base; from arm9 table 0x020C5CEC
 SLOTS = [(0, 11547, 8), (1, 11546, 8), (2, 11549, 16), (3, 11548, 16),
@@ -218,7 +218,7 @@ def cmd_edit(mod, slots=None):
     """Copy font sheets into mods/<mod>/font/ for editing."""
     md = os.path.join(KIT, 'mods', mod)
     if not os.path.isdir(md):
-        sys.exit('error: no mod named "%s" (create it: python urbz_mod.py new %s)' % (mod, mod))
+        sys.exit('error: no mod named "%s" (create it: python urbz.py mod new %s)' % (mod, mod))
     out = os.path.join(md, 'font')
     os.makedirs(out, exist_ok=True)
     for slot, asset, base in SLOTS:

@@ -8,7 +8,7 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
   (expected SHA1 3c01cc5cf3491b5d0ab626ccfb5bcad370662f2f).
 - `pip install -r requirements.txt` (add `--break-system-packages` if pip asks); for C mods
   `apt install clang lld llvm` (urbz_patch.py also finds `/usr/lib/llvm-*/bin`).
-- `python3 urbz_extract.py <rom> project`, then `python3 urbz_build.py --vanilla` must print
+- `python urbz.py extract <rom> project`, then `python urbz.py build --vanilla` must print
   `[IDENTICAL to original]`. If not, stop and find out why before changing anything.
 - Headless emulator: py-desmume with `SDL_VIDEODRIVER=dummy` (the harness sets it). One emulator per
   process; machines with 2 CPUs should run one at a time.
@@ -23,21 +23,21 @@ Read **HANDOFF.md** first (current state), then **PLAN.md** (goal, status, next 
   `code/include/game.h` for C).
 - After changing the builder, the code placer, the mod core or the harness: `python3 tests/proofs.py` and
   `python3 tests/test_code_encodings.py` must pass (never run two proof runs at once). After changing the
-  core's C (`code/core/`), rebuild it: `python3 urbz_patch.py build --dir code/core` and commit its `build/`.
+  core's C (`code/core/`), rebuild it: `python urbz.py patch build --dir code/core` and commit its `build/`.
 - The verification recipes are in `.claude/skills/verify-urbz/` (SKILL.md + features/).
 
 ## Handy commands
 - `python3 verify/urbz_verify.py help` (doctor, smoke, ram, play, trace, city, find, watch)
-- `python3 urbz_text.py find "words"`, `python3 urbz_palette.py who <name>`, `python3 urbz_patch.py syms`
+- `python urbz.py text find "words"`, `python urbz.py palette who <name>`, `python urbz.py patch syms`
 - Research helpers and probes: `research/` (see its README for the paths they assume).
 - Function map: `code/functions.json`; full decompile needs Ghidra (research/README.md).
-- Mod platform API: `code/include/mod.h`; mod manager: `python3 mod_manager.py list|check`;
+- Mod platform API: `code/include/mod.h`; mod manager: `python urbz.py manager list|check`;
   NPC Life sim test: `python3 mods/npc-life/sim/run_test.py`.
-- Objects: `python3 urbz_objects.py show <n>`; new or changed objects only via a mod's `objects.json`
+- Objects: `python urbz.py objects show <n>`; new or changed objects only via a mod's `objects.json`
   (the builder then moves the object tables and adds `code/objects`; rebuild it after changing
-  `code/objects/*.c`: `python3 urbz_patch.py build --dir code/objects`, commit its `build/`).
+  `code/objects/*.c`: `python urbz.py patch build --dir code/objects`, commit its `build/`).
   Pets: `mods/pets/pets.json` (numbers 386, 389-429; builder stage `urbz_pets.py`, kit code
-  `code/pets-kit`); furniture: `mods/more-furniture` (430-511). Pet art: `python3 urbz_art.py
+  `code/pets-kit`); furniture: `mods/more-furniture` (430-511). Pet art: `python urbz.py art
   template|preview|placeholder <mod> <pet>`.
 
 ## Writing style for Jonathan

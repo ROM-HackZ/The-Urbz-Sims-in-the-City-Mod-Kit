@@ -8,7 +8,7 @@ cd /d "%~dp0"
 set PY=python
 where py >nul 2>nul && set PY=py -3
 
-%PY% urbz_build.py %*
+%PY% urbz.py build %*
 if errorlevel 1 (
   echo.
   echo Build failed - see the message above. Nothing was written.

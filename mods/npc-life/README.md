@@ -27,7 +27,7 @@ After editing it:
 ```
 python mods/npc-life/make_data.py          # -> sim/sim_data.h
 python mods/npc-life/sim/run_test.py       # 4 city weeks on the PC: a report and PASS/FAIL
-python urbz_patch.py build npc-life        # compile (needs LLVM)
+python urbz.py patch build npc-life        # compile (needs LLVM)
 ```
 then build the ROM as usual.
 

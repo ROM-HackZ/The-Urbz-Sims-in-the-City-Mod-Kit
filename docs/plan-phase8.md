@@ -26,11 +26,11 @@ pet art `critter_anims[kind]` (5 animations, each a records list + frame script)
 ## How you'll use it
 
 ```
-python urbz_art.py template more-furniture 430          # the armchair: PNGs of the chair it copies
-python urbz_art.py template pets puppy                  # the Puppy: the rooster's frames to draw over
-python urbz_art.py template my-anims hattie sit         # (today's urbz_anims.py, folded in)
+python urbz.py art template more-furniture 430          # the armchair: PNGs of the chair it copies
+python urbz.py art template pets puppy                  # the Puppy: the rooster's frames to draw over
+python urbz.py art template my-anims hattie sit         # (today's urbz_anims.py, folded in)
    ... draw over the PNGs in any paint program ...
-python urbz_art.py preview more-furniture               # a picture of how it will look in the game:
+python urbz.py art preview more-furniture               # a picture of how it will look in the game:
                                                          #   every view, every colour, the icon, at 1x and 3x
 ```
 Then build the ROM as usual: the builder turns the PNGs into game files by itself (no separate build step).

@@ -6,19 +6,19 @@ at the same relative paths as in project/ (assets/NNNNN.bin,
 unpacked/NNNNN/HHHHHH.bin). project/ stays pristine. mods.json lists the
 enabled mods; later mods win when two change the same file.
 
-  python urbz_mod.py list                      show mods and which are enabled
-  python urbz_mod.py new <mod> ["description"] create a mod and enable it
-  python urbz_mod.py edit <mod> <asset> [chunk|--raw]
+  python urbz.py mod list                      show mods and which are enabled
+  python urbz.py mod new <mod> ["description"] create a mod and enable it
+  python urbz.py mod edit <mod> <asset> [chunk|--raw]
                                                copy pristine file(s) into the mod to edit
-  python urbz_mod.py status [<mod>]            what each mod changes, adds or leaves identical
-  python urbz_mod.py enable|disable <mod>      toggle a mod in mods.json
-  python urbz_mod.py rescue <mod>              move accidental edits made inside project/
+  python urbz.py mod status [<mod>]            what each mod changes, adds or leaves identical
+  python urbz.py mod enable|disable <mod>      toggle a mod in mods.json
+  python urbz.py mod rescue <mod>              move accidental edits made inside project/
                                                into <mod> and restore project/ to pristine
 """
 import hashlib, json, os, shutil, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 PROJ = os.path.join(KIT, 'project')
 MODS = os.path.join(KIT, 'mods')
 CFG = os.path.join(KIT, 'mods.json')
@@ -57,7 +57,7 @@ def cmd_list(_):
     cfg = load_cfg()
     names = sorted(n for n in os.listdir(MODS)) if os.path.isdir(MODS) else []
     if not names:
-        print('no mods yet. Create one with: python urbz_mod.py new my-first-mod')
+        print('no mods yet. Create one with: python urbz.py mod new my-first-mod')
     for n in names:
         info = mod_info(os.path.join(MODS, n))
         order = cfg['enabled'].index(n) + 1 if n in cfg['enabled'] else None
@@ -274,7 +274,7 @@ def main(argv):
              'rescue': cmd_rescue, 'enable': lambda a: cmd_toggle(a, True),
              'disable': lambda a: cmd_toggle(a, False)}
     if cmd not in table:
-        die('unknown command "%s". Run: python urbz_mod.py help' % cmd)
+        die('unknown command "%s". Run: python urbz.py mod help' % cmd)
     table[cmd](args)
 
 

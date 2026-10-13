@@ -5,7 +5,7 @@ there's any furniture we don't have in Urbz that may be in the other Sims games.
 necessary to learn how this all works so we can take our pick of the assets we want to move over."
 
 **Status (2026-10-05): four games are readable and render into Urbz-style art (1,516 models in the gallery).** Pick from the gallery
-(`python urbz_import.py gallery` → `catalog/imports/index.html`), name the pick in a mod's `objects.json` or
+(`python urbz.py import gallery` → `catalog/imports/index.html`), name the pick in a mod's `objects.json` or
 `pets.json` (`"import"`), build. Nothing from these games goes into git: the builder renders the art from your own
 ROMs (`sources.json`) every build; without them a mod still builds and keeps its starting art (a warning says so).
 
@@ -78,8 +78,8 @@ draws (below) and hands the pictures to the builder.
 ```
 sources.json (next to urbz_build.py, yours only):
   {"aptpets": "D:/ROMS/Sims 2 Apartment Pets.nds", "castaway": "...", "sims3": "...", "sims2": "..."}
-python urbz_import.py gallery            # every model, front and back, at the Urbz angle
-python urbz_import.py show aptpets dog   # one model: 5 turns + walk frames
+python urbz.py import gallery            # every model, front and back, at the Urbz angle
+python urbz.py import show aptpets dog   # one model: 5 turns + walk frames
 ```
 `objects.json`: `{"id": 440, "like": 136, "name": "Green Lounger", "price": 140, "page": 3,
 "import": {"from": "aptpets", "model": "armchair4"}}`. `pets.json`: `{"name": "Puppy", "object": 386, "from":

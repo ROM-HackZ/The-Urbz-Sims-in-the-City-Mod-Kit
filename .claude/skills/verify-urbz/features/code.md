@@ -20,8 +20,8 @@ block at 0x0214DE20, moves the heap start up, and applies the mod's `code/hooks.
 
 ## How to get to it (user POV)
 
-- `python urbz_mod.py new my-mod`, `python urbz_patch.py new my-mod`, edit `mods/my-mod/code/`,
-  `python urbz_patch.py build my-mod`, then `build.bat`. The build prints
+- `python urbz.py mod new my-mod`, `python urbz.py patch new my-mod`, edit `mods/my-mod/code/`,
+  `python urbz.py patch build my-mod`, then `build.bat`. The build prints
   `code mod my-mod: N hook(s), B bytes at 0214xxxx` and `heap now starts at ...`.
 
 ## Driving it

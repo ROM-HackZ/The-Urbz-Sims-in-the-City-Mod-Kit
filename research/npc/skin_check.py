@@ -1,7 +1,7 @@
 """Highlights each townsperson's skin colours (urbz_poses.SKIN) in magenta, both views: skin_check.png here."""
 import os, sys
 KIT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, KIT)
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 import urbz_poses as Q, urbz_anims as A, numpy as np
 from PIL import Image, ImageDraw
 import urbz_poses as _Q

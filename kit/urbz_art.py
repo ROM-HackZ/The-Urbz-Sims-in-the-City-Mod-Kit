@@ -2,10 +2,10 @@
 """The art tool: draw new art for the game, as PNGs: pets and furniture. (Townspeople's animations:
 urbz_anims.py; art rendered from other Sims games: urbz_import.py.)
 
-  python urbz_art.py template <mod> <pet>      PNGs to draw over: the frames of the animal it starts from
-  python urbz_art.py preview <mod> <pet>       art/<pet>/preview.png: every frame at 1x and 4x
-  python urbz_art.py placeholder <mod> <pet>   (tests) the template, recoloured from a new palette
-  python urbz_art.py object-template <folder> <like>   furniture: start an art folder from object <like>
+  python urbz.py art template <mod> <pet>      PNGs to draw over: the frames of the animal it starts from
+  python urbz.py art preview <mod> <pet>       art/<pet>/preview.png: every frame at 1x and 4x
+  python urbz.py art placeholder <mod> <pet>   (tests) the template, recoloured from a new palette
+  python urbz.py art object-template <folder> <like>   furniture: start an art folder from object <like>
 
 Furniture (objects.json "art": "art/<folder>"): view-away.png (the piece facing up-right, the game's
 first 3 turns), view-toward.png (facing down-left; the game mirrors both for the other turns), extra
@@ -28,8 +28,8 @@ keep them to yourself; your own drawings are yours to share.
 """
 import json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 PROJ = os.path.join(KIT, 'project')
 PET_CANVAS, PET_ORIGIN = 88, (32, 64)
 SLOTS = ['0-stand', '1-walk', '2-move', '3-move', '4-move']

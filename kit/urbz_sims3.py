@@ -12,7 +12,7 @@ Formats (worked out 2026-10-05; docs/other-games.md):
   DST1       'DST1' 02 01 01 01, u32 format (low 16 bits: DS texture format; bit 16 starts a new texture),
              u16 width, u16 height, u16 colours, the colours (BGR555), the texels.
 
-  python urbz_sims3.py models ROM      the furniture this reads
+  python urbz.py sims3 models ROM      the furniture this reads
 """
 import os, re, struct, sys
 

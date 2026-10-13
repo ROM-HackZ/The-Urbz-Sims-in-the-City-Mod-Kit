@@ -51,7 +51,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 - **Imports (2026-10-05)**, Jonathan: "take our pick of the assets we want to move over". Readers for the other
   Sims DS games (`urbz_fullfat.py`: Apartment Pets + Castaway; `urbz_sims3.py`; `urbz_nsbmd.py`: The Sims 2 DS),
   a software renderer at the Urbz camera (`urbz_import.py`: 30 degrees down, 45 round, ~42 px/m), a gallery
-  (`python urbz_import.py gallery`, 1,516 models, local only), `"import"` in `objects.json` / `pets.json`.
+  (`python urbz.py import gallery`, 1,516 models, local only), `"import"` in `objects.json` / `pets.json`.
   Furniture now has its own art, palette (`code/objects` `objects_own_palette` + OPAL list) and icon (icon
   table moved, models 633+). `mods/pets` imports the beagle and cat. Sources: a local `sources.json` with
   Jonathan's ROM paths (cloud: /root/urbz/others/*.nds). Proofs `rom-grow`, `import-render`,
@@ -108,7 +108,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   give the 27 people without them sit/eat/toilet/shower/sleep (and the 6 without eat, Kris toilet), built at
   build time into hidden `build/new-poses` (docs/systems.md "Borrowed poses"). Proof `npc-poses` (Gramma sits at
   the pizza place, Luthor at Cafe Z-Bach); melonDS checked with research/npc/poses_melon.py. They look a bit
-  off-model up close; `python urbz_poses.py preview <dir> <person>` shows them.
+  off-model up close; `python urbz.py poses preview <dir> <person>` shows them.
   npc-act's chat check moved to Cafe Z-Bach (at the pizza place Hattie now sits instead of chatting).
 - Borrowed poses perfected (2026-10-12, Jonathan: "all missing animations for npc-life", "perfect them all"):
   the 8 without gestures (40, 60, 61, 63-66) get borrowed ones for chats; Lottie (48) gets everything (she is
@@ -119,7 +119,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   light-to-dark together. Mokey (62) left out: the game draws him its own way even unmodded (red coat, his
   animation never changes his picture). Proof `npc-pose-gallery` (tests/mods/pose-gallery: six people at a time
   stood in a row in Urbania Park playing each pose; sheets build/proofs/npc-pose-gallery-*.png). Review sheets:
-  `python urbz_poses.py preview`.
+  `python urbz.py poses preview`.
   Chats: when the spot beside the other person can't be reached (café tables) the walker tries the other three
   sides, or talks from where the walk stopped if within 72 px; npc-act's chat check falls back to Urbania Park
   at 19:30 (the café's three people are rarely free together).
@@ -144,7 +144,7 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
 ## Setup in a fresh environment
 1. Clone https://github.com/ROM-HackZ/The-Urbz---Sims-in-the-City-Recomp ; Jonathan supplies the ROM (never in git).
 2. `pip install -r requirements.txt` (`--break-system-packages` if needed); `apt install clang lld llvm`.
-3. `python3 urbz_extract.py <rom> project` then `python3 urbz_build.py --vanilla` → `[IDENTICAL to original]`.
+3. `python urbz.py extract <rom> project` then `python urbz.py build --vanilla` → `[IDENTICAL to original]`.
 4. `python3 tests/proofs.py` (about an hour; **never two proof runs at once**, they share `build/proofs/`),
    `python3 tests/test_code_encodings.py`, `python3 tests/test_mod_manager.py`,
    `python3 mods/npc-life/sim/run_test.py`.

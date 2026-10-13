@@ -30,7 +30,7 @@ MODULE_PARAMS = 0x02000ADC
 BSS = (0x02121AC0, 0x0214DE20)
 HEAP_COMFORT = 128 * 1024       # warn above this (see docs/systems.md, heap budget)
 AUTOLOAD_LIMIT = 160 * 1024     # bigger code regions go into the static code (apply_to_image, step 4)
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 CORE_DIR = os.path.join(KIT, 'code', 'core')
 # Mod table (code/include/mod.h): at CODE_BASE whenever the core is built in.
 def has_events(m):
@@ -195,17 +195,17 @@ def load_code_mods(mod_dirs, syms):
         if os.path.exists(bp):
             if not os.path.exists(jp):
                 raise CodeError('mod "%s": code/build/patch.json is missing; rebuild with '
-                                'python urbz_patch.py build %s' % (name, name))
+                                'python urbz.py patch build %s' % (name, name))
             info = json.load(open(jp))
             m.update(blob=open(bp, 'rb').read(), relocs=info['relocs'],
                      symbols=info['symbols'], bss=info.get('bss', 0))
             stale = _stale_sources(cdir, info)
             if stale:
                 print('warning: mod "%s": %s changed since the last code build; '
-                      'run: python urbz_patch.py build %s' % (name, ', '.join(stale), name))
+                      'run: python urbz.py patch build %s' % (name, ', '.join(stale), name))
         elif any(f.endswith(('.c', '.s', '.S')) for f in os.listdir(cdir)):
             raise CodeError('mod "%s" has C/assembly source but no compiled code/build/patch.bin; '
-                            'run: python urbz_patch.py build %s' % (name, name))
+                            'run: python urbz.py patch build %s' % (name, name))
         m['events'] = [m['symbols'].get(e) for e in EVENT_NAMES]
         if m['blob'] or m['hooks']:
             mods.append(m)
@@ -542,7 +542,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
         if not isinstance(arg, tuple):
             return arg
         if m['base'] is None:
-            raise CodeError('%s: "@%s" needs compiled code; run python urbz_patch.py build %s'
+            raise CodeError('%s: "@%s" needs compiled code; run python urbz.py patch build %s'
                             % (where, arg[1], m['name']))
         return struct.pack('<I', resolve(m, arg[1], where) + arg[2])
 
@@ -572,7 +572,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
         links = []
         for m, arg, where in chain:
             if m['base'] is None:
-                raise CodeError('%s: "call" needs compiled code; run python urbz_patch.py build %s'
+                raise CodeError('%s: "call" needs compiled code; run python urbz.py patch build %s'
                                 % (where, m['name']))
             links.append((row_addr[id(m)] + 28, resolve(m, arg, where)))
         st = stub_at[addr]
@@ -594,7 +594,7 @@ def apply_code(arm9_data, mods, fmap, core=None):
             if sw and kind == 'call':
                 continue                                 # done above (stub chain)
             if m['base'] is None:
-                raise CodeError('%s: "%s" needs compiled code; run python urbz_patch.py build %s'
+                raise CodeError('%s: "%s" needs compiled code; run python urbz.py patch build %s'
                                 % (where, kind, m['name']))
             target = resolve(m, arg, where)
             fn = _mode_at(fmap, addr)
@@ -783,7 +783,7 @@ def apply_to_image(img, mod_dirs, kit=KIT):
         return []
     core = load_code_mods([os.path.join(kit, 'code', 'core')], syms)
     if not core or not core[0]['blob']:
-        raise CodeError('the mod core (code/core) is not compiled; run: python urbz_patch.py '
+        raise CodeError('the mod core (code/core) is not compiled; run: python urbz.py patch '
                         'build --dir code/core')
     off, _, _, size = struct.unpack_from('<4I', img, 0x20)
     arm9, report = apply_code(bytes(img[off:off + size]), mods, function_map(kit), core[0])

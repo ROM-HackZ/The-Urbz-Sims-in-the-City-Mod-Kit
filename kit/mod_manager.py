@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Mod manager: pick mods, build the ROM and play it, in a window (or from the command line).
 
-  python mod_manager.py                 open the window (Windows: manager.bat)
-  python mod_manager.py list            same list as the window, as text
-  python mod_manager.py install mod.zip install a mod from a zip into mods/
-  python mod_manager.py check           check the enabled mods (conflicts, save space)
+  python urbz.py manager                 open the window (Windows: manager.bat)
+  python urbz.py manager list            same list as the window, as text
+  python urbz.py manager install mod.zip install a mod from a zip into mods/
+  python urbz.py manager check           check the enabled mods (conflicts, save space)
 
 The window shows every mod in mods/ with a tick box. Ticked mods are built into the ROM in
 the order shown (later mods win where two change the same thing); Up/Down change the order.
@@ -17,8 +17,8 @@ window and the command line always agree. Mods that can be switched in the game 
 """
 import json, os, shutil, subprocess, sys, zipfile
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 MODS = os.path.join(KIT, 'mods')
 OUT_ROM = os.path.join(KIT, 'build', 'Urbz Mod.nds')
 EMULATOR_TXT = os.path.join(KIT, 'emulator.txt')
@@ -146,7 +146,7 @@ def install_zip(path, replace=False):
 
 
 def build_command():
-    return [sys.executable, os.path.join(KIT, 'urbz_build.py')]
+    return [sys.executable, os.path.join(KIT, 'kit', 'urbz_build.py')]
 
 
 def emulator_path():

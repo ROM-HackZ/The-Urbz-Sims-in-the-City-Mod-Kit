@@ -280,7 +280,7 @@ All of these are confirmed in the emulator in step 1 or step 2 before anything i
   - harness `--from lobby`, `--goto`, `--poke`, `--sav`/`--export-sav`
 
 ## Verification
-- Every session: `python3 urbz_build.py --vanilla` → `[IDENTICAL to original]`.
+- Every session: `python urbz.py build --vanilla` → `[IDENTICAL to original]`.
 - After builder changes: `python3 tests/proofs.py` (all 17 old + the new ones) and
   `python3 tests/test_code_encodings.py`.
 - `test_sim` on the PC; the new proofs listed in the order above.

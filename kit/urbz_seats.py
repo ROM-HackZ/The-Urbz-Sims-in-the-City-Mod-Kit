@@ -15,8 +15,8 @@ u16 off[] (from +8)}; group {u16 n, u8 size[n], pad to 4, records}. Object recor
 """
 import json, os, shutil, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, KIT)
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
+sys.path.insert(0, os.path.join(KIT, 'kit'))
 AREA_TABLE = 0x020C87E0
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Rebuild The Urbz DS ROM from a project folder made by urbz_extract.py.
 
-Usage: python3 urbz_build.py project_dir out.nds
+Usage: python urbz.py build project_dir out.nds
 
 The original cartridge image (base.nds) is patched in place: rom.bin and
 SoundData.rom are rewritten, the file allocation table, used-ROM-size field
@@ -251,7 +251,7 @@ ASSET_READ_SIZE_LIT = 0x02032B04                         # bytes of rom.bin's in
 
 def asset_tables_mod(proj, n_entries):
     """Write build/new-assets/ (a code mod of zeroed tables + hooks) for n_entries index entries."""
-    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build', 'new-assets')
+    d = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'build', 'new-assets')
     cdir = os.path.join(d, 'code')
     os.makedirs(os.path.join(cdir, 'build'), exist_ok=True)
     words = n_entries * 4
@@ -302,7 +302,7 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
     # (urbz_pets.py, urbz_objects.py, urbz_poses.py).
     from urbz_pets import pets_mod, PetsError
     from urbz_objects import objects_mod, ObjectsError
-    gen = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build')
+    gen = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'build')
     try:
         pdirs, pet_objects, pets_line = pets_mod(proj, mod_dirs, os.path.join(gen, 'new-pets'),
                                                  _first_free_asset(manifest, mod_dirs),
@@ -489,12 +489,12 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
 
 def main(argv):
     import argparse
-    kit = os.path.dirname(os.path.abspath(__file__))
+    kit = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo
     ap = argparse.ArgumentParser(description='Build The Urbz DS ROM from project/ plus enabled mods.')
     ap.add_argument('out', nargs='?', default=os.path.join(kit, 'build', 'Urbz Mod.nds'),
                     help='output .nds (default: build/Urbz Mod.nds)')
     ap.add_argument('--project', default=os.path.join(kit, 'project'))
-    ap.add_argument('--config', help='mods list (default: mods.json next to this script)')
+    ap.add_argument('--config', help='mods list (default: mods.json in the kit folder)')
     ap.add_argument('--mod', action='append', default=[],
                     help='build with only these mods (repeatable; a name in mods/ or a folder path), ignoring mods.json')
     ap.add_argument('--vanilla', action='store_true', help='ignore all mods')

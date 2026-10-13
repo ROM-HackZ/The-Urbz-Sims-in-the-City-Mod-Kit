@@ -18,5 +18,5 @@ if exist project\manifest.json (
   pause
   exit /b 1
 )
-%PY% urbz_extract.py "%~1" project
+%PY% urbz.py extract "%~1" project
 pause

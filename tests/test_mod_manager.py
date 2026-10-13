@@ -3,7 +3,7 @@
 Run: python tests/test_mod_manager.py"""
 import io, json, os, sys, tempfile, zipfile
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, KIT)
+sys.path.insert(0, KIT); sys.path.insert(0, os.path.join(KIT, 'kit'))
 import mod_manager as M
 import urbz_mod
 

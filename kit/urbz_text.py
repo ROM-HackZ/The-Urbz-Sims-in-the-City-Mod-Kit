@@ -5,10 +5,10 @@ All 8,311 strings live in one Huffman-compressed bank: asset 00054 (game ID 55).
 The game decodes a string by ID with the routine in ITCM at 0x01FF85C4 into a
 1,024-byte buffer, so a string can be up to 1,023 bytes.
 
-  python urbz_text.py find "sitting around"          search all strings
-  python urbz_text.py show 5870 5871                 print strings by ID
-  python urbz_text.py edit <mod> 5870 [5871 ...]     copy strings into a mod to edit
-  python urbz_text.py export [file.tsv]              write every string (default project/text/strings.tsv)
+  python urbz.py text find "sitting around"          search all strings
+  python urbz.py text show 5870 5871                 print strings by ID
+  python urbz.py text edit <mod> 5870 [5871 ...]     copy strings into a mod to edit
+  python urbz.py text export [file.tsv]              write every string (default project/text/strings.tsv)
 
 A mod's text lives in mods/<mod>/text/strings.tsv: one string per line,
 "ID<TAB>text". Edit the text column in any editor (keep the ID and the tab).
@@ -19,7 +19,7 @@ The builder re-encodes the bank only when a mod changes text.
 """
 import heapq, itertools, json, os, struct, sys
 
-KIT = os.path.dirname(os.path.abspath(__file__))
+KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo (this file is in kit/)
 TEXT_ASSET = 54
 MAX_LEN = 1023
 MAX_NEW = 2000                      # new strings a mod may add after the game's (IDs 8311 and up)
@@ -254,7 +254,7 @@ def export(proj, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as f:
         f.write('# The Urbz DS text, read-only reference. To change a line, copy it into a\n'
-                '# mod with: python urbz_text.py edit <mod> <ID>   (see urbz_text.py --help)\n')
+                '# mod with: python urbz.py text edit <mod> <ID>   (see urbz_text.py --help)\n')
         f.write('ID\ttext\n')
         for i, s in enumerate(strings):
             f.write('%d\t%s\n' % (i, escape(s)))
@@ -287,7 +287,7 @@ def main(argv):
             sys.exit('usage: urbz_text.py edit <mod> <ID> [<ID> ...]')
         md = os.path.join(KIT, 'mods', args[0])
         if not os.path.isdir(md):
-            sys.exit('error: no mod named "%s" (create it: python urbz_mod.py new %s)' % (args[0], args[0]))
+            sys.exit('error: no mod named "%s" (create it: python urbz.py mod new %s)' % (args[0], args[0]))
         S = project_strings(proj)
         path = os.path.join(md, 'text', 'strings.tsv')
         have = read_tsv(path) if os.path.exists(path) else {}
@@ -307,7 +307,7 @@ def main(argv):
                 new += 1
         print('added %d line(s) to %s; edit the text after the tab' % (new, path))
     else:
-        sys.exit('unknown command %s. Run: python urbz_text.py help' % cmd)
+        sys.exit('unknown command %s. Run: python urbz.py text help' % cmd)
 
 
 if __name__ == '__main__':
