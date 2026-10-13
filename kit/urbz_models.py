@@ -5,6 +5,8 @@ your Urbz ROM.
 
   python urbz.py models list                     every model
   python urbz.py models show NAME [out.png]      a sheet: 5 directions; pets also every action
+  python urbz.py models gallery [out.png]        every pet (6 actions), bed and piece of furniture, in 16 colours
+                                                 as the game gets them (docs/images/models.png, in the README)
 
 A mod names one like any import: pets.json "import": {"from": "kit", "model": "puppy"}, objects.json
 "import": {"from": "kit", "model": "club_sofa"}. "import" may be a list: the first one whose game you
@@ -888,6 +890,114 @@ def sheet(name, out=None):
     return out
 
 
+GALLERY_PETS = ['puppy', 'kitten', 'bunny', 'hamster', 'guinea_pig', 'cockatoo', 'macaw', 'snake']
+GALLERY_ACTIONS = [('stand', 'standing'), ('walk', 'walking'), ('sit', 'sitting'), ('sleep', 'asleep'),
+                   ('happy', 'happy'), ('play', 'playing')]
+PET_NAMES = {'guinea_pig': 'Guinea Pig'}
+BEDS = ['dog_basket', 'cat_bed', 'rabbit_hutch', 'small_pet_house', 'bird_cage']
+
+
+def _names():
+    """Display names of the kit's objects, from the shipped mods' objects.json (model -> name)."""
+    import json
+    out = {}
+    for mod in ('pets', 'more-furniture'):
+        try:
+            for o in json.load(open(os.path.join(KIT, 'mods', mod, 'objects.json'), encoding='utf-8'))['objects']:
+                for c in (o.get('import') if isinstance(o.get('import'), list) else [o.get('import') or {}]):
+                    if c.get('from') == 'kit':
+                        out[c['model']] = o['name']
+        except (OSError, ValueError, KeyError):
+            pass
+    return out
+
+
+def gallery(out=None):
+    """Every pet in 6 actions, every bed and piece of furniture, drawn from the kit's own models only, each in
+    16 colours like the game's sprites. Never uses art from other games, so it can be committed."""
+    from PIL import Image, ImageDraw, ImageFont
+    import urbz_import as I
+    import urbz_art as A
+
+    def font(sz):
+        for f in ('DejaVuSans-Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'arialbd.ttf'):
+            try:
+                return ImageFont.truetype(f, sz)
+            except OSError:
+                pass
+        return ImageFont.load_default()
+    F, FS, FT = font(22), font(16), font(34)
+    bg, panel, text, sub = (58, 62, 70), (78, 84, 92), (240, 236, 220), (190, 186, 170)
+    games = {m['name']: m for m in Game().models()}
+    rows = []
+    for name in GALLERY_PETS:
+        m = Model(games[name])
+        ppm = HEIGHT[name] / max(m.height(), 0.01)
+        ims = []
+        for a, _l in GALLERY_ACTIONS:
+            parts = m.posed(a, 4)
+            ims.append(I.rasterize(I.shadow_tris(parts) + parts, I.view(180 - 45 * 3), ppm,
+                                   (A.PET_CANVAS, A.PET_CANVAS), A.PET_ORIGIN))
+        _pal, ims = I._fit_palette(ims)
+        bs = [im.getbbox() for im in ims if im.getbbox()]
+        box = (min(b[0] for b in bs) - 2, min(b[1] for b in bs) - 2, max(b[2] for b in bs) + 2, max(b[3] for b in bs) + 2)
+        rows.append((PET_NAMES.get(name, name.title()), [im.crop(box) for im in ims]))
+    names = _names()
+
+    def piece(name):
+        m = Model(games[name])
+        im = I.rasterize(m.posed(), I.view(-45), I.PX_PER_M, (400, 400), (200, 280))
+        _pal, (im,) = I._fit_palette([im])
+        b = im.getbbox()
+        return names.get(name, name.replace('_', ' ').title()), im.crop((b[0] - 2, b[1] - 2, b[2] + 2, b[3] + 2))
+    beds = [piece(n) for n in BEDS]
+    furn = [piece(n) for n in FURNITURE if n not in BEDS]
+    Z, fZ, L0 = 3, 2, 190
+    cw = max(im.width for _n, r in rows for im in r) * Z + 24
+    W = L0 + cw * len(GALLERY_ACTIONS) + 30
+    widest = max(im.width for _n, im in beds + furn) * fZ + 24     # every piece fits its panel
+    W = max(W, 5 * widest + 50)                                     # the 5 beds on one row
+    L0 += (W - (L0 + cw * len(GALLERY_ACTIONS) + 30)) // 2
+    fcols = max(1, (W - 50) // widest)
+    fcell = (W - 50) // fcols
+    frow_h = max(im.height for _n, im in beds + furn) * fZ + 50
+    S = Image.new('RGB', (W, 4000), bg)
+    D = ImageDraw.Draw(S)
+    D.text((30, 25), "Urbz DX: the pets and furniture", font=FT, fill=text)
+    D.text((30, 70), "The kit's own models, as the game gets them (16 colours, Urbz size): pets shown 3x, "
+           "furniture 2x.", font=FS, fill=sub)
+    y = 112
+    for j, (_a, lab) in enumerate(GALLERY_ACTIONS):
+        D.text((L0 + j * cw + cw // 2 - D.textlength(lab, font=FS) // 2, y), lab, font=FS, fill=sub)
+    y += 28
+    for name, ims in rows:
+        ch = max(max(im.height for im in ims) * Z + 16, 70)
+        D.rounded_rectangle((20, y, W - 20, y + ch), 12, fill=panel)
+        D.text((36, y + ch // 2 - 13), name, font=F, fill=text)
+        for j, im in enumerate(ims):
+            big = im.resize((im.width * Z, im.height * Z), Image.NEAREST)
+            S.paste(big, (L0 + j * cw + (cw - big.width) // 2, y + ch - 8 - big.height), big)
+        y += ch + 8
+
+    def grid(title, items, y):
+        D.text((30, y + 10), title, font=F, fill=text)
+        y += 48
+        for i, (n, im) in enumerate(items):
+            c, r = i % fcols, i // fcols
+            x0, y0 = 25 + c * fcell, y + r * frow_h
+            D.rounded_rectangle((x0, y0, x0 + fcell - 10, y0 + frow_h - 10), 12, fill=panel)
+            big = im.resize((im.width * fZ, im.height * fZ), Image.NEAREST)
+            S.paste(big, (x0 + (fcell - 10 - big.width) // 2, y0 + frow_h - 40 - big.height), big)
+            D.text((x0 + (fcell - 10) // 2 - D.textlength(n, font=FS) // 2, y0 + frow_h - 34), n, font=FS, fill=text)
+        return y + frow_h * ((len(items) + fcols - 1) // fcols)
+    y = grid('Pet beds', beds, y + 14)
+    y = grid('More Furniture', furn, y + 6)
+    out = out or os.path.join(KIT, 'docs', 'images', 'models.png')
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    S.crop((0, 0, W, y + 16)).save(out, optimize=True)
+    return out
+
+
 def main(argv):
     if not argv or argv[0] in ('-h', '--help'):
         print(__doc__)
@@ -897,8 +1007,10 @@ def main(argv):
             print('%-22s %s' % (m['name'], m['kind']))
     elif argv[0] == 'show':
         print(sheet(argv[1], argv[2] if len(argv) > 2 else None))
+    elif argv[0] == 'gallery':
+        print(gallery(argv[1] if len(argv) > 1 else None))
     else:
-        sys.exit('unknown command %s (list, show)' % argv[0])
+        sys.exit('unknown command %s (list, show, gallery)' % argv[0])
 
 
 if __name__ == '__main__':

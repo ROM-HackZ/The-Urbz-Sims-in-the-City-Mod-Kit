@@ -93,7 +93,8 @@ def mod_pets(mod_dirs):
             continue
         name = os.path.basename(os.path.normpath(md))
         try:
-            pets = json.load(open(p, encoding='utf-8'))['pets']
+            import urbz_tuning
+            pets = urbz_tuning.load(md, 'pets.json')['pets']             # with your Tune-window changes
         except (ValueError, KeyError) as e:
             raise PetsError('mod "%s": pets.json: %s' % (name, e))
         for pet in pets:

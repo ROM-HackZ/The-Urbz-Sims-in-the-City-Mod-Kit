@@ -197,8 +197,12 @@ def load_code_mods(mod_dirs, syms):
                 raise CodeError('mod "%s": code/build/patch.json is missing; rebuild with '
                                 'python urbz.py patch build %s' % (name, name))
             info = json.load(open(jp))
-            m.update(blob=open(bp, 'rb').read(), relocs=info['relocs'],
-                     symbols=info['symbols'], bss=info.get('bss', 0))
+            import urbz_tuning
+            try:                                     # data tables from the mod's (tuned) files: no compiler needed
+                blob = urbz_tuning.patch_blob(md, open(bp, 'rb').read(), info['symbols'])
+            except (urbz_tuning.TuningError, ValueError, KeyError) as e:
+                raise CodeError('mod "%s": %s' % (name, e))
+            m.update(blob=blob, relocs=info['relocs'], symbols=info['symbols'], bss=info.get('bss', 0))
             stale = _stale_sources(cdir, info)
             if stale:
                 print('warning: mod "%s": %s changed since the last code build; '

@@ -425,16 +425,26 @@ def _fit_palette(images, colours=15):
     return pal, out
 
 
-def _place(img, bbox_target):
-    """Move a canvas-sized RGBA render so its drawn box's centre-x and bottom match bbox_target."""
+def _place(img, bbox_target, size=None):
+    """An RGBA render moved onto a canvas of `size` (default: its own) so its drawn box's centre-x and bottom
+    match bbox_target, but never past the canvas edges: the whole picture is kept (ValueError if it is
+    bigger than the canvas)."""
     from PIL import Image
+    size = size or img.size
     b = img.getbbox()
-    if not b or not bbox_target:
-        return img
-    dx = round((bbox_target[0] + bbox_target[2]) / 2 - (b[0] + b[2]) / 2)
-    dy = bbox_target[3] - b[3]
-    out = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    out.paste(img, (dx, dy), img)
+    if not b:
+        return Image.new('RGBA', size, (0, 0, 0, 0))
+    w, h = b[2] - b[0], b[3] - b[1]
+    if w > size[0] or h > size[1]:
+        raise ValueError('the picture is %dx%d pixels, bigger than its %dx%d canvas' % (w, h, size[0], size[1]))
+    if bbox_target:
+        x = round((bbox_target[0] + bbox_target[2]) / 2 - w / 2)
+        y = bbox_target[3] - h
+    else:
+        x, y = b[0], b[1]
+    x, y = max(0, min(size[0] - w, x)), max(0, min(size[1] - h, y))
+    out = Image.new('RGBA', size, (0, 0, 0, 0))
+    out.paste(img.crop(b), (x, y))
     return out
 
 
@@ -482,9 +492,10 @@ def object_art(cfg, like, folder):
     views = []
     for name, yaw, rec in (('view-away', 135, recs[1]), ('view-toward', -45, recs[3])):
         target = A._sheet_frames(rec[0], rec[1], ramp, A.OBJ_CANVAS, A.OBJ_ORIGIN)[0].getbbox()
-        im = rasterize(model.posed(), view(yaw + model.front), PX_PER_M * cfg.get('scale', 1.0),
-                       (A.OBJ_CANVAS, A.OBJ_CANVAS), A.OBJ_ORIGIN)
-        views.append((name, np.array(_place(Image.fromarray(im), target))))
+        big = (A.OBJ_CANVAS * 3, A.OBJ_CANVAS * 3)     # room all round: drawn whole, then moved into place
+        im = rasterize(model.posed(), view(yaw + model.front), PX_PER_M * cfg.get('scale', 1.0), big,
+                       (big[0] // 2, big[1] * 2 // 3))
+        views.append((name, np.array(_place(Image.fromarray(im), target, (A.OBJ_CANVAS, A.OBJ_CANVAS)))))
     pal, imgs = _fit_palette([v for _, v in views])
     for (name, _), im in zip(views, imgs):
         im.save(os.path.join(folder, name + '.png'))

@@ -269,6 +269,20 @@ the catalog colours) and `icon.png` (32x32, for Pockets and the Catalog) with `i
 128x128; the west corner of the piece's floor tile is pixel (24, 100). Point an object at it with
 `"art": "art/armchair"` in `objects.json`.
 
+## Settings players can change (the Tune window)
+
+The mod manager's **Tune...** lets players change some of a mod's settings without editing its files:
+- `pets.json`: a pet's name, price, description, and which shops sell it (common / uncommon / rare);
+- `objects.json`: the same for objects, plus quality (1-5);
+- `places.json` (NPC Life): what each place offers.
+
+Their changes go in `tuning\<mod>.json` (never committed) and the builder applies them over the mod's own
+files when it reads them (`kit/urbz_tuning.py`; `python urbz.py tuning show` lists them). Data compiled into a
+mod's C code can be tuned too when the kit knows its layout: NPC Life's places table (`sim_places`, a fixed
+80 rows) is rewritten in the compiled code at build time, so nobody needs a compiler. The named shops are
+the furniture shop (list 4), the Bayou Bazaar (9), the Second Looks Thrift Emporium (10) and Drifter Woods'
+stall (18).
+
 ## The kit's own models
 
 The pets, the pet beds and the More Furniture pieces are 3D models built from simple shapes in code

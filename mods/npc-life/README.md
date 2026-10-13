@@ -20,16 +20,18 @@ sometimes skipped, and on arriving somewhere people settle in before eating.
 
 ## Tuning it
 
-- `places.json`: what each area offers (food, fun, social, park, gym) for free-time visits.
-  Area ids and names: `docs/areas.md`.
+What each place offers the townspeople in their free time (food, fun, social, park, gym): in the mod
+manager, select npc-life and press **Tune...**, click the boxes, build. No files to edit, no compiler: your
+choices are kept in `tuning\npc-life.json` and the builder writes them into NPC Life's compiled places table
+(`kit/urbz_tuning.py`).
 
-After editing it:
+The mod's own defaults are in `places.json` (area ids and names: `docs/areas.md`). Changing those, for the
+mod itself:
 ```
 python mods/npc-life/make_data.py          # -> sim/sim_data.h
 python mods/npc-life/sim/run_test.py       # 4 city weeks on the PC: a report and PASS/FAIL
 python urbz.py patch build npc-life        # compile (needs LLVM)
 ```
-then build the ROM as usual.
 
 ## How it works
 

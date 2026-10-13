@@ -2,7 +2,7 @@
   "name": "npc-life",
   "version": "3.0",
   "author": "Urbz kit",
-  "description": "A living city: the 36 townspeople keep to the places the original game puts them, visit cafés, clubs and parks in their free time, and act out their day where you can see them (sit down to eat, wash, use the toilet, chat). Tune the places in places.json, then run make_data.py.",
+  "description": "A living city: the 36 townspeople keep to the places the original game puts them, visit cafés, clubs and parks in their free time, and act out their day where you can see them (sit down to eat, wash, use the toilet, chat). Change what each place offers with Tune... in the mod manager.",
   "toggle": true,
   "default": true
 }

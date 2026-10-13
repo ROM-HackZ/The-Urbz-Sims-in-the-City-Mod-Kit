@@ -13,6 +13,8 @@ verify/states/
 
 # Your own mods/settings stay local unless you add them on purpose
 mods.json
+# Your Tune-window settings (mod manager)
+tuning/
 emulator.txt
 /emulator/
 

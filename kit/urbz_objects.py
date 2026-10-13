@@ -94,7 +94,8 @@ def mod_objects(mod_dirs, extra=()):
             continue
         name = os.path.basename(os.path.normpath(md))
         try:
-            ents = json.load(open(p, encoding='utf-8'))['objects']
+            import urbz_tuning
+            ents = urbz_tuning.load(md, 'objects.json')['objects']      # with your Tune-window changes
             for e in ents:
                 e['_dir'] = md
             sources.append((name, ents))

@@ -53,6 +53,7 @@ Save files (`.sav`) of your own game are fine; the kit's test saves live in `ver
   python tests/proofs.py npc-poses pets-data   # just some (python tests/proofs.py --list)
   python tests/test_code_encodings.py
   python tests/test_mod_manager.py
+  python tests/test_tuning.py
   python mods/npc-life/sim/run_test.py
   ```
   A few proofs need your copies of other Sims games (`sources.json`; without them they're skipped) or melonDS

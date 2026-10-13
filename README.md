@@ -27,6 +27,8 @@ Urbz DX is made of mods you can pick from (all of them by default):
 
 What each one does in detail: [docs/playing.md](docs/playing.md).
 
+![Every pet in six poses, the pet beds and the 13 new pieces of furniture](docs/images/models.png)
+
 All you need is your Urbz ROM: the pets, their beds and the furniture are the kit's own 3D models
 (`kit/urbz_models.py`), drawn in the Urbz style when you build. If you also own *The Sims 2: Apartment Pets* or
 *The Sims 3* (DS), you can have them drawn from those games' models instead (optional, see
@@ -46,11 +48,15 @@ You need:
 1. Download this repository (the green **Code** button, then **Download ZIP**) and unzip it somewhere, or
    `git clone` it.
 2. Double-click **`setup.bat`**: installs the Python packages (once).
-3. Drag your ROM onto **`extract.bat`** (or run `extract.bat "C:\path\to\Urbz.nds"`): unpacks it into
-   `project\` (about 40 s, once).
-4. Put the full path of your emulator's `.exe` in a file called `emulator.txt` in the kit folder.
-5. Double-click **`manager.bat`**: tick the mods you want, press **Build & Play**. You get
+3. Double-click **`manager.bat`**. The first time, it asks for your Urbz ROM (a `.nds`, or a `.zip` holding
+   one; it unpacks it in about a minute) and your emulator's `.exe`. You can change both later in
+   **Settings...**.
+4. Tick the mods you want (Urbz DX's are ticked already) and press **Build & Play**. You get
    `build\Urbz DX.nds`.
+
+Want different prices, other shops for the pets, a café that's also a hangout? Select a mod and press
+**Tune...**: names, prices, descriptions, quality and shops of the pets and furniture, and what each place
+offers in NPC Life. Your changes are kept apart from the mods, so updating the kit never loses them.
 
 <img width="811" height="587" alt="Screenshot 2026-10-13 150057" src="https://github.com/user-attachments/assets/bf05a2fc-87cb-472b-a69f-a8ee01a5bbd3" />
 
@@ -62,7 +68,7 @@ take seconds. Your save lives next to the built ROM (`build\Urbz DX.sav`), and r
 
 ```
 pip install -r requirements.txt
-python urbz.py extract "Urbz.nds" project
+python urbz.py extract "Urbz.nds" project      # or: python urbz.py manager, then Settings
 python urbz.py build --vanilla          # check: prints [IDENTICAL to original]
 python urbz.py manager                  # the mod manager window (needs tkinter)
 python urbz.py build                    # or build the mods listed in mods.json

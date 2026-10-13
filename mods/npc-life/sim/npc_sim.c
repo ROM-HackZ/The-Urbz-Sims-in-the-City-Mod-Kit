@@ -28,7 +28,7 @@ static uint32_t mix(uint32_t a, uint32_t b, uint32_t c)
 
 static const sim_place_t *place_of(unsigned area)
 {
-    for (int i = 0; i < SIM_N_PLACES; i++)
+    for (int i = 0; i < SIM_MAX_PLACES && sim_places[i].area != 255; i++)
         if (sim_places[i].area == area)
             return &sim_places[i];
     return 0;

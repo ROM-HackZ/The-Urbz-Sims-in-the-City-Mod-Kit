@@ -4,8 +4,9 @@
 
 enum { K_FOOD = 1, K_FUN = 2, K_SOCIAL = 4, K_PARK = 8, K_GYM = 16 };
 typedef struct { uint8_t area, kinds, cost; } sim_place_t;
+#define SIM_MAX_PLACES 80
 
-static const sim_place_t sim_places[] = {
+const sim_place_t sim_places[SIM_MAX_PLACES] = {
     { 0, 18, 0 },   /* Streetball Court */
     { 1, 8, 0 },   /* Bayou */
     { 2, 6, 6 },   /* Carnival */
@@ -40,5 +41,5 @@ static const sim_place_t sim_places[] = {
     { 72, 5, 12 },   /* Sensei Maki's Sushi Bar */
     { 73, 2, 5 },   /* Second Looks Thrift Emporium */
     { 79, 6, 10 },   /* Club Xizzle */
+    [34 ... SIM_MAX_PLACES - 1] = { 255, 0, 0 },
 };
-#define SIM_N_PLACES 34
