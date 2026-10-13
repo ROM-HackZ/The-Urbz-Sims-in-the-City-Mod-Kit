@@ -585,7 +585,15 @@ def city_state(rom, rtc=None, save=None):
     if os.path.exists(path):
         return path
     os.makedirs(STATE_CACHE, exist_ok=True)
-    out = evidence_dir('city')
+    # one at a time per ROM: runs started together (soaks in parallel) shared the evidence folder of that second
+    # and loaded each other's saves
+    import fcntl
+    lock = open(os.path.join(STATE_CACHE, _sha1(rom)[:12] + '.lock'), 'w')
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    if os.path.exists(path):
+        lock.close()
+        return path
+    out = evidence_dir('city-%s-%d' % (save or 'new', os.getpid()))
     job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'city', 'rtc': rtc, 'save': path + '.tmp'}
     if fast:
         print('booting %s and loading the saved city game (about 10 s)...' % os.path.basename(rom))
@@ -596,8 +604,11 @@ def city_state(rom, rtc=None, save=None):
     else:
         print('cold-booting %s into the city via a new game (about 2 minutes)...' % os.path.basename(rom))
         job.update(script=json.load(open(NEWGAME)))
-    run_child(job)
-    os.replace(path + '.tmp', path)
+    try:
+        run_child(job)
+        os.replace(path + '.tmp', path)
+    finally:
+        lock.close()
     return path
 
 

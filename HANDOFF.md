@@ -125,7 +125,11 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   at 19:30 (the café's three people are rarely free together).
 - 2026-10-13 (Jonathan: do all of chairs, poses up close, reading animation, test-play; Mokey dropped): extra seats
   (`seats.json`, `urbz_seats.py`, proof npc-new-seats: Café Z-Bach booth benches + sofa; research/areas/area_map.py
-  stitches a whole place), borrowed poses from someone of the same sex (`WOMEN` in urbz_poses.py).
+  stitches a whole place), borrowed poses from someone of the same sex (`WOMEN` in urbz_poses.py). Reading: the
+  game has no seated reading animation (research/objects/player_anims.py looked at all 228 player ids), so "Read a
+  Book" keeps the seated loop. Test-play with all four mods (café, Urbania Park evening, pizza, apartment with
+  pets; ~5 game hours each): nothing stuck; soak_probe's "frozen" flags were 20 s chats and looks. Harness:
+  city states are made one at a time per ROM (parallel soaks had loaded each other's saves).
 - Furniture (2026-10-09, Jonathan: "address furni"; chose own strength + brand-new actions + a set picked by
   Claude): copies and imports already worked (sit, sleep). `objects.json` now has `"quality"` (1-5) and
   `"actions"` (new menu items that play like Sit/Sleep plus their own effects, until a need is full or for some
