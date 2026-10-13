@@ -418,7 +418,9 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   spot is taken; whoever sits down on someone else gets up again (the game then ends the shared object's use for
   both). The walk back after a use ends when they're within 8 px of the spot or stop moving (it waited out its
   15 s). Chats: the partner must be standing (one walking about kept walking off), may be up to 500 px away and
-  isn't held back by the 10 s "already looked at" pause; socialising people try a chat before a seat. Urbania
+  isn't held back by the 10 s "already looked at" pause; socialising people try a chat before a seat. When the
+  spot beside the partner has no path (result 3: a café table) the walker tries their left, right and far side,
+  and a walk that ends within 72 px still becomes a chat (2026-10-12; counters `chat_end[4]`). Urbania
   Park has only a grill (1), 168 and two pay phones (206): free time now picks a chat, a stroll (`K_STROLL`: a
   path 80-200 px off, a look round) or a look in random order. Rest between actions 15-35 s (was 20-50).
   Toilet 10-15 s, shower 15-25 s (were up to 60 s). People still wander Urbania Park at 3 am, as the original
@@ -447,20 +449,31 @@ From the decompile (Ghidra 11, research/README.md) and emulator runs; proof `npc
   in bed). Proofs furniture-actions, furniture-melonds.
 - **Borrowed poses (2026-10-09, proof `npc-poses`, `urbz_poses.py`):** a mod's `poses.json` (NPC Life ships
   one) makes the builder add a hidden mod `build/new-poses`: for each townsperson missing a group (sit
-  0x6B-0x6D, eat 0x41, toilet 0x7B, shower 0x69, sleep 0x21/0x20), the donor = whoever has it with the
-  closest standing silhouette (feet aligned, scaled to the same height: overlap + width). Each donor sheet
-  is scaled about the feet to the person's height, recoloured colour by colour (each donor colour lives
-  mostly in one of 8 height bands of the standing figure; it becomes the person's colour in that band at the
-  same pixel-weighted brightness quantile; face skin -> face skin), and the head is swapped: the top 17% of
+  0x6B-0x6D, eat 0x41, toilet 0x7B, shower 0x69, sleep 0x21/0x20, gestures 0x87/0x78/0xDB for the 8 who
+  have none), the donor = whoever has it with the closest standing silhouette (feet aligned, scaled to the
+  same height: overlap + width + how much skin shows). Each donor sheet is scaled about the feet to the
+  person's height and recoloured (`colour_map`, 2026-10-12): palettes are ramps (one hue light to dark);
+  black (max channel <= 0x20) stays black; skin -> skin by brightness (`SKIN`, hand-checked per person, since
+  brown clothes look like skin to any rule; in the shower `BODY_SKIN`, all of the donor's bare skin); every
+  other donor ramp goes to the person's garment ramp it lands on when the two standing figures are laid
+  over each other in 3 px cells, heads left out (`overlay_counts`), minus 0.25 x the brightness difference;
+  all donor colours given to one garment are then laid light-to-dark over its pixels. Eat and gestures
+  (standing) do the top and bottom half apart (a white shirt and white trainers become a red shirt and black
+  shoes). Lincoln (47, wheelchair) eats in his own chair: the donor's upper body, coloured from the two upper
+  bodies only, over his own seated frame (`restyle_in_chair`); he is never a donor. The head is swapped: the top 17% of
   the figure (as wide as the standing head, centred on what is there) is cleared and the person's own
   standing head drawn with its top on the figure's top. Frames wider than tall (lying down) keep the donor's
   head, recoloured. New sheets (gfx + layout per view, the quick encoder) are new assets numbered after pets'
   and objects'; the donor's frame scripts are reused. Each person's list is copied (original rows, then the
   new ones, records with relocs) and `npc_anim_lists[id]` points at it; NPC Life's `has_anim` then lets them
-  use seats, food, toilets, showers and beds. 35 people, 146 sets, 640 files, ~3.6 MB, 20 KB of lists (sit's three
+  use seats, food, toilets, showers and beds, and chat with gestures. 35 people, 150 sets, 714 files, ~3.9 MB, 22 KB of lists (sit's three
   rows share one record array); made
   once in about a minute and kept in `build/cache/poses/<hash of the code and the game>`. People whose list
-  another mod hooks (`urbz_anims.py`) are skipped, and `skip` in poses.json (48 Lottie Cash: wheelchair).
+  another mod hooks (`urbz_anims.py`) are skipped, and `skip` in poses.json (a list of people, or
+  {person: [groups]}: 47 Lincoln gets no sit, toilet or shower; the old docs had Lottie, 48, in the chair: she isn't;
+  62 Mokey is left out: the game draws him its own way, also unmodded: entity +0xC0 bit 0x80, +0xC8 = 0x20 where
+  everyone else has 0xD0-0xF8, a long red coat instead of his white lab-coat palette, and setting his animation
+  doesn't change his picture, so borrowed rows never show; proof `npc-pose-gallery`).
   (The code region went past the 160 KB start-up copy with all mods on; it now goes into the static code
   then: "Code regions over 160 KB" above.)
 - **Ending a use early:** the object's activity record has 2 user slots at +0x0C (12 bytes: person, ...,

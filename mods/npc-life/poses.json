@@ -1,5 +1,26 @@
 {
-  "_about": "Borrowed poses: townspeople without an animation (sit, eat, toilet, shower, sleep) get one built from the closest-looking person who has it, in their own colours and with their own head (urbz_poses.py, made at build time from your game; the first build takes a few minutes). groups: which to make. skip: people to leave alone (48 Lottie Cash uses a wheelchair).",
-  "groups": ["sit", "eat", "toilet", "shower", "sleep"],
-  "skip": [48]
+  "_about": "Borrowed poses: townspeople without an animation (sit, eat, toilet, shower, sleep, the chat gestures) get one built from the closest-looking person who has it, in their own colours and with their own head (urbz_poses.py, made at build time from your game; the first build takes a few minutes). groups: which to make. skip: people (or {person: [groups]}) to leave alone: 47 Lincoln Broadsheet uses a wheelchair, so no sitting down on things, toilet or shower; he eats in his chair (urbz_poses.WHEELCHAIR). 62 Mokey: the game draws him its own way (entity +0xC0 bit 0x80, not in his own colours) and his animation doesn't change his picture, so borrowed poses wouldn't show; he is left out.",
+  "groups": [
+    "sit",
+    "eat",
+    "toilet",
+    "shower",
+    "sleep",
+    "gesture"
+  ],
+  "skip": {
+    "47": [
+      "sit",
+      "toilet",
+      "shower"
+    ],
+    "62": [
+      "sit",
+      "eat",
+      "toilet",
+      "shower",
+      "sleep",
+      "gesture"
+    ]
+  }
 }

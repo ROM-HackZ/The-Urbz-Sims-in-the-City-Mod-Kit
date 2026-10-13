@@ -92,6 +92,8 @@ for n, (mem, clock) in enumerate(snaps):
         more = struct.unpack_from('<12I', rd(base + SYM['npc_act'] + 36, 48))  # rounds, seen, cand, no_object, chats, loose, forced, kept, walked_off, looks, taken_skips, strolls
         if os.environ.get('NACT'):
             print('   nact sent %d fin %d abort %d rescued %d left %d refused %d busy %d | rounds %d seen %d cand %d noobj %d chats %d loose %d forced %d kept %d walked_off %d looks %d taken %d strolls %d' % (nact[1:] + more))
+            ce = struct.unpack_from('<4I4B', rd(base + SYM['npc_act'] + 84, 20))
+            print('   chat ends (taken over, done, leaving, no way) %s; last taken over: e %02x/%02x partner %02x/%02x' % ((ce[:4],) + ce[4:]))
     held = {a[0] for a in actors} | {a[4] for a in actors if a[3] == 1}
     print('%02d day %d %02d:%02d  %s | actors %s' % (n, day, hh, mm, ' '.join(
         '%s %x/%x %d,%d' % (name(w), st, ac, x, y) for _, w, st, ac, fl, x, y in people),

@@ -1,0 +1,6 @@
+{
+  "name": "pose-gallery",
+  "description": "Test: brings townspeople lo..hi into one area, stands them in a row by you and plays one animation on all of them (poked), to look at the borrowed poses in the game itself (proof npc-pose-gallery)",
+  "version": "1.0",
+  "author": "Urbz kit"
+}

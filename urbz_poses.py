@@ -1,13 +1,21 @@
-#!/usr/bin/env python3
-"""Borrowed poses: the townspeople's missing animations (sit, eat, toilet, shower, sleep), made from someone
-who has them, in the person's own colours and with their own head.
+"""Borrowed poses: the townspeople's missing animations (sit, eat, toilet, shower, sleep, and the three chat
+gestures for the eight who have none), made from someone who has them, in the person's own colours and with
+their own head.
 
 Most townspeople only have stand, walk and a few gestures: their art is pre-rendered 3D, so their own frames
 can't be bent into new poses. Each missing animation is taken from the closest-looking person who has it (the
-"donor": similar height and build), scaled to the person's height, recoloured colour by colour (each donor
-colour goes to the person's colour that plays the same part: same height on the body, similar brightness),
-and the donor's head is swapped for the person's own (the top of the figure in each frame; lying down, the
-donor's head stays, recoloured).
+"donor": similar height and build), scaled to the person's height, recoloured, and the donor's head is swapped
+for the person's own (the top of the figure in each frame; lying down, the donor's head stays, recoloured).
+
+Recolouring (colour_map): black stays black, the donor's skin becomes the person's skin (SKIN, checked by hand;
+in the shower all of the donor's bare skin), and every other donor colour goes to the person's garment it lands
+on when the two standing figures are laid over each other (overlay_counts), its shades shared out light to
+dark. Standing poses (eat, gestures) colour the top and bottom half apart, so a white shirt and white trainers
+become a red shirt and black shoes.
+
+Lincoln Broadsheet (47) is in a wheelchair: he eats sitting in his own chair (the donor's upper body over his
+seated frame, restyle_in_chair), borrows sleep, and gets no sit, toilet or shower (poses.json "skip"). He is
+never used as a donor.
 
   python urbz_poses.py preview <out_dir> [person ...] [--group sit]   contact sheets to look at
   (the build does the rest: a mod with "poses.json" gets a generated mod build/new-poses; the sets are
@@ -115,9 +123,16 @@ def choose_donor(cid, donors):
         inter = ((t > 0) & (ss > 0)).sum()
         union = ((t > 0) | (ss > 0)).sum()
         cost = 1 - inter / max(union, 1) + abs((tb[2] - tb[0]) - (sb[2] - sb[0])) / 40
+        # and as covered up: a donor in a swimsuit made everyone they lent a pose to bare-legged
+        cost += 2 * abs(_skin_share(t, SKIN.get(cid)) - _skin_share(s, SKIN.get(d)))
         if best is None or cost < best[0]:
             best = (cost, d)
     return best[1]
+
+
+def _skin_share(idx, skin):
+    np = _np()
+    return float(np.isin(idx, skin or []).sum()) / max(int((idx > 0).sum()), 1)
 
 
 BANDS = 8
@@ -147,7 +162,7 @@ def _skin(counts, pal):
                   key=lambda c: _lum(pal[c]))
 
 
-def colour_map(t_idx, t_pal, d_idx, d_pal):
+def colour_map_v1(t_idx, t_pal, d_idx, d_pal):
     """donor index -> the person's index. Each donor colour lives mostly at some height on the body (hair,
     face, shirt, trousers, shoes); it becomes the person's colour at that height at the same brightness
     quantile, counting pixels (a donor's big dark vest becomes the person's big dark jacket, its shadows the
@@ -178,6 +193,202 @@ def colour_map(t_idx, t_pal, d_idx, d_pal):
                     m[i] = tk[-1]
                 continue
         m[i] = min(every, key=lambda t: abs(_lum(t_pal[t]) - _lum(d_pal[i])))
+    return m
+
+
+# Skin colours, looked at person by person (2026-10-12: research/npc/skin_check.py highlights them): the face
+# and hands of everyone (finding them by machine took hats, hair and tan trousers for skin), and the donors' bare
+# skin in their shower animation (BODY_SKIN; Dusty's 5 and 6 are also his vest, so only there).
+SKIN = {31: [1, 2, 3, 4], 32: [1, 2, 3], 33: [7, 8, 9], 34: [1, 2, 3, 4], 35: [1, 2, 3, 4], 36: [1, 2, 3],
+        37: [5, 6, 7], 38: [9, 10, 11, 12], 39: [2, 3, 4], 40: [1, 2, 3], 41: [2, 3, 4], 42: [5, 6, 7, 8],
+        43: [11, 12, 13, 14], 44: [1, 2, 3, 4], 45: [1, 2, 3, 4], 46: [4, 5, 6, 7], 47: [1, 2, 3], 48: [9, 10, 11],
+        49: [1, 2, 3], 50: [3, 4, 5], 51: [1, 2, 3], 52: [11, 12, 13], 53: [1, 2, 3], 54: [10, 11, 12, 13],
+        55: [1, 2, 3, 4], 56: [7, 8, 9], 57: [1, 2, 3, 4], 58: [1, 2, 3], 59: [1, 2, 3], 60: [13, 11], 61: [2, 3],
+        62: [6, 7, 8], 63: [9, 10, 11], 64: [6, 7, 11], 65: [9, 10, 11, 12], 66: [7, 8]}
+BODY_SKIN = {33: [7, 8, 9], 39: [1, 2, 3, 4, 5, 6], 41: [1, 2, 3, 4], 45: [1, 2, 3, 4, 5], 52: [11, 12, 13, 14],
+             54: [10, 11, 12, 13, 14], 58: [1, 2, 3, 4]}
+
+# ---- colours, v2 (2026-10-12): garments as palette ramps ------------------------------------------------
+# A townsperson's 16 colours come in ramps, light to dark, one per part (skin 2-6, a blue shirt 8-11, grey
+# trousers 12-14, black 15 for outlines and the shadow). Each donor ramp goes to the person's ramp that plays the
+# same part (skin to skin, then by where it sits on the body), colour by colour at the same place in the ramp.
+# Donor colours a standing donor never shows (bare skin in the shower) go with their own ramp.
+
+def _hls(c):
+    import colorsys
+    return colorsys.rgb_to_hls(c[0] / 255, c[1] / 255, c[2] / 255)
+
+
+def _is_black(rgb):
+    """The outline / shadow colour: black or all but (some people's is 080808 or 200020)."""
+    return max(rgb[:3]) <= 0x20
+
+
+def ramps(pal):
+    """[[index, ...], ...]: runs of the palette (1-15) that go darker in one hue; black on its own."""
+    out, cur = [], []
+    for c in range(1, 16):
+        h, l, s = _hls(pal[c])
+        if _is_black(pal[c]):
+            if cur:
+                out.append(cur)
+            out.append([c])
+            cur = []
+            continue
+        if cur:
+            ph, pl, ps = _hls(pal[cur[-1]])
+            grey, pgrey = s < 0.15 or l < 0.08, ps < 0.15 or pl < 0.08
+            dh = min(abs(h - ph), 1 - abs(h - ph)) * 360
+            if l > pl + 0.04 or grey != pgrey or (not grey and dh > 28):
+                out.append(cur)
+                cur = []
+        cur.append(c)
+    if cur:
+        out.append(cur)
+    return out
+
+
+def _skinlike(c):
+    h, l, s = _hls(c)
+    return 0.02 <= h <= 0.14 and s >= 0.18 and 0.15 <= l <= 0.92
+
+
+def ramp_info(idx, pal, extra_counts=None):
+    """Per ramp: (indices, pixel count, mean height on the body 0-1, share of pixels in the face rows, skin-like)."""
+    np = _np()
+    b = bbox(idx)
+    h = max(b[3] - b[1], 1)
+    hh, hw = head_size(idx)
+    info = []
+    for r in ramps(pal):
+        ys = np.concatenate([np.nonzero(idx == c)[0] for c in r])
+        n = len(ys) + sum((extra_counts or {}).get(c, 0) for c in r)
+        y = float((ys.mean() - b[1]) / h) if len(ys) else 0.5
+        face = float(((ys >= b[1] + hh * 0.35) & (ys < b[1] + hh)).sum()) / max(len(ys), 1) if len(ys) else 0.0
+        sk = sum(1 for c in r if _skinlike(pal[c])) * 2 >= len(r)
+        info.append({'idx': r, 'n': n, 'y': y, 'face': face, 'skin': sk, 'black': _is_black(pal[r[0]])})
+    return info
+
+
+def _skin_ramp(info):
+    cand = [r for r in info if r['skin'] and not r['black'] and r['n']]
+    if not cand:
+        return None
+    return max(cand, key=lambda r: r['face'] * 3 + min(r['n'], 60) / 60 + (0.5 if r['y'] < 0.5 else 0))
+
+
+CELL = 3
+
+
+def overlay_counts(t_idx, d_idx, head=True):
+    """[donor colour, person colour] -> how much they cover each other with the two figures laid over each
+    other: feet on the same line, middles lined up, counted in CELL x CELL cells; heads left out (a cap is
+    swapped for the person's head, so it must not decide what colour the donor's shirt of the same blue gets)."""
+    np = _np()
+    tb, db = bbox(t_idx), bbox(d_idx)
+    if not tb or not db:
+        return np.zeros((16, 16))
+    def cells(idx, b, dx):
+        ys, xs = np.nonzero(idx)
+        keep = ys >= b[1] + round(HEAD * (b[3] - b[1])) if head else ys >= 0   # not the head: theirs anyway
+        ys, xs = ys[keep], xs[keep]
+        cy = (b[3] - 1 - ys) // CELL
+        cx = np.floor((xs - dx) / CELL).astype(int)
+        return cy, cx, idx[ys, xs]
+    tcx, dcx = (tb[0] + tb[2]) / 2, (db[0] + db[2]) / 2
+    ty, tx, tv = cells(t_idx, tb, tcx)
+    dy, dx, dv = cells(d_idx, db, dcx)
+    H = max(ty.max(), dy.max()) + 1
+    x0 = min(tx.min(), dx.min())
+    W = max(tx.max(), dx.max()) - x0 + 1
+    T = np.zeros((H, W, 16)); D = np.zeros((H, W, 16))
+    np.add.at(T, (ty, tx - x0, tv), 1)
+    np.add.at(D, (dy, dx - x0, dv), 1)
+    Tn = T / np.maximum(T.sum(axis=2, keepdims=True), 1)
+    return np.einsum('hwc,hwt->ct', D, Tn)
+
+
+def colour_map(t_idx, t_pal, d_idx, d_pal, d_extra=None, body_skin=None, t_known=None, d_known=None,
+               head=True):
+    """donor index -> the person's index. Skin goes to the person's skin (face colours, by brightness; a donor's
+    whole skin ramp, so bare skin in the shower is skin too); black to black; every other donor ramp (a garment)
+    to the person's ramp that covers the same parts of the body (bands from head to feet, histogram overlap), its
+    pixels shared out like the person's (a black suit with a white collar stays mostly black). d_extra: {donor
+    colour: pixels} the animation uses that the standing donor doesn't show."""
+    np = _np()
+    tc, dc = band_counts(t_idx), band_counts(d_idx)
+    t_skin = list(t_known) if t_known else _skin(tc, t_pal)
+    d_skin = list(d_known) if d_known else _skin(dc, d_pal)
+    t_ramps, d_ramps = ramps(t_pal), ramps(d_pal)
+    black = lambda pal, c: _is_black(pal[c])
+    t_black = [c for c in range(1, 16) if black(t_pal, c)]
+    if not t_skin:
+        sr = _skin_ramp(ramp_info(t_idx, t_pal))
+        t_skin = [c for c in sr['idx'] if tc[:, c].sum()] if sr else []
+    # the donor's skin: their face colours; in the shower all of their skin (BODY_SKIN: the colours their bare
+    # skin uses there; some of them are a vest or a beard when dressed, so only then)
+    d_skin_all = sorted(set(d_skin) | set(body_skin or ()), key=lambda c: -_lum(d_pal[c]))
+    t_skin_l = sorted(t_skin, key=lambda c: -_lum(t_pal[c]))
+    garments = [g for g in ([c for c in r if c not in t_skin] for r in t_ramps)   # (skin is never a garment)
+                if g and not all(black(t_pal, c) for c in g) and sum(tc[:, c].sum() for c in g)]
+    hist = lambda counts, r: counts[:, r].sum(axis=1) / max(counts[:, r].sum(), 1)
+    m = {0: 0}
+    rests = []
+    for r in d_ramps:
+        if all(black(d_pal, c) for c in r):
+            for c in r:
+                m[c] = t_black[0] if t_black else min(range(1, 16), key=lambda t: _lum(t_pal[t]))
+            continue
+        skin_part = [c for c in r if c in d_skin_all or (body_skin and t_skin_l and not black(d_pal, c))]
+        # (in the shower everything but black is skin: the head, hair and all, is the person's own)
+        for c in skin_part:
+            if c in d_skin_all:
+                q = d_skin_all.index(c) / max(len(d_skin_all) - 1, 1)
+            else:                                     # by brightness among the donor's skin colours
+                q = sum(1 for k in d_skin_all if _lum(d_pal[k]) > _lum(d_pal[c])) / max(len(d_skin_all), 1)
+            if t_skin_l:
+                m[c] = t_skin_l[min(len(t_skin_l) - 1, round(q * (len(t_skin_l) - 1)))]
+        rest = [c for c in r if c not in skin_part]
+        if rest:
+            rests.append(rest)
+    # each donor garment goes to the person's garment it lands on when the two standing figures are laid over
+    # each other (same height, feet and middle lined up; counted in small cells, so a slightly wider or
+    # narrower person still lines up), and that is about as dark. Colours that are one piece of clothing on
+    # the donor but split over several small ramps on the person (or the other way round) land where they are.
+    over = overlay_counts(t_idx, d_idx, head)               # [donor colour, person colour] -> pixels
+    mean_l = lambda counts, pal, r: (sum(counts[:, c].sum() * _lum(pal[c]) / 2550 for c in r)
+                                     / max(counts[:, r].sum(), 1))
+    given = {}                                        # person's garment -> the donor colours it gets
+    for rest in sorted(rests, key=lambda r: -dc[:, r].sum()):
+        if not garments:
+            for c in rest:
+                m[c] = min(range(1, 16), key=lambda t: abs(_lum(t_pal[t]) - _lum(d_pal[c])))
+            continue
+        on = over[rest].sum(axis=0)
+        if not dc[:, rest].sum() or not on[1:].sum():  # never shown standing: like the nearest-hued garment
+            tr = min(garments, key=lambda g: min(abs(_hls(t_pal[g[0]])[0] - _hls(d_pal[rest[0]])[0]), 1))
+        else:
+            ld, tot = mean_l(dc, d_pal, rest), on[1:].sum()
+            tr = max(garments, key=lambda g: on[g].sum() / tot - 0.25 * abs(ld - mean_l(tc, t_pal, g)))
+        given.setdefault(tuple(tr), []).extend(rest)
+    # all the donor colours one garment of the person's gets (often from several donor ramps), light to dark,
+    # their pixels laid over that garment's pixels, light to dark: a white shirt and a dark vest that both
+    # become the person's jacket are its light and its dark
+    for tr, dcols in given.items():
+        dl = sorted(dcols, key=lambda c: -_lum(d_pal[c]))
+        tl = sorted(tr, key=lambda c: -_lum(t_pal[c]))
+        dn = [dc[:, c].sum() + (d_extra or {}).get(c, 0) for c in dl]
+        tn = [tc[:, c].sum() for c in tl]
+        if sum(tn) == 0:
+            tn = [1] * len(tl)
+        dtot, ttot, acc = max(sum(dn), 1), sum(tn), 0
+        cum_t = np.cumsum(tn) / ttot
+        for k, c in enumerate(dl):
+            q = (acc + dn[k] / 2) / dtot if sum(dn) else k / max(len(dl) - 1, 1)
+            acc += dn[k]
+            m[c] = tl[int(np.searchsorted(cum_t, q - 1e-9))] if q < 1 else tl[-1]
+    for c in range(1, 16):
+        m.setdefault(c, min(range(1, 16), key=lambda t: abs(_lum(t_pal[t]) - _lum(d_pal[c]))))
     return m
 
 
@@ -217,7 +428,31 @@ def _box_mask(shape, y0, c, hh, hw):
     return m
 
 
-def restyle(cid, donor, frames, view):
+UPRIGHT = {'eat', 'gesture'}      # groups where people stand: coloured top half and bottom half apart
+WAIST = 0.5                       # of a standing person's height, from the top
+
+
+def lut_of_half(t_idx, t_pal, d_idx, d_pal, half, whole, cid, donor):
+    """The colour lookup for the top (0) or bottom (1) half of a standing figure (both scaled to the same
+    height, feet at the bottom). A donor colour not in that half when standing keeps its whole-figure colour."""
+    np = _np()
+    def cut(idx):
+        b = bbox(idx)
+        y = b[1] + round(WAIST * (b[3] - b[1]))
+        out = idx.copy()
+        if half == 0:
+            out[y:] = 0
+            out[:b[1] + round(HEAD * (b[3] - b[1]))] = 0     # (and not the head)
+        else:
+            out[:y] = 0
+        return out
+    th, dh = cut(t_idx), cut(d_idx)
+    m = colour_map(th, t_pal, dh, d_pal, None, None, SKIN.get(cid), SKIN.get(donor), head=False)
+    there = set(int(c) for c in np.unique(dh))
+    return np.array([m.get(i, 0) if i in there else whole.get(i, 0) for i in range(16)], dtype=np.int16)
+
+
+def restyle(cid, donor, frames, view, group=None):
     """Donor canvas frames (RGBA, donor's palette) -> the person's frames (RGBA, their palette)."""
     np = _np()
     t_idx, t_pal = standing(cid, view)
@@ -225,8 +460,21 @@ def restyle(cid, donor, frames, view):
     tb, db = bbox(t_idx), bbox(d0)
     s = (tb[3] - tb[1]) / (db[3] - db[1])
     d_idx = scale_about_feet(d0, s)
-    cmap = colour_map(t_idx, t_pal, d_idx, d_pal)
+    f_idx = [to_index(fr, d_pal) for fr in frames]
+    extra = {}
+    for f0 in f_idx:                               # colours the animation itself uses (bare skin in the shower)
+        for c, n in zip(*np.unique(f0, return_counts=True)):
+            extra[int(c)] = extra.get(int(c), 0) + int(n)
+    seen = {int(c) for c in np.unique(d0)}
+    cmap = colour_map(t_idx, t_pal, d_idx, d_pal, {c: n for c, n in extra.items() if c not in seen},
+                      BODY_SKIN.get(donor) if group == 'shower' else None, SKIN.get(cid), SKIN.get(donor))
     lut = np.array([cmap.get(i, 0) for i in range(16)], dtype=np.int16)
+    # standing up (eating, a gesture), the top and the bottom half are coloured each on their own: a donor's
+    # white shirt and white trainers are one colour, but on the person they are a red shirt and black shoes
+    halves = None
+    if group in UPRIGHT:
+        halves = [lut_of_half(t_idx, t_pal, d_idx, d_pal, half, cmap, cid, donor) for half in (0, 1)]
+        th = tb[3] - tb[1]
     # heads: the top of the figure (sitting, eating, on the toilet, in the shower people are upright)
     d_hh, d_hw = head_size(d0)
     t_hh, t_hw = head_size(t_idx)
@@ -235,10 +483,13 @@ def restyle(cid, donor, frames, view):
     tys, txs = np.nonzero(t_head)
     ox, oy = A.ORIGIN
     out = []
-    for fr in frames:
-        f0 = to_index(fr, d_pal)
+    for f0 in f_idx:
         f = scale_about_feet(f0, s)
         g = lut[f]
+        if halves and f.any():
+            cut = bbox(f)[3] - round((1 - WAIST) * th)
+            g[:cut] = halves[0][f[:cut]]
+            g[cut:] = halves[1][f[cut:]]
         hb = head_box(f0, d_hh, d_hw)
         if hb is not None:
             y0, c = hb
@@ -253,9 +504,63 @@ def restyle(cid, donor, frames, view):
     return out
 
 
+# People in a wheelchair (47 Lincoln Broadsheet): they do things sitting in their own chair. The donor's upper
+# body (above the waist), in the person's colours and with their head, goes over the person's own seated frame:
+# eating a snack in his chair. They get no sit, toilet or shower (poses.json skips those).
+WHEELCHAIR = {47}
+UPPER = 0.46                    # how much of a standing donor is above the waist; of the person in the chair, 0.52
+
+
+def restyle_in_chair(cid, donor, frames, view, group=None):
+    np = _np()
+    t_idx, t_pal = standing(cid, view)
+    d0, d_pal = standing(donor, view)
+    tb, db = bbox(t_idx), bbox(d0)
+    th, dh = tb[3] - tb[1], db[3] - db[1]
+    s = (0.52 * th) / (UPPER * dh)
+    d_idx = scale_about_feet(d0, s)
+    whole = colour_map(t_idx, t_pal, d_idx, d_pal, None, None, SKIN.get(cid), SKIN.get(donor))
+    # coloured from the two upper bodies only (the donor's above the waist, the person's above the seat):
+    # the rest of the person is chair and legs, which the donor's shirt must not take after
+    t_up, d_up = t_idx.copy(), d_idx.copy()
+    t_up[tb[1] + round(0.52 * th):] = 0
+    b2 = bbox(d_idx)
+    d_up[b2[1] + round(UPPER * (b2[3] - b2[1])):] = 0
+    cmap = colour_map(t_up, t_pal, d_up, d_pal, None, None, SKIN.get(cid), SKIN.get(donor))
+    there = set(int(c) for c in np.unique(d_up))
+    lut = np.array([cmap.get(i, 0) if i in there else whole.get(i, 0) for i in range(16)], dtype=np.int16)
+    t_hh, t_hw = head_size(t_idx)
+    ty0, tc = head_box(t_idx, t_hh, t_hw)
+    t_head = _box_mask(t_idx.shape, ty0, tc, t_hh, t_hw) & (t_idx > 0)
+    d_hh, d_hw = head_size(d0)
+    out = []
+    for fr in frames:
+        f0 = to_index(fr, d_pal)
+        hb = head_box(f0, d_hh, d_hw)
+        if hb is None:
+            out.append(to_rgba(t_idx, t_pal))
+            continue
+        y0, c = hb
+        g = lut[scale_about_feet(f0, s)]
+        hm = scale_about_feet((_box_mask(f0.shape, y0, c, d_hh, d_hw) & (f0 > 0)).astype(np.int16), s) > 0
+        g[hm] = 0                                  # the donor's head out: the person's own stays
+        ox, oy = A.ORIGIN
+        sy0, sc = round((y0 - oy) * s + oy), round((c - ox) * s + ox)   # the donor's head top, scaled
+        dy, dx = ty0 - sy0, round(tc - sc)
+        cut = ty0 + round(0.52 * th)               # the waist, in the person's frame
+        res = t_idx.copy()
+        ys, xs = np.nonzero(g)
+        Y, X = ys + dy, xs + dx
+        ok = (Y >= 0) & (Y < res.shape[0]) & (X >= 0) & (X < res.shape[1]) & (Y < cut)
+        res[Y[ok], X[ok]] = g[ys[ok], xs[ok]]
+        res[t_head] = t_idx[t_head]                # their head on top
+        out.append(to_rgba(res, t_pal))
+    return out
+
+
 def donors_for(group):
     ids = A.GROUPS[group][1]
-    return [c for c in range(31, 67) if all(a in A.anim_ids(c) for a in ids)]
+    return [c for c in range(31, 67) if all(a in A.anim_ids(c) for a in ids) and c not in WHEELCHAIR]
 
 
 def missing(cid):
@@ -292,7 +597,8 @@ def make_set(cid, group):
             name = '%x-%x' % (gfx_gid, lay_gid)
             if name not in sheets:
                 view = 'front' if f < 3 else 'back'
-                frames = restyle(cid, donor, A.sheet_frames(gfx_gid, lay_gid, d_pal), view)
+                how = restyle_in_chair if cid in WHEELCHAIR and group == 'eat' else restyle
+                frames = how(cid, donor, A.sheet_frames(gfx_gid, lay_gid, d_pal), view, group)
                 gfx, entries = bytearray(), []
                 for im in frames:
                     e, content = A.frame_data(im, pal, extra)
@@ -351,7 +657,7 @@ def _hooked_people(mod_dirs):
 
 
 def poses_mod(proj, mod_dirs, out_dir, first_asset, progress=print):
-    """A mod with poses.json ({"groups": [...], "skip": [person ids]}) -> the generated mod out_dir: new sheets
+    """A mod with poses.json ({"groups": [...], "skip": [person ids] or {person id: [groups]}}) -> the generated mod out_dir: new sheets
     (assets/, numbered from first_asset()), each person's animation list with the new rows (code/build
     patch.bin+json, data only) and hooks.txt pointing npc_anim_lists at them.
     Returns ([out_dir], report line) or (None, None) when no mod asks for poses."""
@@ -369,16 +675,22 @@ def poses_mod(proj, mod_dirs, out_dir, first_asset, progress=print):
             os.remove(os.path.join(adir, f))
     if not cfgs:
         return None, None
-    groups, skip = [], set(_hooked_people(mod_dirs))
+    groups, skip, skip_groups = [], set(_hooked_people(mod_dirs)), {}
     for md, cfg in cfgs:
         for g in cfg.get('groups', list(A.GROUPS)):
             if g not in A.GROUPS:
                 raise PosesError('%s/poses.json: unknown group "%s" (groups: %s)' % (md, g, ', '.join(A.GROUPS)))
             if g not in groups:
                 groups.append(g)
-        skip |= {int(c) for c in cfg.get('skip', [])}
+        sk = cfg.get('skip', [])
+        if isinstance(sk, dict):                # {"47": ["sit", ...]}: just those groups for that person
+            for c, gs in sk.items():
+                skip_groups.setdefault(int(c), set()).update(gs)
+        else:
+            skip |= {int(c) for c in sk}
     cache_dir = os.path.join(os.path.dirname(os.path.abspath(out_dir)), 'cache', 'poses', _cache_key())
-    todo = [(cid, g) for cid in range(31, 67) if cid not in skip for g in groups if g in missing(cid)]
+    todo = [(cid, g) for cid in range(31, 67) if cid not in skip for g in groups if g in missing(cid)
+            and g not in skip_groups.get(cid, ())]
     fresh = [t for t in todo if not os.path.exists(os.path.join(cache_dir, '%d-%s.pkl' % t))]
     if fresh:
         progress('poses: making %d borrowed animation set(s), about %d s (once: they are kept in build/cache)'
@@ -450,7 +762,7 @@ def preview(out, people, groups):
             sheets = []
             for view, (gfx, lay) in A.views_of(recs).items():
                 fr = A.sheet_frames(gfx, lay, A.palette16(donor))
-                mine = restyle(cid, donor, fr, view)
+                mine = (restyle_in_chair if cid in WHEELCHAIR and g == 'eat' else restyle)(cid, donor, fr, view, g)
                 own = to_rgba(standing(cid, view)[0], A.palette16(cid))
                 pick = [k * (len(fr) - 1) // 5 for k in range(6)]
                 sheets.append([own] + [fr[k] for k in pick] + [mine[k] for k in pick])

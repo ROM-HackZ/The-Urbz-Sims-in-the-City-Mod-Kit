@@ -1,4 +1,4 @@
-# Handoff (2026-10-09, Phase 10 done + pet and NPC Life fixes, borrowed poses)
+# Handoff (2026-10-12, Phase 10 done + pet and NPC Life fixes, borrowed poses perfected)
 
 For the next Claude session (cloud or local). Read this, then `CLAUDE.md`, `PLAN.md`, `docs/plan-phase10.md`.
 
@@ -108,8 +108,21 @@ Players choose mods on the PC (manager) and switch them on/off in the game (Opti
   give the 27 people without them sit/eat/toilet/shower/sleep (and the 6 without eat, Kris toilet), built at
   build time into hidden `build/new-poses` (docs/systems.md "Borrowed poses"). Proof `npc-poses` (Gramma sits at
   the pizza place, Luthor at Cafe Z-Bach); melonDS checked with research/npc/poses_melon.py. They look a bit
-  off-model up close; `python urbz_poses.py preview <dir> <person>` shows them. Lottie (wheelchair) skipped.
+  off-model up close; `python urbz_poses.py preview <dir> <person>` shows them.
   npc-act's chat check moved to Cafe Z-Bach (at the pizza place Hattie now sits instead of chatting).
+- Borrowed poses perfected (2026-10-12, Jonathan: "all missing animations for npc-life", "perfect them all"):
+  the 8 without gestures (40, 60, 61, 63-66) get borrowed ones for chats; Lottie (48) gets everything (she is
+  NOT in a wheelchair; Lincoln, 47, is): Lincoln eats in his own chair (`restyle_in_chair`), borrows sleep, no
+  sit/toilet/shower, never a donor. New recolouring: hand-checked SKIN tables, near-black = black, donor
+  garments go to the garment they land on with the standing figures laid over each other (`overlay_counts`,
+  heads left out), top and bottom halves apart for standing poses, all colours given to one garment laid
+  light-to-dark together. Mokey (62) left out: the game draws him its own way even unmodded (red coat, his
+  animation never changes his picture). Proof `npc-pose-gallery` (tests/mods/pose-gallery: six people at a time
+  stood in a row in Urbania Park playing each pose; sheets build/proofs/npc-pose-gallery-*.png). Review sheets:
+  `python urbz_poses.py preview`.
+  Chats: when the spot beside the other person can't be reached (café tables) the walker tries the other three
+  sides, or talks from where the walk stopped if within 72 px; npc-act's chat check falls back to Urbania Park
+  at 19:30 (the café's three people are rarely free together).
 - Furniture (2026-10-09, Jonathan: "address furni"; chose own strength + brand-new actions + a set picked by
   Claude): copies and imports already worked (sit, sleep). `objects.json` now has `"quality"` (1-5) and
   `"actions"` (new menu items that play like Sit/Sleep plus their own effects, until a need is full or for some

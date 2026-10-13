@@ -14,7 +14,8 @@
    - a person only uses an object if they have the animation it plays (activity_anim: the 8 with
      the game's object set, or anyone given new art with urbz_anims.py); otherwise, or when there is
      nothing to use, they chat: one walks up to another, they face each other and take turns
-     gesturing (0x87, 0x78, 0xDB: the gestures 20 of them have). */
+     gesturing (0x87, 0x78, 0xDB: 20 people have them, the other 8 get borrowed ones with
+     urbz_poses.py). */
 
 #define MAX_ACTORS 4
 #define ST_WANDER  0x23
@@ -58,6 +59,8 @@ struct {
     u32 looks;                               /* went to look at / dance by / watch something */
     u32 taken_skips;                         /* an object someone of ours is already on (2026-10-12) */
     u32 strolls;                             /* walked to another spot of the place (2026-10-12) */
+    u32 chat_end[4];                         /* chats ended: why (0 taken over, 1 done, 2 leaving, 3 no way) */
+    u8 chat_end_st[4];                       /* the last one taken over: states and actions (e, partner) */
 } npc_act = { 0x5443414E };                  /* 'NACT' (tests read this) */
 
 #define path_count   GAME_VAR(ADDR_path_count, u8)
@@ -114,6 +117,13 @@ static void finish(actor_t *a, int why)
 {
     u8 *e = a->e;
     if (a->kind == K_CHAT) {
+        npc_act.chat_end[why & 3]++;
+        if (!why) {
+            npc_act.chat_end_st[0] = E8(e, 0x104);
+            npc_act.chat_end_st[1] = E8(e, 0x105);
+            npc_act.chat_end_st[2] = E8(a->partner, 0x104);
+            npc_act.chat_end_st[3] = E8(a->partner, 0x105);
+        }
         resume(e, a->who);
         resume(a->partner, a->partner_who);
         rest_until[a->partner_who - 31] = act_ticks + 450 + (act_rnd() % 600);
@@ -345,6 +355,30 @@ static int may_act(u8 *e, int who)
     return may_act_now(e, who, 1);
 }
 
+/* A walks to a spot next to B: side 0 = on B's side facing A, 1 and 2 = to B's left and right, 3 = behind B
+   (in a café the near side is often a table or a wall: no way there). */
+static int chat_path(u8 *e, u8 *b, int side)
+{
+    s32 xy[2];
+    int dx = ((s32)E32(e, 0x18) - (s32)E32(b, 0x18)) >> 16, dy = ((s32)E32(e, 0x1C) - (s32)E32(b, 0x1C)) >> 16;
+    int len = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) * 2;
+    if (len < 1)
+        len = 1;
+    int ox = dx * 24 / len, oy = dy * 24 / len;
+    if (side == 1 || side == 2) {                    /* a quarter turn (y counts double on screen) */
+        int t = ox;
+        ox = side == 1 ? -oy * 2 : oy * 2;
+        oy = side == 1 ? t / 2 : -t / 2;
+    } else if (side == 3) {
+        ox = -ox;
+        oy = -oy;
+    }
+    xy[0] = (s32)E32(b, 0x18) + (ox << 16);
+    xy[1] = (s32)E32(b, 0x1C) + (oy << 16);
+    E8(e, 0x10B) = 0;
+    return path_request(e, xy, (u8 *)(e + 0x10B), 0) == 1;
+}
+
 /* A chats with someone else here who is free: A walks up to them. Social people chat more. */
 static int start_chat(int slot, u8 *e, int who)
 {
@@ -365,16 +399,7 @@ static int start_chat(int slot, u8 *e, int who)
     if (!best || best_d > 500 * 500)                  /* (160 px: nobody ever chatted in Urbania Park, people are
                                                          hundreds of pixels apart there) */
         return 0;
-    /* stand next to them, on their side facing us */
-    s32 xy[2];
-    int dx = ((s32)E32(e, 0x18) - (s32)E32(best, 0x18)) >> 16, dy = ((s32)E32(e, 0x1C) - (s32)E32(best, 0x1C)) >> 16;
-    int len = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy) * 2;
-    if (len < 1)
-        len = 1;
-    xy[0] = (s32)E32(best, 0x18) + ((dx * 24 / len) << 16);
-    xy[1] = (s32)E32(best, 0x1C) + ((dy * 24 / len) << 16);
-    E8(e, 0x10B) = 0;
-    if (path_request(e, xy, (u8 *)(e + 0x10B), 0) != 1) {
+    if (!chat_path(e, best, 0)) {
         npc_act.refused++;
         return 0;
     }
@@ -417,7 +442,10 @@ static void chat_tick(actor_t *a)
     }
     if (a->phase == CH_WALK) {
         int r = E8(e, 0x10B);
-        if (r == 1 || dist2(e, b) < 30 * 30) {        /* there: face each other and talk */
+        int stuck = r == 3 || act_ticks - a->since > 600;
+        if (r == 1 || dist2(e, b) < 30 * 30 || (stuck && dist2(e, b) < 72 * 72)) {
+            /* there: face each other and talk (or as near as they got: in a crowded café the spot next to
+               the other person is often a table, and the walk ends a step short) */
             path_cancel(e);
             play_anim(e, 4);
             face(e, dir_to(e, b));
@@ -426,7 +454,11 @@ static void chat_tick(actor_t *a)
             a->until = act_ticks + 300 + act_rnd() % 300;    /* 10-20 s */
             a->next_gesture = act_ticks;
             a->turn = 0;
-        } else if (r == 3 || act_ticks - a->since > 600)
+        } else if (r == 3 && a->obj_number < 3 && path_count < 3) {
+            path_cancel(e);                           /* no way to that side of them: another side */
+            if (!chat_path(e, b, ++a->obj_number))
+                finish(a, 3);
+        } else if (stuck)
             finish(a, 3);
         return;
     }

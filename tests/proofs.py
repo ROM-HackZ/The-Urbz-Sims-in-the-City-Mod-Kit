@@ -432,6 +432,65 @@ def snapshots(rom, start_save, steps, every, ranges, pokes=(), goto=None, pokes_
     return [[open(f, 'rb').read() for f in files] for _, files in res['snaps']], out
 
 
+def p_npc_pose_gallery(save=None):
+    """The borrowed poses in the game itself (tests/mods/pose-gallery: poses.json copied from NPC Life, and a
+    little code that brings six townspeople at a time into Urbania Park, stands them in a row by you and plays
+    one animation on all of them). Each of the 36 is seen; screenshots of every group, 3 gestures, eat, sit,
+    toilet, shower, sleep, front and back: build/proofs/npc-pose-gallery-<first id>.png (Lincoln, 47, eats in
+    his wheelchair)."""
+    sys.path.insert(0, os.path.join(KIT, 'verify'))
+    import urbz_verify as V
+    from PIL import Image
+    rom, log = build('npc-pose-gallery', ['pose-gallery'])[:2]
+    save = save or os.environ.get('GALLERY_SAVE', 'urbania')
+    state = V.city_state(os.path.abspath(rom), None, save)
+    out = tempfile.mkdtemp(prefix='urbz-proof-')            # where the mod's code (and its struct) landed
+    res = V.run_child({'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': [['wait', 10], ['shot', 'x']],
+                       'poke': [], 'state': state, 'snap': ['0x02100000:0x100000']}, timeout=600)
+    mem = open(res['snaps'][0][1][0], 'rb').read()
+    k = mem.find(struct.pack('<II', 0x594C4147, 0xFFFFFFFF))   # 'GALY', off
+    if k < 0:
+        return False, "the gallery's struct isn't in RAM"
+    g = 0x02100000 + k
+    here = struct.unpack('<I', mem[0x41FEC:0x41FF0])[0]       # current_area 0x02141FEC
+    anims = [0x87, 0x78, 0xDB, 0x41, 0x6B, 0x7B, 0x69, 0x21]
+    seen, sheets = set(), []
+    for lo in [int(v) for v in os.environ['GALLERY_LO'].split(',')] if os.environ.get('GALLERY_LO') else range(31, 67, 6):
+        hi = min(66, lo + int(os.environ.get('GALLERY_N', 6)) - 1)
+        out = tempfile.mkdtemp(prefix='urbz-proof-')
+        script = [['wait', 500], ['press', 'B', 4], ['wait', 300], ['press', 'B', 4], ['wait', 60],
+                  ['poke', '0x%08X=%s' % (g + 4, struct.pack('<IBBBB', here, lo, hi, 4, 3).hex())],
+                  ['wait', 2700], ['shot', 'arrived']]
+        for k, a in enumerate(anims):
+            for d, dy in ((3, 40), (7, 40)):
+                script += [['poke', '0x%08X=%s' % (g + 10, struct.pack('<BB', a, d).hex())], ['wait', 40],
+                           ['shot', 'a%02d_%d' % (k, d)]]
+        job = {'rom': os.path.abspath(rom), 'out': out, 'tag': 'snap', 'script': script, 'poke': [],
+               'state': state, 'snap': ['0x02100000:0x100000']}
+        res = V.run_child(job, timeout=3000)
+        for _, files in res['snaps'][1:]:
+            mem = open(files[0], 'rb').read()
+            rd = lambda a, k: mem[a - 0x02100000:a - 0x02100000 + k]
+            e = struct.unpack('<I', rd(0x02121AF0, 4))[0]
+            while e and 0x02100000 <= e < 0x02200000:
+                t, who = struct.unpack('<HH', rd(e + 8, 4))
+                if t == 7 and lo <= who <= hi:
+                    seen.add(who)
+                e = struct.unpack('<I', rd(e, 4))[0]
+        shots = [Image.open(os.path.join(out, 'snap_a%02d_%d.png' % (k, d))).crop((0, 50, 256, 160))
+                 for k in range(len(anims)) for d in (3, 7)]
+        sheet = Image.new('RGB', (256 * 2, 110 * 8))
+        for i, im in enumerate(shots):
+            sheet.paste(im, ((i % 2) * 256, (i // 2) * 110))
+        sheet = sheet.resize((sheet.width * 2, sheet.height * 2), Image.NEAREST)
+        path = os.path.join(OUT, 'npc-pose-gallery-%d.png' % lo)
+        sheet.save(path)
+        sheets.append(path)
+    ok = len(seen) == 36
+    return ok, 'people seen standing in a row: %d of 36 (missing: %s); %s' % (
+        len(seen), sorted(set(range(31, 67)) - seen) or 'none', ', '.join(os.path.basename(p) for p in sheets))
+
+
 def p_npc_life_days():
     """Three game days with NPC Life (fast clock: a game minute per tick): the live timetables keep everyone
     where the original game puts them, out-of-town daytime hours become visits, and the routines follow
@@ -601,21 +660,30 @@ def p_npc_act():
     rom, res, out = act_run('npc-act')
     sits = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st == 0x11 and an == 0x6B})
     # (with borrowed poses everyone has the sit set but the people poses.json skips)
-    no_sit = set(json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json'))).get('skip', []))
+    sk = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json'))).get('skip', [])
+    no_sit = {int(c) for c, gs in sk.items() if 'sit' in gs} if isinstance(sk, dict) else {int(c) for c in sk}
     wrong = sorted({i for r in res for i, (st, ac, an) in r['people'].items() if st in (0x11, 0x26)} & no_sit)
     shots = sorted(glob.glob(os.path.join(out, '*.png')))
     if len(shots) > 4:
         shutil.copy(shots[4], os.path.join(OUT, 'npc-act.png'))
-    mems, cout = _area_snaps(rom, 'cafe', 42, 40, 150)
-    states = [_people_in(m) for m in mems]
-    talk = [p for p in states if sum(1 for st, ac, an in p.values() if st == 0x23 and ac == 0x30 and an != 0x0A) >= 2]
-    gest = sorted({an for p in states for st, ac, an in p.values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
-    k = mems[-1].find(struct.pack('<I', NACT_MAGIC))
-    chats = struct.unpack_from('<I', mems[-1], k + 52)[0] if k >= 0 else 0
+    where = 'cafe'
+    for where in ('cafe', 'Urbania Park'):        # (the café has three people: whether two are free at once
+        if where == 'cafe':                        #  depends on the timing, so the park at 19:30 is the second try)
+            mems, cout = _area_snaps(rom, 'cafe', 42, 40, 150)
+        else:
+            mems, cout = _npc_snaps(rom, 'urbania', None, 40, 300, clock=(19, 30))
+            mems = [m[0] if isinstance(m, (list, tuple)) else m for m in mems]
+        states = [_people_in(m) for m in mems]
+        talk = [p for p in states if sum(1 for st, ac, an in p.values() if st == 0x23 and ac == 0x30 and an != 0x0A) >= 2]
+        gest = sorted({an for p in states for st, ac, an in p.values() if ac == 0x30 and an in (0x87, 0x78, 0xDB)})
+        k = mems[-1].find(struct.pack('<I', NACT_MAGIC))
+        chats = struct.unpack_from('<I', mems[-1], k + 52)[0] if k >= 0 else 0
+        if talk and gest:
+            break
     ok = bool(sits) and not wrong and bool(talk) and bool(gest) and chats >= 1
-    return ok, ('pizza: sitting (anim 0x6B): %s; sent to objects without the animations: %s; cafe: snapshots with '
+    return ok, ('pizza: sitting (anim 0x6B): %s; sent to objects without the animations: %s; %s: snapshots with '
                 'two people chatting: %d, gestures seen: %s, chats started: %d; build/proofs/npc-act.png') % (
-        sits, wrong or 'none', len(talk), ['%02x' % g for g in gest], chats)
+        sits, wrong or 'none', where, len(talk), ['%02x' % g for g in gest], chats)
 
 
 def routine_day(cid, week=0, wd=0):
@@ -2423,8 +2491,16 @@ def p_npc_poses():
     line = [l for l in log.splitlines() if l.startswith('poses:')]
     lists = struct.unpack('<36I', ram(rom, 1, '0x%08X:144' % (A.ANIM_LISTS + 4 * 31),
                                       start=['--from', 'lobby'])['0x%08X:144' % (A.ANIM_LISTS + 4 * 31)])
-    skip = set(json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json'))).get('skip', []))
-    want = {c: Q.missing(c) for c in range(31, 67) if Q.missing(c) and c not in skip}
+    cfg = json.load(open(os.path.join(KIT, 'mods', 'npc-life', 'poses.json')))
+    sk = cfg.get('skip', [])
+    skip = {int(c): set(gs) for c, gs in sk.items()} if isinstance(sk, dict) else {int(c): None for c in sk}
+    want = {}
+    for c in range(31, 67):
+        if c in skip and skip[c] is None:
+            continue
+        gs = [g for g in Q.missing(c) if g in cfg.get('groups', []) and g not in (skip.get(c) or ())]
+        if gs:
+            want[c] = gs
     moved = [c for c in want if lists[c - 31] >= CODE_BASE]
     bad_rows = []
     for c in moved[:4]:                               # (a few people's rows, read back)
@@ -2667,7 +2743,7 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

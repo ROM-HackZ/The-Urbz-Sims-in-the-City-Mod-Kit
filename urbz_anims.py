@@ -43,6 +43,7 @@ GROUPS = {
     'toilet': (54, [0x7B]),
     'shower': (45, [0x69]),
     'sleep': (45, [0x21, 0x20]),         # lie down, get up (beds)
+    'gesture': (45, [0x87, 0x78, 0xDB]),  # the chat / look gestures (NPC Life); 8 people had none
 }
 
 
