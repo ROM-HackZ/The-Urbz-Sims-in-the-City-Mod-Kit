@@ -585,35 +585,45 @@ def p_npc_life_stays():
 SUE = 58
 
 
-def p_npc_life_leave():
-    """Nobody is left pacing by a door: the game walks people out to a way point, and when that walk fails on
-    screen (you standing at the lift) it puts them back to wandering and tries again, which in the original game
-    kept Sue Pirnova in Waters' Gym from 6:00 to past 8:30 (research/npc/who_where.py, docs/systems.md "Walking
-    out"). With NPC Life's watch_leaving she goes. Day 2 from 4:40 in the gym (area 64, entry 0, by the left lift):
-    Sue comes at 5:00 (her timetable), is sent out at 6:00, and must be gone by 6:50."""
-    rom = npc_life_rom('npc-life-leave')
-    clock = struct.pack('<hbbbb', 2, 4, 40, 0, 0).hex()
-    snaps, _ = snapshots(rom, 'lobby', 30, 240, ['0x02100000:0x300000'], pokes=['0x0214112C=' + clock], goto=64)
+def sue_in_gym(rom):
+    """Day 2 from 4:50 in Waters' Gym (area 64, entry 0, you by the left lift), to 8:00: (minute of day, Sue's
+    entity +0x107 or None when she's not here) per snapshot, and the Bug Fixes counters (or None)."""
+    clock = struct.pack('<hbbbb', 2, 4, 50, 0, 0).hex()
+    snaps, _ = snapshots(rom, 'lobby', 32, 240, ['0x02100000:0x300000'], pokes=['0x0214112C=' + clock], goto=64)
     B, seen = 0x02100000, []
     for (mem,) in snaps:
         rd = lambda a, f='<I': struct.unpack_from(f, mem, a - B)[0]
-        h, m = rd(0x0214112E, '<b'), rd(0x0214112F, '<b')
         e, sue = rd(0x02121AF0), None
         while e and B <= e < B + len(mem):
             if rd(e + 8, '<H') == 7 and rd(e + 10, '<H') == SUE:
                 sue = rd(e + 0x107, '<B')
             e = rd(e)
-        seen.append((h * 60 + m, sue))
-    k = mem.find(struct.pack('<I', NACT_MAGIC))
-    let_out = struct.unpack_from('<I', mem, k + 104)[0]
-    came = any(t < 6 * 60 and f is not None for t, f in seen)
-    sent = any(t >= 6 * 60 and f is not None and f & 2 for t, f in seen)
-    gone = all(f is None for t, f in seen if t >= 6 * 60 + 50)
-    last = max((t for t, f in seen if f is not None), default=0)
-    return came and sent and gone, ('Sue in the gym before 6:00: %s, sent out: %s, last seen %d:%02d, gone from 6:50 '
-                                   'to %d:%02d: %s; let out by NPC Life: %d') % (
-        came, sent, last // 60, last % 60, seen[-1][0] // 60, seen[-1][0] % 60, gone, let_out)
+        seen.append((rd(0x0214112E, '<b') * 60 + rd(0x0214112F, '<b'), sue))
+    k = mem.find(struct.pack('<I', 0x58494642))                 # 'BFIX'
+    return seen, (struct.unpack_from('<3I', mem, k) if k >= 0 else None)
 
+
+def p_fix_stuck_leaving():
+    """Bug Fixes, people who can't get out (mods/bug-fixes, docs/systems.md "Walking out"): the game walks people
+    out to a way point, and when that walk fails on screen (you standing at the lift) it puts them back to
+    wandering and tries again for ever. Day 2 in Waters' Gym, you by the left lift: Sue Pirnova comes at 5:00 (her
+    timetable) and is sent out at 6:00. On the original ROM she is still there at 8:00; with Bug Fixes she is gone
+    by 6:50."""
+    rom = build('fix-stuck-leaving', [os.path.join(KIT, 'mods', 'bug-fixes')])[0]
+    def story(seen):
+        came = any(t < 6 * 60 and f is not None for t, f in seen)
+        sent = any(t >= 6 * 60 and f is not None and f & 2 for t, f in seen)
+        last = max((t for t, f in seen if f is not None), default=0)
+        return came, sent, last
+    o_came, o_sent, o_last = story(sue_in_gym(os.path.join(PROJ, 'base.nds'))[0])
+    seen, counters = sue_in_gym(rom)
+    f_came, f_sent, f_last = story(seen)
+    end = seen[-1][0]
+    ok = o_came and o_sent and o_last == end and f_came and f_sent and f_last < 6 * 60 + 50 and counters[2] >= 1
+    return ok, ('original ROM: Sue came: %s, sent out: %s, last seen %d:%02d (the run ends %d:%02d); with Bug Fixes: '
+                'came: %s, sent out: %s, last seen %d:%02d, let out: %d') % (
+        o_came, o_sent, o_last // 60, o_last % 60, end // 60, end % 60, f_came, f_sent, f_last // 60, f_last % 60,
+        counters[2])
 
 PHOEBE = 54
 
@@ -2651,16 +2661,16 @@ def p_npc_look():
 
 
 def p_max_needs():
-    """Max Needs (a testing aid, mods/max-needs): while it is on, the player's 8 needs stay at 100; switched off
-    on the Mods page (CORE switch poke), they are left as they were (lower). From the apartment save, 3,000 frames each."""
+    """Max Needs (a testing aid, mods/max-needs): it starts off, and the player's needs go down as usual; switched
+    on on the Mods page (CORE switch poke), all 8 stay at 100. From the apartment save, 3,000 frames each."""
     rom = build('max-needs', [os.path.join(KIT, 'mods', 'max-needs')])[0]
     start = ['--from', 'apartment']                 # needs don't drop in the city save's tutorial
-    on = ram(rom, 3000, '0x02141204:32', start=start)['0x02141204:32']
-    full = [v >> 24 for v in struct.unpack('<8i', on)]
-    off = ram(rom, 3000, '0x02141204:32', pokes=[core_request(rom, 0, 0)], start=start)
-    low = [v >> 24 for v in struct.unpack('<8i', off['0x02141204:32'])]
+    off = ram(rom, 3000, '0x02141204:32', start=start)['0x02141204:32']
+    low = [v >> 24 for v in struct.unpack('<8i', off)]
+    on = ram(rom, 3000, '0x02141204:32', pokes=[core_request(rom, 0, 1)], start=start)
+    full = [v >> 24 for v in struct.unpack('<8i', on['0x02141204:32'])]
     ok = full == [100] * 8 and low and min(low) < 100
-    return ok, 'switched on: needs %s; switched off: %s' % (full, low)
+    return ok, 'as installed (off): needs %s; switched on: %s' % (low, full)
 
 
 def p_save_without_mod():
@@ -2716,11 +2726,11 @@ def p_save_without_mod():
         'build/proofs/save-without-mod-*.png' % (a[0], a[1], b[0], b[2], b[1], b[3], c[0], c[1], c[4])
 
 
-PLAYER_MODS = ('npc-life', 'pets', 'more-furniture', 'max-needs')
+PLAYER_MODS = ('npc-life', 'pets', 'more-furniture', 'max-needs', 'bug-fixes')
 
 
 def p_game_intact():
-    """The game stays itself with every player mod on (npc-life, pets, more-furniture, max-needs): nothing of
+    """The game stays itself with every player mod on (npc-life, pets, more-furniture, max-needs, bug-fixes): nothing of
     the game's is removed or changed, only added to.
     - Static, from the generated tables: the game's 386 objects (all 7 moved tables), its 7 critter kinds and
       its 8,311 strings are byte for byte the game's; shop lists only gain stock slots (still "pick at random").
@@ -2820,11 +2830,11 @@ PROOFS = [('vanilla', p_vanilla), ('clock-speed', p_clock_speed), ('hooks-wrap-c
           ('npc-life-stays', p_npc_life_stays), ('npc-life-visit', p_npc_life_visit), ('npc-use-object', p_npc_use_object), ('npc-act', p_npc_act),
           ('npc-act-release', p_npc_act_release), ('npc-act-eat', p_npc_act_eat), ('npc-body-prototype', p_npc_body_prototype),
           ('npc-anims', p_npc_anims), ('npc-life-off', p_npc_life_off),
-          ('npc-life-reload', p_npc_life_reload), ('npc-life-leave', p_npc_life_leave), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
+          ('npc-life-reload', p_npc_life_reload), ('npc-life-page', p_npc_life_page), ('pet-place', p_pet_place), ('objects-new', p_objects_new), ('pets-data', p_pets_data), ('pets-art', p_pets_art), ('mods-split', p_mods_split),
           ('pets-beds', p_pets_beds), ('pets-move', p_pets_move), ('pets-page', p_pets_page),
           ('strays-appear', p_strays_appear), ('strays-trust', p_strays_trust), ('pets-stall', p_pets_stall), ('pets-colours', p_pets_colours), ('pets-night', p_pets_night), ('pets-come-back', p_pets_come_back), ('pets-not-yours', p_pets_not_yours), ('pets-play', p_pets_play),
           ('melonds', p_melonds), ('pets-gate', p_pets_gate), ('pets-gate2', p_pets_gate2),
-          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-new-seats', p_npc_new_seats), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
+          ('npc-seat-turns', p_npc_seat_turns), ('npc-look', p_npc_look), ('npc-poses', p_npc_poses), ('npc-pose-gallery', p_npc_pose_gallery), ('npc-new-seats', p_npc_new_seats), ('npc-testplay', p_npc_testplay), ('furniture-quality', p_furniture_quality), ('furniture-actions', p_furniture_actions), ('furniture-melonds', p_furniture_melonds), ('max-needs', p_max_needs), ('fix-stuck-leaving', p_fix_stuck_leaving), ('save-without-mod', p_save_without_mod), ('game-intact', p_game_intact)]
 
 
 def main(argv):

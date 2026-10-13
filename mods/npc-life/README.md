@@ -71,9 +71,6 @@ In the area you're in, people act out their routine with the game's own objects 
 - at most 4 actions at once; when their routine moves on (breakfast time), they stop and go, unless what
   they're using still fits (socialising -> eating at the same table: they stay seated); a sit lasts 10-25 s,
   then they get up and wander a while before sitting again;
-- someone the game sends out who can't get through the door or lift (you're standing on the spot, which in the
-  original game can keep them pacing by it for hours) goes after 20 s of trying when they're near it, after a
-  minute wherever they are;
 - someone left sitting with nobody watching them (e.g. after you talked to them) is told to stand up after
   10 s;
   nobody is taken from a story scene, from talking to you, or from leaving for their next place;

@@ -1,0 +1,9 @@
+{
+  "name": "bug-fixes",
+  "title": "Bug Fixes",
+  "version": "1.0",
+  "author": "Urbz DX",
+  "description": "Fixes bugs in the original game (list: mods/bug-fixes/README.md). Switch it off on the Mods page to see the original behaviour.",
+  "toggle": true,
+  "default": true
+}

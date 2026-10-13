@@ -68,6 +68,8 @@ Save files (`.sav`) of your own game are fine; the kit's test saves live in `ver
   happened (a screenshot and your `.sav` help a lot).
 - **Code and docs:** fork, make a branch, open a pull request. Say what it changes and how you checked it
   (which proofs, what you saw in the game).
+- **A bug in the original game:** fix it in `mods/bug-fixes/` (its README says how: show the bug, fix it, add a
+  proof that fails on the original ROM).
 - **A new mod:** a pull request adding `mods/<your-mod>/` with a `README.md` saying what it does, or share it
   as a zip (the mod manager's **Add mod...** installs zips).
 

@@ -89,10 +89,17 @@ recliner, sofas, a loveseat, beds, a dining chair and tables, sold at the furnit
 Second Looks Thrift Emporium). Better pieces fill needs faster, and some have their own actions: Read a Book,
 Nap, Daydream, Read in Bed. List: [`mods/more-furniture/README.md`](../mods/more-furniture/README.md).
 
+### Bug Fixes (`mods\bug-fixes`)
+
+Fixes bugs in the original game; it works with or without the other mods. So far: someone the game sends out of
+a place no longer paces by the door or lift for hours when you're standing near it. The list, and how to add a
+fix: [`mods/bug-fixes/README.md`](../mods/bug-fixes/README.md). Switch it off (Options > Mods > Bug Fixes) to see
+the original behaviour.
+
 ### Max Needs (`mods\max-needs`, testing aid)
 
 Keeps your Sim's needs full (never hungry, tired or passing out) while it's ON: handy for exploring. Switch it
-in the game: Options > Mods > Max Needs. It starts ON; turn it off to play normally.
+in the game: Options > Mods > Max Needs. It starts OFF; turn it on when you want it.
 
 ## Mixing mods and saves
 

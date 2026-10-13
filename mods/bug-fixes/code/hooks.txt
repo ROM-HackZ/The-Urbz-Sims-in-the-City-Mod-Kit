@@ -1,0 +1,1 @@
+# Bug Fixes uses only the tick event (no hooks).

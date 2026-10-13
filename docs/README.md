@@ -3,7 +3,8 @@
 **Playing**
 - [playing.md](playing.md): building and playing the mods, handy saves, what each mod does.
 - Each mod's own README: [NPC Life](../mods/npc-life/README.md), [Pets](../mods/pets/README.md),
-  [More Furniture](../mods/more-furniture/README.md).
+  [More Furniture](../mods/more-furniture/README.md),
+  [Bug Fixes](../mods/bug-fixes/README.md).
 
 **Modding**
 - [modding.md](modding.md): every tool and file a mod can use: text, PNG, palettes, fonts, C code, the in-game
