@@ -56,7 +56,8 @@ Save files (`.sav`) of your own game are fine; the kit's test saves live in `ver
   python mods/npc-life/sim/run_test.py
   ```
   A few proofs need your copies of other Sims games (`sources.json`; without them they're skipped) or melonDS
-  (`verify/melonds_setup.sh` builds it on Linux; without it those proofs fail).
+  (`verify/melonds_setup.sh` builds it on Linux; without it those proofs fail). The melonDS proofs tap the touch
+  screen for real and now and then miss a tap (`pets-gate2` most often): rerun one alone before suspecting a bug.
 - **Compiled code is committed.** After changing a mod's C, rebuild it (`python urbz.py patch build <mod>`) and
   commit its `code/build/` too, so people without LLVM can still build the ROM. The same for `code/core/`,
   `code/objects/` and `code/pets-kit/` (`python urbz.py patch build --dir code/core`).
