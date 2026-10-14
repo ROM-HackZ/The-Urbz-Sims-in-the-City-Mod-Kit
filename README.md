@@ -4,6 +4,8 @@ A fan-made ROM hack of *The Urbz: Sims in the City* for the Nintendo DS, and the
 is a city where the townspeople live their own lives, pets you can adopt and look after, and new furniture.
 It's not the original game, and not made by EA: in an emulator's game list it shows as **Urbz DX**.
 
+<a href="https://buymeacoffee.com/romhackz"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="48"></a>
+
 ![Pets at home, a stray puppy, townspeople eating at the pizza place, a stray adopted in Urbania Park](docs/images/screens.png)
 
 The kit unpacks your own copy of the game into editable files (text, pictures, colours, fonts, the game's
@@ -116,6 +118,12 @@ How the game works inside (every address, table and format we know, and how we k
 
 Bug reports, mods, docs and code are all welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md): how to set up,
 run the tests, and the few rules (above all: never commit anything from the game itself).
+
+## Support
+
+Urbz DX is free. If you enjoy it and want to say thanks, you can buy me a coffee:
+
+<a href="https://buymeacoffee.com/romhackz"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="48"></a>
 
 ## Legal
 

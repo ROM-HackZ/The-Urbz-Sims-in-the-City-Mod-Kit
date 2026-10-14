@@ -33,6 +33,7 @@ URBZ_SHA1 = '3c01cc5cf3491b5d0ab626ccfb5bcad370662f2f'       # The Urbz: Sims in
 OTHER_GAMES = [('aptpets', 'The Sims 2: Apartment Pets'), ('sims3', 'The Sims 3'),
                ('castaway', 'The Sims 2: Castaway'), ('sims2', 'The Sims 2')]
 DEFAULT_MODS = ['npc-life', 'pets', 'more-furniture', 'bug-fixes']    # ticked on a fresh kit
+SUPPORT_URL = 'https://buymeacoffee.com/romhackz'
 
 # Never installed from a zip: game files and emulator files.
 BLOCKED_EXT = ('.nds', '.sav', '.dsv', '.dst', '.dsm', '.srm', '.zip', '.7z', '.exe', '.dll', '.bat', '.cmd')
@@ -657,7 +658,15 @@ def run_window():
     log.grid(row=3, column=0, columnspan=2, sticky='nsew')
     top.rowconfigure(3, weight=1)
     status = ttk.Label(top, text='')
-    status.grid(row=4, column=0, columnspan=2, sticky='w')
+    status.grid(row=4, column=0, sticky='w')
+    coffee = tk.Label(top, text='Enjoying Urbz DX? Buy me a coffee', fg='#0b62d6', cursor='hand2',
+                      font=('TkDefaultFont', 9, 'underline'))
+    coffee.grid(row=4, column=1, sticky='e')
+
+    def open_support(_=None):
+        import webbrowser
+        webbrowser.open(SUPPORT_URL)
+    coffee.bind('<Button-1>', open_support)
 
     def say(text):
         log.insert('end', text + '\n')
