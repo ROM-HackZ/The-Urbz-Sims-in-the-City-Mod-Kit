@@ -9,7 +9,8 @@ How to build Urbz DX with the mods you want and what each one does. Setting up t
    `emulator\` folder is ignored by git). The mod manager asks for its `.exe` the first time (Settings...).
 2. Open **`manager.bat`** (or `python urbz.py manager`): tick the mods you want, change their order if you
    like, then **Build & Play**. **Tune...** changes a mod's prices, shops, names and descriptions (and NPC
-   Life's places) without touching its files; **Settings...** changes your ROM, emulator or other Sims games. Rebuilding replaces `build\Urbz DX.nds` but never the save next to it, so your
+   Life's places) without touching its files; **Settings...** changes your ROM, emulator or other Sims games. **ROM folder** opens the `build` folder, where the built
+   ROM and its save are (handy for copying a save in, or the ROM to a flashcart). Rebuilding replaces `build\Urbz DX.nds` but never the save next to it, so your
    game carries on. **Add mod...** installs a mod someone sent you as a zip (zips with ROMs, saves or programs in
    them are refused).
 3. melonDS keeps the save next to the ROM with the same name: `build\Urbz DX.sav`. To start somewhere handy,

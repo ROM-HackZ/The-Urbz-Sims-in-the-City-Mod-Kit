@@ -8,7 +8,8 @@
 
 The window shows every mod in mods/ with a tick box. Ticked mods are built into the ROM in
 the order shown (later mods win where two change the same thing); Up/Down change the order.
-Build runs urbz_build.py and shows its output; Play opens the built ROM in your emulator.
+Build runs urbz_build.py and shows its output; Play opens the built ROM in your emulator;
+"ROM folder" shows the folder it's in (build/, with your save next to it).
 "Add mod..." installs a mod zip. "Settings..." picks your Urbz ROM (and unpacks it), your
 emulator and, optionally, your other Sims games (it writes emulator.txt and sources.json for
 you; the first time, it opens by itself). "Tune..." changes a mod's prices, shops, names and
@@ -240,6 +241,23 @@ def emulator_path():
         return None
     p = open(EMULATOR_TXT, encoding='utf-8-sig').readline().strip().strip('"')
     return p or None
+
+
+def open_rom_folder():
+    """Show the folder the built ROM (and its save) is in, in Explorer / Finder / the file manager; the ROM
+    itself is selected when it exists (Windows)."""
+    folder = os.path.dirname(OUT_ROM)
+    os.makedirs(folder, exist_ok=True)
+    if sys.platform.startswith('win'):
+        if os.path.exists(OUT_ROM):
+            subprocess.Popen('explorer /select,"%s"' % os.path.normpath(OUT_ROM))   # one string, as Explorer wants it
+        else:
+            os.startfile(folder)
+    elif sys.platform == 'darwin':
+        subprocess.Popen(['open', '-R', OUT_ROM] if os.path.exists(OUT_ROM) else ['open', folder])
+    else:
+        subprocess.Popen(['xdg-open', folder])
+    return folder
 
 
 def play():
@@ -607,7 +625,7 @@ def run_window():
 
     root = tk.Tk()
     root.title('Urbz DX mod manager')
-    root.geometry('960x580')
+    root.geometry('1060x580')
     root.minsize(640, 420)
     state = {'mods': [], 'busy': False}
 
@@ -754,6 +772,12 @@ def run_window():
         except ManagerError as e:
             messagebox.showinfo('Play', str(e))
 
+    def do_open_folder():
+        try:
+            say('opened %s' % open_rom_folder())
+        except OSError as e:
+            messagebox.showerror('Open ROM folder', str(e))
+
     def do_tune():
         name = selected()
         if not name:
@@ -770,7 +794,7 @@ def run_window():
                       ('Tune...', do_tune), ('Add mod...', add_mod)):
         ttk.Button(buttons, text=text, command=cmd).pack(side='left', padx=2)
     for text, cmd in (('Build && Play', lambda: run_build(True)), ('Play', do_play), ('Build', run_build),
-                      ('Settings...', do_settings)):
+                      ('ROM folder', do_open_folder), ('Settings...', do_settings)):
         ttk.Button(buttons, text=text.replace('&&', '&'), command=cmd).pack(side='right', padx=2)
 
     tree.bind('<<TreeviewSelect>>', show_details)
