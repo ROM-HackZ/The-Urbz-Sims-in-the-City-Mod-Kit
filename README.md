@@ -58,8 +58,11 @@ Want different prices, other shops for the pets, a café that's also a hangout? 
 **Tune...**: names, prices, descriptions, quality and shops of the pets and furniture, and what each place
 offers in NPC Life. Your changes are kept apart from the mods, so updating the kit never loses them.
 
-<img width="811" height="587" alt="Screenshot 2026-10-13 150057" src="https://github.com/user-attachments/assets/bf05a2fc-87cb-472b-a69f-a8ee01a5bbd3" />
+The mod manager  
+<img width="953" height="465" alt="Screenshot 2026-10-14 090638" src="https://github.com/user-attachments/assets/3c73c7c7-9c23-4cc1-bdcc-305b63cba5fb" />
 
+The settings where you can pick your rom and emulator path  
+<img width="612" height="427" alt="Screenshot 2026-10-14 090740" src="https://github.com/user-attachments/assets/39cc1d4f-d014-4014-b1f3-1fc504e3485d" />
 
 The first build takes a few minutes (it renders the pets, furniture and borrowed animations); later builds
 take seconds. Your save lives next to the built ROM (`build\Urbz DX.sav`), and rebuilding never touches it.
