@@ -1,6 +1,6 @@
 @echo off
 rem Test the built ROM headlessly against the original game.
-rem   verify.bat            smoke test build\Urbz DX.nds
+rem   verify.bat            smoke test game\Urbz DX.nds
 rem   verify.bat doctor     quick boot check
 setlocal
 cd /d "%~dp0"

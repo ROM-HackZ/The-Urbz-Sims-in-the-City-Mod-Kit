@@ -5,7 +5,7 @@ description: Verify the Urbz DS Mod Kit end to end by building the ROM from proj
 
 # Verify the Urbz DS Mod Kit
 
-The "app" is the Nintendo DS ROM this kit builds (`build/Urbz DX.nds`). A player touches it in an emulator. This skill drives it the same way: a real headless DeSmuME with button presses, touch input, screenshots and memory reads. All paths are relative to the kit root (the folder holding `urbz_build.py`).
+The "app" is the Nintendo DS ROM this kit builds (`game/Urbz DX.nds`). A player touches it in an emulator. This skill drives it the same way: a real headless DeSmuME with button presses, touch input, screenshots and memory reads. All paths are relative to the kit root (the folder holding `urbz_build.py`).
 
 ## Launch
 

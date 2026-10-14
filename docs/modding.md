@@ -34,7 +34,7 @@ references their ID (content wiring comes in a later phase).
 
 ### Build options (`python urbz.py build ...`)
 
-- `[out.nds]`: output path (default `build\Urbz DX.nds`)
+- `[out.nds]`: output path (default `game\Urbz DX.nds`)
 - `--vanilla`: ignore mods (proves the baseline is identical)
 - `--mod NAME`: build with only this mod (repeatable; a name in `mods\` or a folder path), ignoring `mods.json`
 

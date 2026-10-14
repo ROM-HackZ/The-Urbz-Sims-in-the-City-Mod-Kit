@@ -38,7 +38,7 @@ Savestates contain the game code: for code mods, start from --city, not an old s
 All commands accept --rtc YYYY-MM-DDTHH:MM to set the DS clock (default
 2026-01-05T12:00), so runs are repeatable and time-of-day can be tested.
 
-Default rom: build/Urbz DX.nds. Evidence (screenshots + report.txt) goes to
+Default rom: game/Urbz DX.nds. Evidence (screenshots + report.txt) goes to
 verify/evidence/<time>-<command>/ and is never deleted automatically.
 
 Input scripts are JSON lists of steps:
@@ -49,7 +49,7 @@ import json, os, struct, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.dirname(HERE)
-DEFAULT_ROM = os.path.join(KIT, 'build', 'Urbz DX.nds')
+DEFAULT_ROM = os.path.join(KIT, 'game', 'Urbz DX.nds')
 DEFAULT_REF = os.path.join(KIT, 'project', 'base.nds')
 
 # Boot -> legal screens -> EA -> Maxis -> title -> Create-a-Bod.

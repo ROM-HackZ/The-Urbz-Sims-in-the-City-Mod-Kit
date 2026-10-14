@@ -1,5 +1,5 @@
 @echo off
-rem Build "build\Urbz DX.nds" from project\ plus the mods enabled in mods.json,
+rem Build "game\Urbz DX.nds" from project\ plus the mods enabled in mods.json,
 rem then open it in your emulator if emulator.txt names one.
 rem   build.bat            build with enabled mods
 rem   build.bat --vanilla  build the original game (should say IDENTICAL)
@@ -31,5 +31,5 @@ if not exist "%EMU%" (
   echo emulator.txt points to "%EMU%" but that file does not exist.
   exit /b 0
 )
-start "" "%EMU%" "%~dp0build\Urbz DX.nds"
+start "" "%EMU%" "%~dp0game\Urbz DX.nds"
 exit /b 0

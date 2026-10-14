@@ -1,6 +1,6 @@
 # Build
 
-Build turns `project/` plus enabled mods into `build/Urbz DX.nds`. It patches the original cartridge image in place, reusing untouched chunks byte for byte and recompressing edited ones. Bad edits stop the build instead of producing a broken ROM.
+Build turns `project/` plus enabled mods into `game/Urbz DX.nds`. It patches the original cartridge image in place, reusing untouched chunks byte for byte and recompressing edited ones. Bad edits stop the build instead of producing a broken ROM.
 
 ## Sub-features
 
@@ -11,7 +11,7 @@ Build turns `project/` plus enabled mods into `build/Urbz DX.nds`. It patches th
 
 ## How to get to it (user POV)
 
-- Run `python urbz.py build` (default output `build/Urbz DX.nds`) or `build.bat`.
+- Run `python urbz.py build` (default output `game/Urbz DX.nds`) or `build.bat`.
 - Run `python urbz.py build --vanilla <out>` for the original game.
 
 ## Driving it with the kit CLI

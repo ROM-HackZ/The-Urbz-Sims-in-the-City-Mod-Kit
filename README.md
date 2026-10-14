@@ -51,8 +51,10 @@ You need:
 3. Double-click **`manager.bat`**. The first time, it asks for your Urbz ROM (a `.nds`, or a `.zip` holding
    one; it unpacks it in about a minute) and your emulator's `.exe`. You can change both later in
    **Settings...**.
-4. Tick the mods you want (Urbz DX's are ticked already) and press **Build & Play**. You get
-   `build\Urbz DX.nds`.
+4. Tick the mods you want (Urbz DX's are ticked already) and press **Build & Play**.
+5. Your game is in the **`game\`** folder (**Game folder** opens it): `Urbz DX.nds`, the ROM to play, and
+   `Urbz DX.sav`, your save, next to it. That's all that's in there; everything else the kit makes stays in
+   `build\`, which you never need.
 
 Want different prices, other shops for the pets, a café that's also a hangout? Select a mod and press
 **Tune...**: names, prices, descriptions, quality and shops of the pets and furniture, and what each place
@@ -65,7 +67,7 @@ The settings where you can pick your rom and emulator path
 <img width="612" height="427" alt="Screenshot 2026-10-14 090740" src="https://github.com/user-attachments/assets/39cc1d4f-d014-4014-b1f3-1fc504e3485d" />
 
 The first build takes a few minutes (it renders the pets, furniture and borrowed animations); later builds
-take seconds. Your save lives next to the built ROM (`build\Urbz DX.sav`), and rebuilding never touches it.
+take seconds. Rebuilding replaces `game\Urbz DX.nds` but never your save next to it.
 
 ### Linux / macOS
 
@@ -107,7 +109,8 @@ How the game works inside (every address, table and format we know, and how we k
 | `tests/` | Emulator proofs that check the kit and every documented fact |
 | `verify/` | The headless emulator harness, test saves and scripts |
 | `research/` | The probes behind the docs, kept as a record |
-| `project/`, `build/` | Your unpacked game and built ROMs (created locally, never committed) |
+| `game/` | The game you build: `Urbz DX.nds` and your save (created locally, never committed) |
+| `project/`, `build/` | Your unpacked ROM, and the kit's working files: caches, test ROMs (local, never committed) |
 
 ## Contributing
 

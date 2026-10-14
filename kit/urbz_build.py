@@ -503,23 +503,46 @@ def build(proj, out_path, mod_dirs=(), quiet=False):
     return sha
 
 
-def move_old_saves(build_dir):
-    """Saves kept next to the old 'Urbz Mod.nds' follow the ROM to its new name (the emulator looks for a save
-    with the ROM's own name)."""
+GAME_README = """This folder is your game: {name}.nds is the ROM to play (open it in melonDS, or copy it to a flashcart).
+{name}.sav next to it is your save (melonDS keeps it there; it has the ROM's name).
+
+Building again (the mod manager's Build) replaces {name}.nds but never touches the save, so your game carries on.
+Everything else the kit makes while building is in the build folder; you never need it.
+"""
+
+
+def game_folder(game_dir):
+    """The folder with just the game in it: the ROM, its save and a note on what they are. Saves and ROMs from
+    before (build/Urbz DX.*, the older name Urbz Mod.*) move in, so a game carries on."""
+    kit = os.path.dirname(os.path.abspath(game_dir))
+    os.makedirs(game_dir, exist_ok=True)
+    note = os.path.join(game_dir, 'README.txt')
+    text = GAME_README.format(name=NAME)
+    if not os.path.exists(note) or open(note, encoding='utf-8', errors='replace').read() != text:
+        open(note, 'w', encoding='utf-8', newline='\r\n' if os.name == 'nt' else '\n').write(text)
     for ext in ('.sav', '.dsv'):
-        old, new = (os.path.join(build_dir, n + ext) for n in (OLD_NAME, NAME))
-        if os.path.exists(old) and not os.path.exists(new):
-            os.rename(old, new)
-            print('moved your save %s -> %s' % (os.path.basename(old), os.path.basename(new)))
+        new = os.path.join(game_dir, NAME + ext)
+        for old in (os.path.join(kit, 'build', NAME + ext), os.path.join(kit, 'build', OLD_NAME + ext),
+                    os.path.join(game_dir, OLD_NAME + ext)):
+            if os.path.exists(old) and not os.path.exists(new):
+                os.replace(old, new)
+                print('moved your save %s -> %s' % (os.path.relpath(old, kit), os.path.relpath(new, kit)))
+            elif os.path.exists(old):
+                print('note: an older save is still at %s (yours is %s)' % (os.path.relpath(old, kit),
+                                                                           os.path.relpath(new, kit)))
+    for n in (NAME, OLD_NAME):                      # old built ROMs: the game is in game/ now
+        old = os.path.join(kit, 'build', n + '.nds')
+        if os.path.exists(old):
+            os.remove(old)
 
 
 def main(argv):
     import argparse
     kit = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # the repo
     ap = argparse.ArgumentParser(description='Build The Urbz DS ROM from project/ plus enabled mods.')
-    default_out = os.path.join(kit, 'build', NAME + '.nds')
+    default_out = os.path.join(kit, 'game', NAME + '.nds')       # a folder with just the game in it
     ap.add_argument('out', nargs='?', default=default_out,
-                    help='output .nds (default: build/%s.nds)' % NAME)
+                    help='output .nds (default: game/%s.nds)' % NAME)
     ap.add_argument('--project', default=os.path.join(kit, 'project'))
     ap.add_argument('--config', help='mods list (default: mods.json in the kit folder)')
     ap.add_argument('--mod', action='append', default=[],
@@ -539,7 +562,7 @@ def main(argv):
             mods = load_mod_list(kit, a.config)
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         if a.out == default_out:
-            move_old_saves(os.path.dirname(default_out))
+            game_folder(os.path.dirname(default_out))
         build(a.project, a.out, mods)
     except BuildError as e:
         sys.exit('BUILD FAILED: %s' % e)
